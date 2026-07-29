@@ -1,0 +1,30 @@
+# =============================================================
+# MART_PROG — Unity .gitattributes
+# 1) Normalises line endings so Linux/Windows don't fight.
+# 2) Marks Unity YAML files as text using Unity's smart merge tool.
+# 3) Sends true binary assets to Git LFS so the repo stays small.
+#
+# If you use LFS, run once per machine:  git lfs install
+# (If you'd rather skip LFS for now, delete the "Git LFS" block
+#  below — everything else still works. For a mostly-code thesis
+#  project it's fine to defer LFS until you add heavy 3D assets.)
+# =============================================================
+
+# Auto-detect text files and normalise to LF in the repo
+* text=auto
+
+# ---- Unity YAML files: treat as text, merge with UnityYAMLMerge ----
+*.cs                 text diff=csharp
+*.cginc              text
+*.shader             text
+*.mat                text merge=unityyamlmerge eol=lf
+*.anim               text merge=unityyamlmerge eol=lf
+*.controller         text merge=unityyamlmerge eol=lf
+*.asset              text merge=unityyamlmerge eol=lf
+*.prefab             text merge=unityyamlmerge eol=lf
+*.unity              text merge=unityyamlmerge eol=lf
+*.meta               text merge=unityyamlmerge eol=lf
+*.json               text
+*.txt                text
+*.md                 text
+
