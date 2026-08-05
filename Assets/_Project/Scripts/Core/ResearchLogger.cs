@@ -31,6 +31,22 @@ public class ResearchLogger : MonoBehaviour
     private void Start()
     {
         CreateLogFileIfNeeded();
+
+        // Fix (Phase 17): Godot only calls start_new_session() once a student
+        // actually begins a module, from the module-selector "Start" flow in
+        // ar_learning_screen.gd -- that flow (Change Module / student_panel)
+        // is deferred in Unity until more modules exist (see Migration Spec
+        // §12). Without ever calling it, SessionId stayed "" for the whole
+        // app run, which made ExportLogToDownloads()'s destination filename
+        // collapse to exactly the same path as the source log file (see the
+        // comment there) -- copying a file onto itself throws a sharing
+        // violation. Starting a session here, once per app run, is the
+        // closest current equivalent to Godot's "begin session" moment.
+        // Once the real module-selector flow is built, its own start handler
+        // can call StartNewSession() again per chosen module, matching Godot
+        // exactly -- doing it early now doesn't preclude that.
+        StartNewSession();
+
         Debug.Log("Research log path: " + LogPath);
     }
 
@@ -123,10 +139,11 @@ public class ResearchLogger : MonoBehaviour
 
     // Godot: func export_log_to_downloads() -> String
     // NOTE: Android's public Downloads folder needs the Storage Access
-    // Framework (scoped storage) for a real device build — this is a
-    // placeholder that works in the Editor / standalone builds. We'll
-    // revisit this properly when we wire up the actual Export Log
-    // button later, matching the spec's own build order.
+    // Framework (scoped storage) for a real device build -- this is a
+    // same-app-folder copy for now, an explicit, discussed decision (see
+    // Migration Spec §5/§7), not an oversight. The file is still fully
+    // retrievable via a file manager app that can browse app-private
+    // storage, or `adb pull`.
     public string ExportLogToDownloads()
     {
         CreateLogFileIfNeeded();
@@ -139,6 +156,21 @@ public class ResearchLogger : MonoBehaviour
         fileName += ".csv";
 
         string destinationPath = Path.Combine(Application.persistentDataPath, fileName);
+
+        // Defensive guard (Phase 17 fix): source and destination live in the
+        // same folder in this same-app-folder-copy placeholder, so if
+        // SessionId is ever somehow still empty when this runs, the
+        // destination filename would collapse to exactly LogPath -- and
+        // File.Copy(same, same, overwrite: true) throws a sharing-violation
+        // IOException rather than doing anything useful. StartNewSession()
+        // now always runs in Start() (see above) so this should never
+        // trigger in practice, but it's cheap insurance against copying a
+        // file onto itself if that ever changes.
+        if (string.Equals(destinationPath, LogPath, StringComparison.Ordinal))
+        {
+            fileName = "mart_prog_log_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv";
+            destinationPath = Path.Combine(Application.persistentDataPath, fileName);
+        }
 
         try
         {

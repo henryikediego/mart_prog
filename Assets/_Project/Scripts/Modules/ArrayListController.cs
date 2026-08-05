@@ -41,12 +41,14 @@ namespace MartProg.Modules
     ///    SetExplanation / SetStatus / SetProgress are body text only and must NOT
     ///    repeat that title, or it appears twice on screen.
     ///
-    /// 4. Responsive button grid: ApplyResponsiveButtonLayoutDeferred() waits one
-    ///    frame before reading ResponsiveManager (script-execution-order safety —
-    ///    ResponsiveManager determines its own profile in Start() too, and Unity
-    ///    doesn't guarantee ordering between different scripts' Start() calls in the
-    ///    same frame). ApplyResponsiveButtonLayout() then computes both cell WIDTH
-    ///    and cell HEIGHT from the grid's own RectTransform, not just width — an
+    /// 4. Responsive button grid: InitializeDeferred() waits one frame before
+    ///    reading ResponsiveManager and touching DashboardController (script-
+    ///    execution-order safety — ResponsiveManager determines its own profile in
+    ///    Start(), and DashboardController's panel references are only wired by an
+    ///    external Initialize() call from DashboardContainer.Start(); Unity doesn't
+    ///    guarantee ordering between different scripts' Start() calls in the same
+    ///    frame). ApplyResponsiveButtonLayout() then computes both cell WIDTH and
+    ///    cell HEIGHT from the grid's own RectTransform, not just width — an
     ///    Editor-authored cell height left at Unity's GridLayoutGroup default
     ///    (100x100) is what let a 3-row grid overflow past its allotted space and
     ///    visually cover the Summary panel below it. Computing both dimensions from
@@ -65,6 +67,16 @@ namespace MartProg.Modules
     ///    rebuild. RebuildDashboardLayout() below applies the same
     ///    Canvas.ForceUpdateCanvases() + LayoutRebuilder.ForceRebuildLayoutImmediate()
     ///    pattern after every dashboard content change, not just the first one.
+    ///
+    /// 6. Phase 17 fix: Start() used to call DashboardController.Instance.SetSummary()
+    ///    (and friends) directly and synchronously, which worked only as long as
+    ///    DashboardContainer's Start() (which wires up DashboardController's six
+    ///    panel references via Initialize()) happened to run first in the same
+    ///    frame -- an unguaranteed ordering. Adding AdminController to the scene
+    ///    shifted that ordering enough to flip it, producing a
+    ///    NullReferenceException inside DashboardController.SetSummary(). All
+    ///    Start()-time DashboardController calls now live in InitializeDeferred(),
+    ///    deferred by one frame for the same reason ResponsiveManager reads are.
     /// </summary>
     public class ArrayListController : MonoBehaviour
     {
@@ -123,7 +135,29 @@ namespace MartProg.Modules
             }
 
             WireButtons();
-            StartCoroutine(ApplyResponsiveButtonLayoutDeferred());
+            StartCoroutine(InitializeDeferred());
+        }
+
+        /// <summary>
+        /// Fix (Phase 17): this used to set the dashboard's initial text and
+        /// call RefreshStatusAndProgress() directly and synchronously inside
+        /// Start(), before only ApplyResponsiveButtonLayout() was deferred by
+        /// a frame. That worked by luck as long as DashboardContainer's own
+        /// Start() (which calls DashboardController.Instance.Initialize(...),
+        /// wiring up its six panel references) happened to run first in the
+        /// same frame -- Unity does not guarantee that ordering between two
+        /// different scripts' Start() methods. Adding AdminController to the
+        /// scene shifted that ordering enough to flip the coin the other way,
+        /// and DashboardController.SetSummary() threw a NullReferenceException
+        /// because Initialize() hadn't run yet. Deferring everything that
+        /// touches DashboardController (and ResponsiveManager, for the same
+        /// reason as before) by one frame guarantees every other script's
+        /// Start() has already completed first, regardless of which order
+        /// Unity happened to pick.
+        /// </summary>
+        private IEnumerator InitializeDeferred()
+        {
+            yield return null;
 
             DashboardController.Instance?.SetSummary("Array/List Module");
             DashboardController.Instance?.SetInstruction(
@@ -134,6 +168,8 @@ namespace MartProg.Modules
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();
+
+            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()
@@ -143,26 +179,6 @@ namespace MartProg.Modules
             if (searchButton != null) searchButton.onClick.AddListener(OnSearchClicked);
             if (traverseButton != null) traverseButton.onClick.AddListener(OnTraverseClicked);
             if (resetButton != null) resetButton.onClick.AddListener(OnResetClicked);
-        }
-
-        /// <summary>
-        /// Waits one frame before applying the responsive button layout.
-        ///
-        /// Unity does not guarantee which MonoBehaviour's Start() runs first when
-        /// several objects wake up in the same frame. ResponsiveManager determines
-        /// its layout profile in its own Start() (mart_layout_profile defaults to
-        /// DESKTOP until that runs) — if ArrayListController.Start() happened to
-        /// run first, GetButtonColumns() would silently return the DESKTOP default
-        /// (6, clamped to 5 below) instead of the real Mobile Portrait value (2),
-        /// which is exactly what produced the single-row, jammed-label layout
-        /// reappearing at Play even though the Editor-configured 2-column grid
-        /// looked correct beforehand. Yielding one frame guarantees every other
-        /// script's Start() (including ResponsiveManager's) has already run.
-        /// </summary>
-        private IEnumerator ApplyResponsiveButtonLayoutDeferred()
-        {
-            yield return null;
-            ApplyResponsiveButtonLayout();
         }
 
         /// <summary>
