@@ -102,6 +102,16 @@ public class ArrayModule : MonoBehaviour
             cell.transform.localScale = Vector3.one * scaleFactor * arScale * cellSizeMultiplier;
             cell.transform.localRotation = Quaternion.identity;
 
+            // Fix (Phase 18 on-device finding): guarantees every cell is
+            // camera-facing regardless of whether the prefab itself
+            // already carries a Billboard component -- see Billboard.cs
+            // for why the previous yaw-only version still showed a
+            // visible skew from steep viewing angles.
+            if (cell.GetComponent<Billboard>() == null)
+            {
+                cell.AddComponent<Billboard>();
+            }
+
             ArrayCell cellScript = cell.GetComponent<ArrayCell>();
             if (cellScript != null)
             {
@@ -176,6 +186,15 @@ public class ArrayModule : MonoBehaviour
         tmp.outlineWidth = 0.25f;
         tmp.outlineColor = Color.black;
         tmp.alignment = TextAlignmentOptions.Center;
+
+        // Fix (Phase 18 on-device finding): index markers are built
+        // fresh in code on every redraw and were never given a
+        // Billboard component at all, so they've always sat at a fixed
+        // world rotation. This was masked during Phase 15 validation
+        // because the marker sits directly below its cell and reads
+        // fine from a roughly head-on angle -- it's only obviously wrong
+        // once viewed from a steep angle (e.g. looking down at a table).
+        markerObj.AddComponent<Billboard>();
     }
 
     // Godot: func add_array_end_marker(...) — ported for parity,
@@ -194,6 +213,10 @@ public class ArrayModule : MonoBehaviour
         tmp.color = color;
         tmp.outlineWidth = 0.2f;
         tmp.alignment = TextAlignmentOptions.Center;
+
+        // Same Billboard fix as CreateIndexMarker() above, kept
+        // consistent even though this helper is currently unused.
+        markerObj.AddComponent<Billboard>();
     }
 
     // Godot: func insert_value(new_value: int) -> bool

@@ -30,4 +30,22 @@ public class ArrayCell : MonoBehaviour
 
         indexLabel.text = "";
     }
+
+    // Added for Phase 18 (Stack): stack_module.gd's search_value()/
+    // traverse_stack() tint the VALUE LABEL's text color during their
+    // highlight animation (_set_stack_label_color), not just the box's
+    // material like array_module.gd's search_value()/traverse_array() do.
+    // ArrayModule doesn't need this (it only recolors the box via its own
+    // renderer-material helpers), so this wasn't required until Stack.
+    // Kept here rather than duplicated per-module since ArrayCell is the
+    // shared cell script for both.
+    public void SetValueLabelColor(Color color)
+    {
+        if (valueLabel != null) valueLabel.color = color;
+    }
+
+    public void ResetValueLabelColor()
+    {
+        if (valueLabel != null) valueLabel.color = Color.white;
+    }
 }
