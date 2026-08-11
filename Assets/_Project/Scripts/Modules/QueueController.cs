@@ -70,8 +70,13 @@ namespace MartProg.Modules
     /// 4. Traverse formats front-to-rear, which is simply forward order
     ///    (index 0 to Count-1) — the opposite of Stack, which has to
     ///    reverse-iterate because its top is the last index.
+    ///
+    /// 5. Phase 20: implements IModuleController.EnterModule(), same as
+    ///    ArrayListController/StackController — see Migration Spec §8f.
+    ///    Lets ChangeModuleController.cs reset + refresh Queue on every
+    ///    switch into it, not just the scene's first frame.
     /// </summary>
-    public class QueueController : MonoBehaviour
+    public class QueueController : MonoBehaviour, IModuleController
     {
         [Header("Module Reference")]
         [Tooltip("Auto-found via FindFirstObjectByType if left empty.")]
@@ -133,6 +138,25 @@ namespace MartProg.Modules
         {
             yield return null;
 
+            EnterModule();
+
+            ApplyResponsiveButtonLayout();
+        }
+
+        /// <summary>
+        /// IModuleController.EnterModule() — see porting note 5 above and
+        /// Migration Spec §8f. Resets Queue back to its starting values and
+        /// refreshes every dashboard panel, matching Godot's
+        /// reset_dashboard_state_for_module_start("Queue") +
+        /// update_queue_dashboard() pair.
+        /// </summary>
+        public void EnterModule()
+        {
+            SetBusy(false);
+
+            if (queueModule != null) queueModule.ResetQueue();
+            if (valueInput != null) valueInput.text = "";
+
             DashboardController.Instance?.SetSummary("Queue Module");
             DashboardController.Instance?.SetInstruction(
                 "Choose Enqueue, Dequeue, Search, Traverse, or Reset to continue.");
@@ -143,8 +167,6 @@ namespace MartProg.Modules
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();
-
-            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()

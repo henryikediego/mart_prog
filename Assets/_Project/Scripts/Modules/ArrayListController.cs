@@ -77,8 +77,20 @@ namespace MartProg.Modules
     ///    NullReferenceException inside DashboardController.SetSummary(). All
     ///    Start()-time DashboardController calls now live in InitializeDeferred(),
     ///    deferred by one frame for the same reason ResponsiveManager reads are.
+    ///
+    /// 7. Phase 20: implements IModuleController.EnterModule() so
+    ///    ChangeModuleController.cs can reset + refresh this module on every
+    ///    switch into it, not just the first time the scene loads — see
+    ///    Migration Spec §8f. InitializeDeferred() now just waits a frame and
+    ///    calls EnterModule() itself, so first-activation and later switches
+    ///    share exactly one code path instead of two that could drift apart.
+    ///    EnterModule() also resets isBusy/re-enables buttons — a Unity-only
+    ///    concern with no Godot equivalent, since deactivating a GameObject
+    ///    silently kills any coroutine running on it, which could otherwise
+    ///    leave this controller stuck "busy" forever if the student switched
+    ///    away mid-animation.
     /// </summary>
-    public class ArrayListController : MonoBehaviour
+    public class ArrayListController : MonoBehaviour, IModuleController
     {
         [Header("Module Reference")]
         [Tooltip("Auto-found via FindFirstObjectByType if left empty.")]
@@ -159,6 +171,26 @@ namespace MartProg.Modules
         {
             yield return null;
 
+            EnterModule();
+
+            ApplyResponsiveButtonLayout();
+        }
+
+        /// <summary>
+        /// IModuleController.EnterModule() — see porting note 7 above and
+        /// Migration Spec §8f. Resets Array/List back to its starting values
+        /// and refreshes every dashboard panel, matching Godot's
+        /// reset_dashboard_state_for_module_start("ArrayList") +
+        /// update_array_list_dashboard() pair, run together every time this
+        /// module is displayed (first activation or a later switch back).
+        /// </summary>
+        public void EnterModule()
+        {
+            SetBusy(false);
+
+            if (arrayModule != null) arrayModule.ResetArray();
+            if (valueInput != null) valueInput.text = "";
+
             DashboardController.Instance?.SetSummary("Array/List Module");
             DashboardController.Instance?.SetInstruction(
                 "Choose Insert, Delete, Search, Traverse, or Reset to continue.");
@@ -168,8 +200,6 @@ namespace MartProg.Modules
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();
-
-            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()

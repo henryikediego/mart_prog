@@ -10,9 +10,14 @@ namespace MartProg.Core
     /// report their result through the same DashboardController
     /// Operation/Explanation panels every module controller already uses.
     ///
-    /// Change Module and Quiz are intentionally NOT part of this controller —
-    /// see MART_PROG_Unity_Migration_Spec.md §9/§12 for why they're deferred
-    /// until more modules exist.
+    /// Quiz is intentionally NOT part of this controller — see
+    /// MART_PROG_Unity_Migration_Spec.md §12 for why it's still deferred.
+    /// Change Module was also deferred through Phase 19, but as of Phase 20
+    /// it's built as its own separate ChangeModuleController.cs (Scripts/Core/),
+    /// not folded into this one — see Migration Spec §8f. Its trigger button
+    /// still sits in the same shared admin row as Export Log/Clear Log in the
+    /// scene, it's just wired to ChangeModuleController instead of here, to
+    /// keep this controller's responsibility scoped to logging.
     /// </summary>
     public class AdminController : MonoBehaviour
     {

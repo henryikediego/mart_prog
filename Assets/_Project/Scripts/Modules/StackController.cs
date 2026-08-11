@@ -52,8 +52,13 @@ namespace MartProg.Modules
     ///    DashboardController call are deferred by one frame together, per
     ///    the Phase 17 lesson (Migration Spec §5), rather than needing a
     ///    second bugfix pass later.
+    ///
+    /// 5. Phase 20: implements IModuleController.EnterModule(), same as
+    ///    ArrayListController — see its porting note 7 and Migration Spec
+    ///    §8f. Lets ChangeModuleController.cs reset + refresh Stack on every
+    ///    switch into it, not just the scene's first frame.
     /// </summary>
-    public class StackController : MonoBehaviour
+    public class StackController : MonoBehaviour, IModuleController
     {
         [Header("Module Reference")]
         [Tooltip("Auto-found via FindFirstObjectByType if left empty.")]
@@ -118,6 +123,25 @@ namespace MartProg.Modules
         {
             yield return null;
 
+            EnterModule();
+
+            ApplyResponsiveButtonLayout();
+        }
+
+        /// <summary>
+        /// IModuleController.EnterModule() — see porting note 5 above and
+        /// Migration Spec §8f. Resets Stack back to its starting values and
+        /// refreshes every dashboard panel, matching Godot's
+        /// reset_dashboard_state_for_module_start("Stack") +
+        /// update_stack_dashboard() pair.
+        /// </summary>
+        public void EnterModule()
+        {
+            SetBusy(false);
+
+            if (stackModule != null) stackModule.ResetStack();
+            if (valueInput != null) valueInput.text = "";
+
             DashboardController.Instance?.SetSummary("Stack Module");
             DashboardController.Instance?.SetInstruction(
                 "Choose Push, Pop, Search, Traverse, or Reset to continue.");
@@ -127,8 +151,6 @@ namespace MartProg.Modules
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();
-
-            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()
