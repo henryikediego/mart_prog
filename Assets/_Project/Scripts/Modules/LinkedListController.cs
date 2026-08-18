@@ -127,6 +127,13 @@ namespace MartProg.Modules
         [SerializeField] private Button searchButton;
         [SerializeField] private Button traverseButton;
         [SerializeField] private Button resetButton;
+        [Tooltip("The Quiz trigger button living in THIS module's own control strip, " +
+                 "alongside Search/Traverse (not the admin row). Assign the same Button " +
+                 "GameObject here as on QuizController.linkedListQuizButton — that script " +
+                 "wires the click behavior; this field only makes sure this module's " +
+                 "button-grid column/row/cell-size math (CountAssignedButtons() below) " +
+                 "accounts for it.")]
+        [SerializeField] private Button quizButton;
 
         [Header("Layout (optional)")]
         [Tooltip("The Grid Layout Group on this module's button grid. If assigned, its column count " +
@@ -272,6 +279,7 @@ namespace MartProg.Modules
             if (searchButton != null) count++;
             if (traverseButton != null) count++;
             if (resetButton != null) count++;
+            if (quizButton != null) count++;
             return count;
         }
 
