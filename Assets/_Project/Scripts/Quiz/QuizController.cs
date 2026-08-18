@@ -213,6 +213,10 @@ namespace MartProg.Quiz
         [SerializeField] private Button stackQuizButton;
         [SerializeField] private Button queueQuizButton;
         [SerializeField] private Button linkedListQuizButton;
+        [Tooltip("Added in Phase 23 alongside the Functions module. Its question bank was " +
+                 "already ported and waiting in QuizQuestionBank (porting note 2), so wiring " +
+                 "this button is all that was needed to make the Functions quiz reachable.")]
+        [SerializeField] private Button functionsQuizButton;
 
         [Header("Quiz Panel")]
         [Tooltip("Full-screen dimmed background behind the quiz panel (Image, raycastTarget ON so " +
@@ -416,6 +420,7 @@ namespace MartProg.Quiz
             if (stackQuizButton != null) stackQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (queueQuizButton != null) queueQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (linkedListQuizButton != null) linkedListQuizButton.onClick.AddListener(OnQuizButtonClicked);
+            if (functionsQuizButton != null) functionsQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (optionAButton != null) optionAButton.onClick.AddListener(OnOptionAClicked);
             if (optionBButton != null) optionBButton.onClick.AddListener(OnOptionBClicked);
             if (optionCButton != null) optionCButton.onClick.AddListener(OnOptionCClicked);
