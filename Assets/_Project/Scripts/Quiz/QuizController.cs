@@ -220,6 +220,11 @@ namespace MartProg.Quiz
         [Tooltip("Added in Phase 24 alongside the Loops module. Its question bank was also " +
                  "already ported and waiting in QuizQuestionBank (porting note 2).")]
         [SerializeField] private Button loopsQuizButton;
+        [Tooltip("Added in Phase 25 alongside the Selection module. Its 13-question bank was " +
+                 "ported in Phase 22 — note it keeps the \"Mode: X\" prefix baked into the " +
+                 "question text, which source's clean_quiz_question_text() only strips for " +
+                 "Memory (porting note 2).")]
+        [SerializeField] private Button selectionQuizButton;
 
         [Header("Quiz Panel")]
         [Tooltip("Full-screen dimmed background behind the quiz panel (Image, raycastTarget ON so " +
@@ -425,6 +430,7 @@ namespace MartProg.Quiz
             if (linkedListQuizButton != null) linkedListQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (functionsQuizButton != null) functionsQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (loopsQuizButton != null) loopsQuizButton.onClick.AddListener(OnQuizButtonClicked);
+            if (selectionQuizButton != null) selectionQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (optionAButton != null) optionAButton.onClick.AddListener(OnOptionAClicked);
             if (optionBButton != null) optionBButton.onClick.AddListener(OnOptionBClicked);
             if (optionCButton != null) optionCButton.onClick.AddListener(OnOptionCClicked);

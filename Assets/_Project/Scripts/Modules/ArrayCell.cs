@@ -48,4 +48,38 @@ public class ArrayCell : MonoBehaviour
     {
         if (valueLabel != null) valueLabel.color = Color.white;
     }
+
+    // Added for Phase 25 (Selection). That module sizes the value text to
+    // fit its content — a result can be "?" or "Attendance too low" — via
+    // selection_module.gd's _fit_selection_*_box_to_text() helpers. No
+    // module before it varied font size at runtime, so this had no reason
+    // to exist until now. Kept here rather than duplicated per-module, same
+    // as SetValueLabelColor.
+    //
+    // Deliberately a MULTIPLIER, not an absolute size. Godot's helpers set
+    // Label3D.font_size to values like 78 or 34, but Label3D pairs
+    // font_size with pixel_size to reach a world size — it is not the same
+    // unit as TextMeshPro.fontSize. Porting those numbers literally made
+    // the text render several times too large for its box (found on-device
+    // in Phase 25). What those tables actually encode is a RATIO — shrink
+    // the text as the content gets longer — so that is what is ported,
+    // applied against whatever size the prefab itself was authored at.
+    private float defaultValueFontSize = -1f;
+
+    public void SetValueFontScale(float multiplier)
+    {
+        if (valueLabel == null) return;
+
+        if (defaultValueFontSize < 0f)
+        {
+            defaultValueFontSize = valueLabel.fontSize;
+        }
+
+        valueLabel.fontSize = defaultValueFontSize * multiplier;
+    }
+
+    public void ResetValueFontScale()
+    {
+        SetValueFontScale(1f);
+    }
 }
