@@ -101,10 +101,17 @@ namespace MartProg.Modules
     ///    note 2), and like Loops source sets SHADING_MODE_UNSHADED so Unlit
     ///    is a faithful port rather than only an AR-lighting workaround.
     ///
-    /// 6. **The condition block is taller in the non-basic modes.** Source
-    ///    switches height 1.08 → 1.35 and font 38 → 28 for "elseif" and
-    ///    "nested", because those show multi-line rule text. Ported;
-    ///    SetBlockTall() exposes it for the Phase 25b modes.
+    /// 6. **The taller condition block exists but is never used.** Source
+    ///    switches height 1.08 → 1.35 and font 38 → 28 when
+    ///    `selection_mode` is "elseif" or "nested" — but that is the DEAD
+    ///    module field (note 1), never written by the live implementation,
+    ///    so it is permanently "basic" and the tall geometry never renders.
+    ///    It was written for the dead path's multi-line ladder text; the
+    ///    live path puts only a rule NAME in the block, one short line.
+    ///    SetBlockTall() is kept as a faithful port of the capability, but
+    ///    SelectionController only ever calls it with false — see that
+    ///    file's porting note 16 for how calling it with true looked
+    ///    on-device.
     ///
     /// 7. **Godot's absolute SELECTION_VISUAL_Y (2.90) is not ported, but
     ///    its intent is.** arHeight/arDistance replace the raw value, as for
@@ -117,6 +124,21 @@ namespace MartProg.Modules
     ///    Confirmed necessary on the first Phase 25 build: at 0 the
     ///    composition rendered behind the Summary panel, which is precisely
     ///    the problem source's comment describes.
+    ///
+    /// 10. **TextMeshPro labels need an explicit rect; Label3D has none.**
+    ///     Godot's Label3D renders text at whatever width the string needs —
+    ///     there is no bounding box and nothing ever wraps. Unity's
+    ///     TextMeshPro is rect-bound, and a freshly added component defaults
+    ///     to 200 units wide. That is narrower than this module's longer
+    ///     labels: "Performance Rule" at font 29 wrapped onto two lines and
+    ///     clipped inside the CONDITION block on the first Phase 25b build.
+    ///     AddMarker() therefore gives every label a deliberately generous
+    ///     600x100 rect with TextOverflowModes.Overflow, which reproduces
+    ///     Label3D's behaviour. Because alignment is Center and the text is
+    ///     centred on the transform, the larger rect is invisible for the
+    ///     short labels. Earlier modules never hit this — their longest
+    ///     label was Loops' "value = 10\ntotal = 10", which carries its own
+    ///     explicit line break and has short lines either side of it.
     ///
     /// 9. **Godot font sizes are ported as RATIOS, not absolutes.** The
     ///    _fit_* helpers and get_value_font_size() set Label3D.font_size to
@@ -388,6 +410,17 @@ namespace MartProg.Modules
             tmp.outlineWidth = 0.25f;
             tmp.outlineColor = Color.black;
             tmp.alignment = TextAlignmentOptions.Center;
+
+            // See class comment note 10. A fresh TextMeshPro's RectTransform
+            // defaults to 200 units wide, which is narrower than several of
+            // this module's labels — "Performance Rule" at font 29 wrapped
+            // and clipped inside the CONDITION block. Godot's Label3D has no
+            // rect at all, so nothing in source wraps. A generous rect plus
+            // Overflow reproduces that: the text lays out on one line and is
+            // centred on the transform, so the wider rect changes nothing
+            // visually for the short labels.
+            tmp.rectTransform.sizeDelta = new Vector2(600f, 100f);
+            tmp.overflowMode = TextOverflowModes.Overflow;
 
             markerObj.AddComponent<Billboard>();
 

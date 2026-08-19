@@ -7,22 +7,21 @@ using UnityEngine.UI;
 namespace MartProg.Modules
 {
     /// <summary>
-    /// Phase 25: the Selection module's UI controller — **Basic If mode
-    /// only**. Ported from ar_learning_screen.gd's
+    /// Phase 25 / 25b: the Selection module's UI controller — Basic If and
+    /// Else-if Ladder modes. Ported from ar_learning_screen.gd's
     /// `_handle_selection_*_button()` handlers, `parse_basic_condition()`,
     /// `evaluate_condition()`, `parse_single_integer_input()`,
     /// `sync_selection_visual_for_current_mode()`,
     /// `update_selection_dashboard()`, `reset_selection_mode_state()` and
     /// `_on_selection_mode_option_item_selected()`.
     ///
-    /// **Scope: Phase 25 delivers the visual, the mode dropdown, and Basic
-    /// If.** Else-if Ladder and Nested If are Phase 25b. The dropdown is
-    /// built and wired now (all three modes listed) so that adding them
-    /// later is additive rather than structural — selecting one of the two
-    /// unbuilt modes reports that it is not available yet, in the same
-    /// spirit as ChangeModuleController's `IsBuilt` gate. The mode-switch
-    /// plumbing, per-mode button relabelling and per-mode dashboard text are
-    /// all already in place for three modes.
+    /// **Scope: Basic If (Phase 25) and Else-if Ladder (Phase 25b) are
+    /// built. Nested If is still gated.** Selecting Nested reports that it
+    /// is not available yet and snaps the dropdown back, in the same spirit
+    /// as ChangeModuleController's `IsBuilt` gate. Everything Nested needs
+    /// structurally is already here — the dropdown, the mode-switch
+    /// plumbing, per-mode button relabelling and per-mode dashboard text —
+    /// so finishing it is additive.
     ///
     /// Porting decisions and preserved/adapted source quirks:
     ///
@@ -75,11 +74,25 @@ namespace MartProg.Modules
     ///    operator list is ordered [">=", "<=", "==", "!=", ">", "<"] so the
     ///    two-character operators match before their one-character prefixes.
     ///
-    /// 6. **Toggle Rule cycles a FOUR-entry list**, not the module script's
-    ///    six comparison rules: ">= 50", "< 50", "== 0", "!= 0". It wraps at
-    ///    the end. Source also disables Toggle Rule outside Basic mode, with
-    ///    the tooltip "Toggle Rule is available only in Basic If mode" —
-    ///    that gating is ported and will matter in Phase 25b.
+    /// 6. **Toggle Rule cycles a FOUR-entry list in Basic mode**, not the
+    ///    module script's six comparison rules: ">= 50", "< 50", "== 0",
+    ///    "!= 0", wrapping at the end.
+    ///
+    ///    **Correction made in Phase 25b:** Phase 25 recorded that Toggle
+    ///    Rule is disabled outside Basic mode, because
+    ///    configure_buttons_for_current_module() contains
+    ///    `if selection_module.selection_mode == "basic": traverse_button.disabled = false`
+    ///    `else: traverse_button.disabled = true` with the tooltip "Toggle
+    ///    Rule is available only in Basic If mode". That gate reads
+    ///    `selection_module.selection_mode` — the DEAD module script's own
+    ///    mode field (note 1), which the live implementation never writes.
+    ///    It is therefore permanently "basic" and the disable branch never
+    ///    runs. Meanwhile `_handle_selection_traverse_button()` has fully
+    ///    working Else-if and Nested branches. So Toggle Rule is in fact
+    ///    available in every mode, and is enabled here accordingly. A good
+    ///    illustration of why note 1 matters: reading the dead state as if
+    ///    it were live produced a wrong conclusion about observable
+    ///    behaviour.
     ///
     /// 7. **Result is "pending" until Check is pressed.** Set Value, Set
     ///    Condition and Toggle Rule all push "?" into the RESULT box rather
@@ -100,6 +113,78 @@ namespace MartProg.Modules
     /// 9. **Reset logs as plain "Reset"** — unprefixed, matching Functions
     ///    (Phase 23 note 4) rather than Loops' "Loop Reset". Source's own
     ///    inconsistency across modules, preserved.
+    ///
+    /// 11. **Else-if Ladder uses two PRESET rules, not a typed ladder.**
+    ///     Source's `get_current_ladder_rule()` returns one of two
+    ///     dictionaries — "Grade Rule" (>= 80 A, >= 70 B, >= 50 Pass, else
+    ///     Fail) and "Performance Rule" (>= 90 Excellent, >= 70 Good, >= 50
+    ///     Average, else Needs Improvement) — and Toggle Rule switches
+    ///     between them. Students never type a ladder; Set Condition is
+    ///     replaced by "Rule Info", which just reports which preset is
+    ///     active. Both presets are ported verbatim, including their result
+    ///     strings, which are mixed-case ("Pass", "Fail", "Excellent") unlike
+    ///     Basic mode's uppercase TRUE/FALSE.
+    ///
+    /// 12. **The ladder evaluator reports its whole decision trace.**
+    ///     `evaluate_else_if_ladder()` walks the branches in order, appending
+    ///     "score >= 80 → True" or "... → False" to a `checks` list, and
+    ///     BREAKS on the first match — so the trace shows exactly the
+    ///     branches that were actually evaluated, not all of them. The
+    ///     dashboard joins that list with " | ". This is the pedagogical
+    ///     point of the mode, so the trace, the arrow glyph and the break
+    ///     are all ported exactly.
+    ///
+    /// 13. **Toggle Rule's wrap is hardcoded to two rules.** Source does
+    ///     `if selection_ladder_rule_index > 1: selection_ladder_rule_index = 0`
+    ///     rather than comparing against the rule count. Functionally
+    ///     identical while there are exactly two presets, but it would
+    ///     silently break if a third were added. Ported as a proper
+    ///     length-based wrap, since the observable behaviour is identical
+    ///     and the source form is a latent bug rather than a quirk worth
+    ///     reproducing.
+    ///
+    /// 14. **Check logs TWICE in Basic mode — restored in Phase 25b.**
+    ///     `_handle_selection_search_button()` ends with a generic
+    ///     `ResearchLogger.log_event("Selection Check", "", "Success",
+    ///     "Selection checked for mode " + mode)` that sits OUTSIDE the
+    ///     if/elif chain, and the Basic branch does not return — so Basic
+    ///     writes its own detailed entry AND that generic one, while Else-if
+    ///     and Nested write only the generic one. Phase 25 shipped with the
+    ///     detailed entry only; this was a fidelity gap on my part, not a
+    ///     deliberate choice, and is corrected here. Row counts in the
+    ///     research log now match Godot's.
+    ///
+    /// 16. **The CONDITION block is never the tall variant — a second
+    ///     dead-state trap.** `create_condition_block()` switches height
+    ///     1.08 -> 1.35 and font 38 -> 28 when
+    ///     `selection_mode == "elseif"` or `"nested"`. That is
+    ///     `selection_module.selection_mode` — the same dead field behind
+    ///     note 6's correction, never written by the live implementation.
+    ///     It is permanently "basic", so the tall geometry never renders in
+    ///     the real app. It exists for the DEAD path's multi-line ladder
+    ///     text (`get_elseif_condition_text()` returns
+    ///     "if >= 85\nelif >= 70\nelif >= 50\nelse"), whereas the live
+    ///     path puts only the rule NAME in the block — one short line.
+    ///
+    ///     Phase 25b initially called SetBlockTall(true) for Else-if,
+    ///     reasoning from the source constant rather than from what runs;
+    ///     on-device the block was visibly too tall for "Grade Rule".
+    ///     Corrected to always false. SelectionModule.SetBlockTall() is
+    ///     retained but is now only ever called with false — see its own
+    ///     porting note 6.
+    ///
+    ///     That is twice in this module that reading the dead state as if
+    ///     it were live produced a wrong conclusion, both caught only
+    ///     on-device. Worth remembering for Memory Management: when a
+    ///     module script has a shadow implementation, every `if` that reads
+    ///     its state is suspect.
+    ///
+    /// 15. **Rule Info's log is shared across the non-basic modes.** The
+    ///     "Selection Rule Info" entry sits at the end of
+    ///     `_handle_selection_delete_button()`, after the mode branches, and
+    ///     is only reached by Else-if and Nested because the Basic branch
+    ///     returns early. Preserved: Basic logs "Selection Set Condition",
+    ///     the others log "Selection Rule Info".
     ///
     /// 10. **The Status panel is populated.** update_selection_dashboard()
     ///     blanks the status label the same way Loops' does, and
@@ -160,6 +245,59 @@ namespace MartProg.Modules
 
         /// Godot: selection_basic_rules. FOUR entries — see porting note 6.
         private static readonly string[] BasicRules = { ">= 50", "< 50", "== 0", "!= 0" };
+
+        // ----- Else-if Ladder state (Phase 25b) -----
+        private int selectionLadderScore = 75;
+        private int selectionLadderRuleIndex;
+
+        /// Godot: get_current_ladder_rule()'s two preset dictionaries — see
+        /// porting note 11. Ported verbatim, mixed-case result strings included.
+        private sealed class LadderBranch
+        {
+            public readonly string Label;
+            public readonly int Threshold;
+            public readonly string Result;
+
+            public LadderBranch(string label, int threshold, string result)
+            {
+                Label = label;
+                Threshold = threshold;
+                Result = result;
+            }
+        }
+
+        private sealed class LadderRule
+        {
+            public readonly string Name;
+            public readonly LadderBranch[] Branches;
+            public readonly string ElseResult;
+
+            public LadderRule(string name, LadderBranch[] branches, string elseResult)
+            {
+                Name = name;
+                Branches = branches;
+                ElseResult = elseResult;
+            }
+        }
+
+        private static readonly LadderRule[] LadderRules =
+        {
+            new LadderRule("Grade Rule", new[]
+            {
+                new LadderBranch("score >= 80", 80, "A"),
+                new LadderBranch("score >= 70", 70, "B"),
+                new LadderBranch("score >= 50", 50, "Pass")
+            }, "Fail"),
+
+            new LadderRule("Performance Rule", new[]
+            {
+                new LadderBranch("score >= 90", 90, "Excellent"),
+                new LadderBranch("score >= 70", 70, "Good"),
+                new LadderBranch("score >= 50", 50, "Average")
+            }, "Needs Improvement")
+        };
+
+        private LadderRule CurrentLadderRule => LadderRules[Mathf.Clamp(selectionLadderRuleIndex, 0, LadderRules.Length - 1)];
 
         private string lastResultText = "?";
         private bool isBusy;
@@ -241,18 +379,17 @@ namespace MartProg.Modules
 
             string chosen = modeDropdown.options[index].text;
 
-            // Phase 25 scope gate — Else-if and Nested arrive in 25b.
-            if (chosen != ModeBasic)
+            // Scope gate — Nested If arrives in a later phase.
+            if (chosen == ModeNested)
             {
                 SetOperationExplanation(
                     $"{chosen} is not available yet.",
-                    "This mode is still being built. Basic If mode is available now — " +
-                    "it checks one condition and reports whether it is true or false.");
+                    "This mode is still being built. Basic If and Else-if Ladder are available now.");
 
                 LogEvent("Selection Mode", chosen, "Unavailable", "Mode not built yet");
 
                 // Snap the dropdown back so it never shows a mode that isn't active.
-                modeDropdown.SetValueWithoutNotify(0);
+                modeDropdown.SetValueWithoutNotify(IndexForMode(selectionCurrentMode));
                 return;
             }
 
@@ -261,6 +398,8 @@ namespace MartProg.Modules
             if (valueInput != null) valueInput.text = "";
 
             ResetModeState(selectionCurrentMode);
+
+            // The block stays SHORT in every mode — see porting note 16.
             if (selectionModule != null) selectionModule.SetBlockTall(false);
 
             ClearVisualForCurrentMode();
@@ -268,6 +407,13 @@ namespace MartProg.Modules
             RefreshDashboardForMode();
 
             LogEvent("Selection Mode", chosen, "Success", "Selection mode changed");
+        }
+
+        private int IndexForMode(string mode)
+        {
+            if (mode == ModeElseIf) return 1;
+            if (mode == ModeNested) return 2;
+            return 0;
         }
 
         /// Godot: reset_selection_mode_state(mode_name)
@@ -280,6 +426,11 @@ namespace MartProg.Modules
                 selectionBasicValue = 75;
                 selectionBasicConditionText = ">= 50";
                 selectionBasicRuleIndex = 0;
+            }
+            else if (modeName == ModeElseIf)
+            {
+                selectionLadderScore = 75;
+                selectionLadderRuleIndex = 0;
             }
 
             lastResultText = "?";
@@ -312,8 +463,8 @@ namespace MartProg.Modules
                 }
             }
 
-            // Toggle Rule is Basic-mode only — porting note 6.
-            if (toggleRuleButton != null) toggleRuleButton.interactable = basic && !isBusy;
+            // Available in every mode — see porting note 6's correction.
+            if (toggleRuleButton != null) toggleRuleButton.interactable = !isBusy;
         }
 
         private void ApplyResponsiveButtonLayout()
@@ -375,7 +526,15 @@ namespace MartProg.Modules
 
         public void OnSetValueClicked()
         {
-            if (isBusy || selectionCurrentMode != ModeBasic) return;
+            if (isBusy) return;
+
+            if (selectionCurrentMode == ModeElseIf)
+            {
+                HandleSetScore();
+                return;
+            }
+
+            if (selectionCurrentMode != ModeBasic) return;
 
             string typed = valueInput != null ? valueInput.text.Trim() : "";
 
@@ -400,13 +559,53 @@ namespace MartProg.Modules
             RefreshStatusAndProgress();
         }
 
+        /// Godot: _handle_selection_insert_button(), Else-if branch. Unlike
+        /// the Basic branch this one DOES log, on both success and failure —
+        /// porting note 8.
+        private void HandleSetScore()
+        {
+            string typed = valueInput != null ? valueInput.text.Trim() : "";
+
+            if (string.IsNullOrEmpty(typed) || !int.TryParse(typed, out int parsed))
+            {
+                SetOperationExplanation(
+                    "Set Score failed.",
+                    "Enter one numeric score such as 75 before clicking Set Score.");
+
+                LogEvent("Selection Set Score", typed, "Failed", "Invalid score input for Else-if Ladder mode");
+                return;
+            }
+
+            selectionLadderScore = parsed;
+            lastResultText = "?";
+            SyncVisual("?");
+
+            SetOperationExplanation(
+                $"Score set to {selectionLadderScore}.",
+                "The value box has been updated with the new score. Click Check to evaluate " +
+                "this score using the current else-if ladder rule.");
+
+            RefreshStatusAndProgress();
+
+            LogEvent("Selection Set Score", selectionLadderScore.ToString(), "Success", "Else-if Ladder score updated");
+        }
+
         // ---------------------------------------------------------------
-        // Set Condition — Godot: _handle_selection_delete_button(), Basic branch
+        // Set Condition (Basic) / Rule Info (Else-if) —
+        // Godot: _handle_selection_delete_button()
         // ---------------------------------------------------------------
 
         public void OnSetConditionClicked()
         {
-            if (isBusy || selectionCurrentMode != ModeBasic) return;
+            if (isBusy) return;
+
+            if (selectionCurrentMode == ModeElseIf)
+            {
+                HandleRuleInfo();
+                return;
+            }
+
+            if (selectionCurrentMode != ModeBasic) return;
 
             string typed = valueInput != null ? valueInput.text.Trim() : "";
 
@@ -445,13 +644,40 @@ namespace MartProg.Modules
                 "Success", "Basic If condition updated");
         }
 
+        /// Godot: _handle_selection_delete_button()'s Else-if branch, plus the
+        /// shared "Selection Rule Info" log that follows the mode branches —
+        /// porting note 15. Reports the active preset rather than parsing
+        /// anything; students switch ladders with Toggle Rule.
+        private void HandleRuleInfo()
+        {
+            LadderRule rule = CurrentLadderRule;
+
+            SetOperationExplanation(
+                $"Current ladder rule is {rule.Name}.",
+                "Else-if Ladder uses preset rules. Use Toggle Rule to switch between rule " +
+                "examples instead of typing a full ladder manually.");
+
+            RefreshStatusAndProgress();
+
+            LogEvent("Selection Rule Info", "", "Success",
+                "Selection rule action completed for mode " + selectionCurrentMode);
+        }
+
         // ---------------------------------------------------------------
         // Check — Godot: _handle_selection_search_button(), Basic branch
         // ---------------------------------------------------------------
 
         public void OnCheckClicked()
         {
-            if (isBusy || selectionCurrentMode != ModeBasic) return;
+            if (isBusy) return;
+
+            if (selectionCurrentMode == ModeElseIf)
+            {
+                StartCoroutine(RunLadderCheck());
+                return;
+            }
+
+            if (selectionCurrentMode != ModeBasic) return;
             StartCoroutine(RunCheck());
         }
 
@@ -493,6 +719,54 @@ namespace MartProg.Modules
             LogEvent("Selection Check", "value " + selectionBasicConditionText,
                 "Success", "Basic If checked. Result = " + resultWord);
 
+            // Source's generic trailing log, which the Basic branch also
+            // reaches because it does not return — porting note 14.
+            LogEvent("Selection Check", "", "Success", "Selection checked for mode " + selectionCurrentMode);
+
+            SetBusy(false);
+        }
+
+        /// Godot: _handle_selection_search_button()'s Else-if branch plus
+        /// evaluate_else_if_ladder(). The decision trace is the point of this
+        /// mode — porting note 12.
+        private IEnumerator RunLadderCheck()
+        {
+            SetBusy(true);
+
+            LadderRule rule = CurrentLadderRule;
+            List<string> checks = new List<string>();
+            string finalResult = rule.ElseResult;
+
+            foreach (LadderBranch branch in rule.Branches)
+            {
+                if (selectionLadderScore >= branch.Threshold)
+                {
+                    checks.Add(branch.Label + " → True");
+                    finalResult = branch.Result;
+                    break;   // source breaks on the first match
+                }
+
+                checks.Add(branch.Label + " → False");
+            }
+
+            lastResultText = finalResult;
+            SyncVisual(finalResult);
+
+            if (selectionModule != null)
+            {
+                yield return selectionModule.PlayCheckAnimation();
+            }
+
+            SetOperationExplanation(
+                $"Score {selectionLadderScore} was checked using the {rule.Name}. Result = {finalResult}.",
+                $"The ladder checked conditions in order: {string.Join(" | ", checks)}. " +
+                "Once the first true condition was found, the remaining branches were skipped.");
+
+            RefreshStatusAndProgress();
+
+            // Else-if reaches only the generic trailing log — porting note 14.
+            LogEvent("Selection Check", "", "Success", "Selection checked for mode " + selectionCurrentMode);
+
             SetBusy(false);
         }
 
@@ -502,7 +776,15 @@ namespace MartProg.Modules
 
         public void OnToggleRuleClicked()
         {
-            if (isBusy || selectionCurrentMode != ModeBasic) return;
+            if (isBusy) return;
+
+            if (selectionCurrentMode == ModeElseIf)
+            {
+                HandleToggleLadderRule();
+                return;
+            }
+
+            if (selectionCurrentMode != ModeBasic) return;
 
             selectionBasicRuleIndex++;
 
@@ -519,6 +801,29 @@ namespace MartProg.Modules
                 $"Basic If rule changed to value {selectionBasicConditionText}.",
                 "Toggle Rule changes the condition used by the Basic If statement. " +
                 "The visual condition box has been updated to match the selected rule.");
+
+            RefreshStatusAndProgress();
+        }
+
+        /// Godot: _handle_selection_traverse_button()'s Else-if branch.
+        /// Source wraps with a hardcoded `> 1`; ported as a length-based
+        /// wrap — porting note 13.
+        private void HandleToggleLadderRule()
+        {
+            selectionLadderRuleIndex++;
+
+            if (selectionLadderRuleIndex >= LadderRules.Length)
+            {
+                selectionLadderRuleIndex = 0;
+            }
+
+            lastResultText = "?";
+            SyncVisual("?");
+
+            SetOperationExplanation(
+                $"Else-if Ladder rule changed to {CurrentLadderRule.Name}.",
+                "The visual condition box now matches the selected ladder rule. " +
+                "The ladder will be used when Check is selected.");
 
             RefreshStatusAndProgress();
         }
@@ -629,9 +934,26 @@ namespace MartProg.Modules
             if (selectionModule == null) return;
 
             selectionModule.SetSelectionVisualTexts(
-                selectionBasicValue.ToString(),
-                "value " + selectionBasicConditionText,
+                CurrentValueText(),
+                CurrentConditionText(),
                 resultText);
+        }
+
+        /// The value box's content per mode. Godot builds this inline in
+        /// sync_selection_visual_for_current_mode().
+        private string CurrentValueText()
+        {
+            if (selectionCurrentMode == ModeElseIf) return selectionLadderScore.ToString();
+            return selectionBasicValue.ToString();
+        }
+
+        /// Godot: get_selection_visual_condition_text_for_current_mode().
+        /// Note Else-if shows the RULE NAME in the condition block, not the
+        /// ladder itself — the branches only appear in the dashboard trace.
+        private string CurrentConditionText()
+        {
+            if (selectionCurrentMode == ModeElseIf) return CurrentLadderRule.Name;
+            return "value " + selectionBasicConditionText;
         }
 
         /// Godot: clear_selection_visual_for_current_mode() — note the value
@@ -642,7 +964,7 @@ namespace MartProg.Modules
 
             selectionModule.SetSelectionVisualTexts(
                 "-",
-                "value " + selectionBasicConditionText,
+                CurrentConditionText(),
                 "?");
         }
 
@@ -715,11 +1037,7 @@ namespace MartProg.Modules
             if (checkButton != null) checkButton.interactable = !busy;
             if (resetButton != null) resetButton.interactable = !busy;
 
-            // Toggle Rule additionally respects the Basic-mode gate.
-            if (toggleRuleButton != null)
-            {
-                toggleRuleButton.interactable = !busy && selectionCurrentMode == ModeBasic;
-            }
+            if (toggleRuleButton != null) toggleRuleButton.interactable = !busy;
         }
 
         private void SetOperationExplanation(string operation, string explanation)
@@ -734,12 +1052,26 @@ namespace MartProg.Modules
         /// than blank — porting note 10.
         private void RefreshStatusAndProgress()
         {
-            DashboardController.Instance?.SetStatus(
-                $"Selection status: mode = basic if | value = {selectionBasicValue}" +
-                $" | condition: value {selectionBasicConditionText} | result = {lastResultText}");
+            if (selectionCurrentMode == ModeElseIf)
+            {
+                // Godot: get_status_text()'s else-if branch — note it omits
+                // the condition, unlike the basic branch.
+                DashboardController.Instance?.SetStatus(
+                    $"Selection status: mode = else-if ladder | value = {selectionLadderScore}" +
+                    $" | result = {lastResultText}");
 
-            DashboardController.Instance?.SetProgress(
-                $"Rule {selectionBasicRuleIndex + 1}/{BasicRules.Length}: value {selectionBasicConditionText}");
+                DashboardController.Instance?.SetProgress(
+                    $"Rule {selectionLadderRuleIndex + 1}/{LadderRules.Length}: {CurrentLadderRule.Name}");
+            }
+            else
+            {
+                DashboardController.Instance?.SetStatus(
+                    $"Selection status: mode = basic if | value = {selectionBasicValue}" +
+                    $" | condition: value {selectionBasicConditionText} | result = {lastResultText}");
+
+                DashboardController.Instance?.SetProgress(
+                    $"Rule {selectionBasicRuleIndex + 1}/{BasicRules.Length}: value {selectionBasicConditionText}");
+            }
 
             RebuildDashboardLayout();
         }
