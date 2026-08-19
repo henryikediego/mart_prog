@@ -7,21 +7,17 @@ using UnityEngine.UI;
 namespace MartProg.Modules
 {
     /// <summary>
-    /// Phase 25 / 25b: the Selection module's UI controller — Basic If and
-    /// Else-if Ladder modes. Ported from ar_learning_screen.gd's
+    /// Phase 25 / 25b / 25c: the Selection module's UI controller — all
+    /// three modes. Ported from ar_learning_screen.gd's
     /// `_handle_selection_*_button()` handlers, `parse_basic_condition()`,
     /// `evaluate_condition()`, `parse_single_integer_input()`,
     /// `sync_selection_visual_for_current_mode()`,
     /// `update_selection_dashboard()`, `reset_selection_mode_state()` and
     /// `_on_selection_mode_option_item_selected()`.
     ///
-    /// **Scope: Basic If (Phase 25) and Else-if Ladder (Phase 25b) are
-    /// built. Nested If is still gated.** Selecting Nested reports that it
-    /// is not available yet and snaps the dropdown back, in the same spirit
-    /// as ChangeModuleController's `IsBuilt` gate. Everything Nested needs
-    /// structurally is already here — the dropdown, the mode-switch
-    /// plumbing, per-mode button relabelling and per-mode dashboard text —
-    /// so finishing it is additive.
+    /// **All three modes are now built** — Basic If (Phase 25), Else-if
+    /// Ladder (Phase 25b) and Nested If (Phase 25c). The mode scope gate
+    /// is gone.
     ///
     /// Porting decisions and preserved/adapted source quirks:
     ///
@@ -154,6 +150,40 @@ namespace MartProg.Modules
     ///     deliberate choice, and is corrected here. Row counts in the
     ///     research log now match Godot's.
     ///
+    /// 17. **Nested If uses two PRESET rules with NAMED values.** Source's
+    ///     `get_current_nested_rule()` returns "Pass Rule"
+    ///     (score >= 50 outer, attendance >= 75 inner → Pass / "Attendance
+    ///     too low" / Fail) or "Project Eligibility Rule" (exam >= 80,
+    ///     project >= 70 → Eligible / "Project score too low" / "Exam score
+    ///     too low"). The `first_name`/`second_name` keys are what let the
+    ///     dashboard say "score = 65, attendance = 80" rather than "first"
+    ///     and "second". All strings ported verbatim, including the long
+    ///     failure results — those are exactly what SelectionModule's RESULT
+    ///     box widening table was written for (its 18-character bucket
+    ///     covers "Attendance too low" precisely).
+    ///
+    /// 18. **The nested explanation has two shapes, and that IS the lesson.**
+    ///     When the outer condition passes, source says the inner condition
+    ///     "was checked"; when it fails, it says the inner condition "was
+    ///     skipped". That distinction is the entire pedagogical content of
+    ///     the mode, so both sentences are ported word-for-word rather than
+    ///     collapsed into one.
+    ///
+    /// 19. **Toggle Rule logs in EVERY mode — added in Phase 25c.**
+    ///     `_handle_selection_traverse_button()` ends with a generic
+    ///     `ResearchLogger.log_event("Selection Toggle Rule", ...)` sitting
+    ///     outside the mode branches, and no branch returns, so all three
+    ///     modes reach it. Phases 25 and 25b logged nothing at all for
+    ///     Toggle Rule — a fidelity gap on my part, the third of this kind
+    ///     in this module (see notes 14 and 6). Corrected: LogToggleRule()
+    ///     is called from all three toggle paths.
+    ///
+    ///     The pattern is now clear enough to state as a rule for Memory
+    ///     Management: **in this codebase, a handler's trailing
+    ///     ResearchLogger call after an if/elif chain usually fires for
+    ///     every branch**, because the branches rarely return. Check for a
+    ///     trailing log before assuming a branch's own log is the only one.
+    ///
     /// 16. **The CONDITION block is never the tall variant — a second
     ///     dead-state trap.** `create_condition_block()` switches height
     ///     1.08 -> 1.35 and font 38 -> 28 when
@@ -239,6 +269,19 @@ namespace MartProg.Modules
         // ----- Live screen-side state (porting note 1) -----
         private string selectionCurrentMode = ModeBasic;
 
+        /// <summary>
+        /// Read by QuizController so the Selection quiz can be filtered down
+        /// to the mode the learner is actually in — see QuizQuestionBank's
+        /// "Selection quiz deviations", item (a). Source has no equivalent
+        /// accessor because source never filters the Selection quiz; this
+        /// exists purely to serve that deviation.
+        ///
+        /// Read-only on purpose: the mode dropdown stays the only thing that
+        /// can change it, so nothing outside this controller can put the
+        /// module and the quiz out of step.
+        /// </summary>
+        public string CurrentMode => selectionCurrentMode;
+
         private int selectionBasicValue = 75;
         private string selectionBasicConditionText = ">= 50";
         private int selectionBasicRuleIndex;
@@ -298,6 +341,60 @@ namespace MartProg.Modules
         };
 
         private LadderRule CurrentLadderRule => LadderRules[Mathf.Clamp(selectionLadderRuleIndex, 0, LadderRules.Length - 1)];
+
+        // ----- Nested If state -----
+        private int selectionNestedFirstValue = 65;
+        private int selectionNestedSecondValue = 80;
+        private int selectionNestedRuleIndex;
+
+        /// Godot: get_current_nested_rule()'s two preset dictionaries — see
+        /// porting note 17. Every string ported verbatim, including the
+        /// deliberately long failure results ("Attendance too low",
+        /// "Project score too low"), which are what the RESULT box's
+        /// widening table exists for.
+        private sealed class NestedRule
+        {
+            public readonly string Name;
+            public readonly string FirstName;
+            public readonly string SecondName;
+            public readonly string OuterCondition;
+            public readonly string InnerCondition;
+            public readonly int OuterThreshold;
+            public readonly int InnerThreshold;
+            public readonly string TrueResult;
+            public readonly string InnerFalseResult;
+            public readonly string OuterFalseResult;
+
+            public NestedRule(string name, string firstName, string secondName,
+                string outerCondition, string innerCondition,
+                int outerThreshold, int innerThreshold,
+                string trueResult, string innerFalseResult, string outerFalseResult)
+            {
+                Name = name;
+                FirstName = firstName;
+                SecondName = secondName;
+                OuterCondition = outerCondition;
+                InnerCondition = innerCondition;
+                OuterThreshold = outerThreshold;
+                InnerThreshold = innerThreshold;
+                TrueResult = trueResult;
+                InnerFalseResult = innerFalseResult;
+                OuterFalseResult = outerFalseResult;
+            }
+        }
+
+        private static readonly NestedRule[] NestedRules =
+        {
+            new NestedRule("Pass Rule", "score", "attendance",
+                "score >= 50", "attendance >= 75", 50, 75,
+                "Pass", "Attendance too low", "Fail"),
+
+            new NestedRule("Project Eligibility Rule", "exam", "project",
+                "exam >= 80", "project >= 70", 80, 70,
+                "Eligible", "Project score too low", "Exam score too low")
+        };
+
+        private NestedRule CurrentNestedRule => NestedRules[Mathf.Clamp(selectionNestedRuleIndex, 0, NestedRules.Length - 1)];
 
         private string lastResultText = "?";
         private bool isBusy;
@@ -379,20 +476,6 @@ namespace MartProg.Modules
 
             string chosen = modeDropdown.options[index].text;
 
-            // Scope gate — Nested If arrives in a later phase.
-            if (chosen == ModeNested)
-            {
-                SetOperationExplanation(
-                    $"{chosen} is not available yet.",
-                    "This mode is still being built. Basic If and Else-if Ladder are available now.");
-
-                LogEvent("Selection Mode", chosen, "Unavailable", "Mode not built yet");
-
-                // Snap the dropdown back so it never shows a mode that isn't active.
-                modeDropdown.SetValueWithoutNotify(IndexForMode(selectionCurrentMode));
-                return;
-            }
-
             selectionCurrentMode = chosen;
 
             if (valueInput != null) valueInput.text = "";
@@ -431,6 +514,12 @@ namespace MartProg.Modules
             {
                 selectionLadderScore = 75;
                 selectionLadderRuleIndex = 0;
+            }
+            else if (modeName == ModeNested)
+            {
+                selectionNestedFirstValue = 65;
+                selectionNestedSecondValue = 80;
+                selectionNestedRuleIndex = 0;
             }
 
             lastResultText = "?";
@@ -534,7 +623,11 @@ namespace MartProg.Modules
                 return;
             }
 
-            if (selectionCurrentMode != ModeBasic) return;
+            if (selectionCurrentMode == ModeNested)
+            {
+                HandleSetNestedValues();
+                return;
+            }
 
             string typed = valueInput != null ? valueInput.text.Trim() : "";
 
@@ -590,8 +683,61 @@ namespace MartProg.Modules
             LogEvent("Selection Set Score", selectionLadderScore.ToString(), "Success", "Else-if Ladder score updated");
         }
 
+        /// Godot: _handle_selection_insert_button(), Nested branch, plus
+        /// parse_two_integer_inputs(). Two comma-separated values, named per
+        /// rule ("score"/"attendance", or "exam"/"project").
+        private void HandleSetNestedValues()
+        {
+            string typed = valueInput != null ? valueInput.text.Trim() : "";
+
+            if (!TryParseTwoIntegers(typed, out int first, out int second))
+            {
+                SetOperationExplanation(
+                    "Set Values failed.",
+                    "Enter exactly two numbers separated by a comma. For example, enter 65,80.");
+
+                LogEvent("Selection Set Nested Values", typed, "Failed", "Invalid Nested If values");
+                return;
+            }
+
+            selectionNestedFirstValue = first;
+            selectionNestedSecondValue = second;
+            lastResultText = "?";
+            SyncVisual("?");
+
+            NestedRule rule = CurrentNestedRule;
+
+            SetOperationExplanation(
+                "Nested values were set.",
+                $"{rule.FirstName} = {selectionNestedFirstValue}, " +
+                $"{rule.SecondName} = {selectionNestedSecondValue}. " +
+                "These values will be checked using the current nested if rule.");
+
+            RefreshStatusAndProgress();
+
+            LogEvent("Selection Set Nested Values",
+                $"{selectionNestedFirstValue},{selectionNestedSecondValue}",
+                "Success", "Nested If values updated");
+        }
+
+        /// Godot: parse_two_integer_inputs(). Requires exactly two parts,
+        /// both valid integers.
+        private static bool TryParseTwoIntegers(string text, out int first, out int second)
+        {
+            first = 0;
+            second = 0;
+
+            if (string.IsNullOrEmpty(text)) return false;
+
+            string[] parts = text.Split(',');
+            if (parts.Length != 2) return false;
+
+            return int.TryParse(parts[0].Trim(), out first)
+                && int.TryParse(parts[1].Trim(), out second);
+        }
+
         // ---------------------------------------------------------------
-        // Set Condition (Basic) / Rule Info (Else-if) —
+        // Set Condition (Basic) / Rule Info (Else-if, Nested) —
         // Godot: _handle_selection_delete_button()
         // ---------------------------------------------------------------
 
@@ -599,13 +745,11 @@ namespace MartProg.Modules
         {
             if (isBusy) return;
 
-            if (selectionCurrentMode == ModeElseIf)
+            if (selectionCurrentMode != ModeBasic)
             {
                 HandleRuleInfo();
                 return;
             }
-
-            if (selectionCurrentMode != ModeBasic) return;
 
             string typed = valueInput != null ? valueInput.text.Trim() : "";
 
@@ -650,12 +794,25 @@ namespace MartProg.Modules
         /// anything; students switch ladders with Toggle Rule.
         private void HandleRuleInfo()
         {
-            LadderRule rule = CurrentLadderRule;
+            if (selectionCurrentMode == ModeNested)
+            {
+                NestedRule nested = CurrentNestedRule;
 
-            SetOperationExplanation(
-                $"Current ladder rule is {rule.Name}.",
-                "Else-if Ladder uses preset rules. Use Toggle Rule to switch between rule " +
-                "examples instead of typing a full ladder manually.");
+                SetOperationExplanation(
+                    $"Current nested rule is {nested.Name}.",
+                    $"Outer condition: {nested.OuterCondition}. " +
+                    $"Inner condition: {nested.InnerCondition}. " +
+                    "Use Toggle Rule to switch examples.");
+            }
+            else
+            {
+                LadderRule rule = CurrentLadderRule;
+
+                SetOperationExplanation(
+                    $"Current ladder rule is {rule.Name}.",
+                    "Else-if Ladder uses preset rules. Use Toggle Rule to switch between rule " +
+                    "examples instead of typing a full ladder manually.");
+            }
 
             RefreshStatusAndProgress();
 
@@ -677,7 +834,12 @@ namespace MartProg.Modules
                 return;
             }
 
-            if (selectionCurrentMode != ModeBasic) return;
+            if (selectionCurrentMode == ModeNested)
+            {
+                StartCoroutine(RunNestedCheck());
+                return;
+            }
+
             StartCoroutine(RunCheck());
         }
 
@@ -770,8 +932,56 @@ namespace MartProg.Modules
             SetBusy(false);
         }
 
+        /// Godot: _handle_selection_search_button()'s Nested branch plus
+        /// evaluate_nested_if(). The explanation has two distinct shapes
+        /// depending on whether the outer condition passed — porting note 18.
+        private IEnumerator RunNestedCheck()
+        {
+            SetBusy(true);
+
+            NestedRule rule = CurrentNestedRule;
+
+            bool outerTrue = selectionNestedFirstValue >= rule.OuterThreshold;
+            bool innerTrue = false;
+            string finalResult;
+
+            if (outerTrue)
+            {
+                innerTrue = selectionNestedSecondValue >= rule.InnerThreshold;
+                finalResult = innerTrue ? rule.TrueResult : rule.InnerFalseResult;
+            }
+            else
+            {
+                finalResult = rule.OuterFalseResult;
+            }
+
+            lastResultText = finalResult;
+            SyncVisual(finalResult);
+
+            if (selectionModule != null)
+            {
+                yield return selectionModule.PlayCheckAnimation();
+            }
+
+            string explanation = outerTrue
+                ? $"The outer condition {rule.OuterCondition} was true, so the inner condition " +
+                  $"{rule.InnerCondition} was checked. Final result: {finalResult}."
+                : $"The outer condition {rule.OuterCondition} was false, so the inner condition " +
+                  $"was skipped. Final result: {finalResult}.";
+
+            SetOperationExplanation(
+                $"Nested If checked the current values. Result = {finalResult}.",
+                explanation);
+
+            RefreshStatusAndProgress();
+
+            LogEvent("Selection Check", "", "Success", "Selection checked for mode " + selectionCurrentMode);
+
+            SetBusy(false);
+        }
+
         // ---------------------------------------------------------------
-        // Toggle Rule — Godot: _handle_selection_traverse_button(), Basic branch
+        // Toggle Rule — Godot: _handle_selection_traverse_button()
         // ---------------------------------------------------------------
 
         public void OnToggleRuleClicked()
@@ -784,7 +994,11 @@ namespace MartProg.Modules
                 return;
             }
 
-            if (selectionCurrentMode != ModeBasic) return;
+            if (selectionCurrentMode == ModeNested)
+            {
+                HandleToggleNestedRule();
+                return;
+            }
 
             selectionBasicRuleIndex++;
 
@@ -803,6 +1017,7 @@ namespace MartProg.Modules
                 "The visual condition box has been updated to match the selected rule.");
 
             RefreshStatusAndProgress();
+            LogToggleRule();
         }
 
         /// Godot: _handle_selection_traverse_button()'s Else-if branch.
@@ -826,6 +1041,38 @@ namespace MartProg.Modules
                 "The ladder will be used when Check is selected.");
 
             RefreshStatusAndProgress();
+            LogToggleRule();
+        }
+
+        /// Godot: _handle_selection_traverse_button()'s Nested branch.
+        private void HandleToggleNestedRule()
+        {
+            selectionNestedRuleIndex++;
+
+            if (selectionNestedRuleIndex >= NestedRules.Length)
+            {
+                selectionNestedRuleIndex = 0;
+            }
+
+            lastResultText = "?";
+            SyncVisual("?");
+
+            SetOperationExplanation(
+                $"Nested If rule changed to {CurrentNestedRule.Name}.",
+                "The visual condition box now matches the selected nested rule. " +
+                "The inner condition will only be checked if the outer condition is true.");
+
+            RefreshStatusAndProgress();
+            LogToggleRule();
+        }
+
+        /// Godot logs this after the mode branches in
+        /// _handle_selection_traverse_button(), and no branch returns — so it
+        /// fires in every mode. Porting note 19.
+        private void LogToggleRule()
+        {
+            LogEvent("Selection Toggle Rule", "", "Success",
+                "Selection rule toggled for mode " + selectionCurrentMode);
         }
 
         // ---------------------------------------------------------------
@@ -944,6 +1191,14 @@ namespace MartProg.Modules
         private string CurrentValueText()
         {
             if (selectionCurrentMode == ModeElseIf) return selectionLadderScore.ToString();
+
+            // Nested shows both values joined with " / " — the longest VALUE
+            // string in the app, and what the font-fit table exists for.
+            if (selectionCurrentMode == ModeNested)
+            {
+                return $"{selectionNestedFirstValue} / {selectionNestedSecondValue}";
+            }
+
             return selectionBasicValue.ToString();
         }
 
@@ -953,6 +1208,7 @@ namespace MartProg.Modules
         private string CurrentConditionText()
         {
             if (selectionCurrentMode == ModeElseIf) return CurrentLadderRule.Name;
+            if (selectionCurrentMode == ModeNested) return CurrentNestedRule.Name;
             return "value " + selectionBasicConditionText;
         }
 
@@ -1062,6 +1318,17 @@ namespace MartProg.Modules
 
                 DashboardController.Instance?.SetProgress(
                     $"Rule {selectionLadderRuleIndex + 1}/{LadderRules.Length}: {CurrentLadderRule.Name}");
+            }
+            else if (selectionCurrentMode == ModeNested)
+            {
+                // Godot: get_status_text()'s nested branch — like else-if it
+                // omits the condition.
+                DashboardController.Instance?.SetStatus(
+                    $"Selection status: mode = nested if | value = {CurrentValueText()}" +
+                    $" | result = {lastResultText}");
+
+                DashboardController.Instance?.SetProgress(
+                    $"Rule {selectionNestedRuleIndex + 1}/{NestedRules.Length}: {CurrentNestedRule.Name}");
             }
             else
             {

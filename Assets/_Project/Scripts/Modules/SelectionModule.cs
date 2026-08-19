@@ -125,6 +125,60 @@ namespace MartProg.Modules
     ///    composition rendered behind the Summary panel, which is precisely
     ///    the problem source's comment describes.
     ///
+    /// 12. **The RESULT box grows UNIFORMLY, not in X only — a source
+    ///     technique that cannot be ported directly.**
+    ///     `_fit_selection_result_box_to_text()` widens the box by
+    ///     rebuilding its BoxMesh with `max(original.x, desired_width)`,
+    ///     leaving Y and Z alone. In Godot that works because the Label3D is
+    ///     a sibling positioned in world space, unaffected by the mesh's
+    ///     dimensions. Here the value label is a CHILD of the ArrayCell
+    ///     prefab, so scaling the cell's X axis alone stretches the glyphs
+    ///     horizontally rather than giving them room — which is precisely
+    ///     how "Exam score too low" rendered on-device: smeared across and
+    ///     past the box.
+    ///
+    ///     The fix is to widen in X as source does, then counter-scale the
+    ///     label by the inverse via ArrayCell.SetValueLabelCounterScaleX(),
+    ///     so the box grows horizontally while its glyphs stay correctly
+    ///     proportioned. An intermediate attempt scaled the box uniformly
+    ///     instead — that removed the distortion but did not give the text
+    ///     any more horizontal room, so long results still overflowed.
+    ///     Recorded because "scale uniformly" is the obvious-looking fix and
+    ///     it is not sufficient.
+    ///
+    ///     The source strings themselves are NOT shortened — they are
+    ///     content a student reads and they also appear verbatim in the
+    ///     dashboard explanation, so changing them would be a content edit
+    ///     rather than a layout fix.
+    ///
+    ///     Once the widening worked, the long buckets' font scales were
+    ///     raised back up (0.30 -> 0.45, 0.24 -> 0.36, landing near source's
+    ///     own 32/78 and 28/78 ratios). They had been cut hard while the box
+    ///     could not grow, which made the text safe but hard to read. Worth
+    ///     noting as a sequencing lesson: the font reduction was
+    ///     compensating for a geometry bug, and once that was fixed the
+    ///     compensation had to be undone rather than left in place.
+    ///
+    /// 11. **The two long condition-font buckets are reduced from source's
+    ///     values (25 -> 19, 22 -> 16).** A continuation of note 9: Godot's
+    ///     font_size numbers combine with pixel_size to reach a world size
+    ///     and do not map 1:1 onto TextMeshPro.fontSize, so they are
+    ///     starting points rather than absolutes. Source's own proportions
+    ///     hold for its shorter strings, but "Project Eligibility Rule" (24
+    ///     characters, the longest in the module) rendered wider than the
+    ///     block at font 25 and ran across both arrows on-device. The two
+    ///     short buckets are untouched, since they were correct.
+    ///
+    ///     An earlier attempt fixed this by removing spacingMultiplier from
+    ///     the block's own scale, on the reasoning that a spacing control
+    ///     should not resize an element. That is defensible in principle but
+    ///     made the block far too wide in every mode — it is reverted, and
+    ///     the block keeps spacingMultiplier as the other modules' blocks
+    ///     do. Recorded because the principle is still worth knowing if the
+    ///     geometry is ever revisited: the block and its text scale by
+    ///     different terms, so changing one without the other breaks the
+    ///     fit at non-default spacing.
+    ///
     /// 10. **TextMeshPro labels need an explicit rect; Label3D has none.**
     ///     Godot's Label3D renders text at whatever width the string needs —
     ///     there is no bounding box and nothing ever wraps. Unity's
@@ -527,24 +581,31 @@ namespace MartProg.Modules
         {
             if (cell == null) return;
 
-            // Source's table is 78/58/44/32/28; 78 is treated as 1.0 (note 9).
+            // Font scale, and how much bigger the whole box gets. See
+            // note 12 for why both are needed and why the box grows
+            // UNIFORMLY rather than only in X.
             float scale;
             float desiredWidth;
 
             if (text.Length <= 1) { scale = 1.00f; desiredWidth = 1.20f; }
             else if (text.Length <= 5) { scale = 58f / 78f; desiredWidth = 1.35f; }
-            else if (text.Length <= 10) { scale = 44f / 78f; desiredWidth = 1.80f; }
-            else if (text.Length <= 18) { scale = 32f / 78f; desiredWidth = 3.10f; }
-            else { scale = 28f / 78f; desiredWidth = 3.60f; }
+            else if (text.Length <= 10) { scale = 0.56f; desiredWidth = 1.80f; }
+            else if (text.Length <= 18) { scale = 0.45f; desiredWidth = 3.10f; }
+            else { scale = 0.36f; desiredWidth = 3.60f; }
 
             cell.SetValueFontScale(scale);
 
-            // Source: max(original_size.x, desired_width) — never narrower
-            // than the box started.
-            float widthRatio = Mathf.Max(1f, desiredWidth / OutputBoxWidth);
-            Transform t = cell.transform;
+            // Source widens the box mesh in X only (max(original.x,
+            // desired)). Reproduced here by scaling the cell's X — but the
+            // value label is a CHILD of the cell, so that scale would
+            // otherwise smear the glyphs horizontally (see note 12). The
+            // label is counter-scaled by the inverse, so the box gets wider
+            // while its text stays correctly proportioned.
+            float growth = Mathf.Max(1f, desiredWidth / OutputBoxWidth);
             float baseScale = OutputCellScale * arScale * cellSizeMultiplier;
-            t.localScale = new Vector3(baseScale * widthRatio, baseScale, baseScale);
+
+            cell.transform.localScale = new Vector3(baseScale * growth, baseScale, baseScale);
+            cell.SetValueLabelCounterScaleX(growth);
         }
 
         /// Godot: _fit_selection_condition_box_to_text().
@@ -555,10 +616,12 @@ namespace MartProg.Modules
             int fontSize;
             float desiredWidth;
 
+            // Source's fonts are 32/29/25/22; the two long buckets are
+            // reduced here — see note 11. Widths are source's own.
             if (text.Length <= 10) { fontSize = 32; desiredWidth = 2.20f; }
             else if (text.Length <= 16) { fontSize = 29; desiredWidth = 2.85f; }
-            else if (text.Length <= 24) { fontSize = 25; desiredWidth = 3.45f; }
-            else { fontSize = 22; desiredWidth = 3.80f; }
+            else if (text.Length <= 24) { fontSize = 19; desiredWidth = 3.45f; }
+            else { fontSize = 16; desiredWidth = 3.80f; }
 
             conditionLabel.fontSize = fontSize;
 

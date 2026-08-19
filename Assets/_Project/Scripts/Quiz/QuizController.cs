@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using MartProg.Modules;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -127,10 +128,17 @@ namespace MartProg.Quiz
     ///    can never actually be reached with a Memory question in the first
     ///    place, making that branch dead code regardless of whether it's
     ///    written. CleanQuizQuestionText() here is a straight Trim() —
-    ///    revisit this if Memory's quiz is ever built. Selection's own
-    ///    "Mode: X\n\n" question prefix is NOT stripped by source either
-    ///    (only Memory's is) — so Selection's questions display with that
-    ///    prefix baked in verbatim, preserved as-is in QuizQuestionBank.cs.
+    ///    revisit this if Memory's quiz is ever built.
+    ///
+    ///    Selection's "Mode: X\n\n" prefix is NOT stripped by source either
+    ///    (only Memory's is), and up to Phase 25c this port preserved that.
+    ///    Phase 25d changed it: the Selection quiz is now filtered to the
+    ///    mode being played, which makes the prefix redundant, so the strip
+    ///    happens in QuizQuestionBank.FilterSelectionByMode() — at data-
+    ///    selection time, not here. CleanQuizQuestionText() below is
+    ///    therefore still a straight Trim(). See "Selection quiz deviations"
+    ///    in QuizQuestionBank.cs; it is the largest deliberate deviation in
+    ///    the migration to date and the reasoning lives there, not here.
     ///
     /// 9. **A likely-unintentional Godot indentation bug was found and is
     ///    NOT reproduced.** In ar_learning_screen.gd's _ready(), the block
@@ -558,7 +566,7 @@ namespace MartProg.Quiz
         {
             string moduleKey = CurrentModuleKey();
 
-            quizQuestions = QuizQuestionBank.GetQuestionsForModule(moduleKey);
+            quizQuestions = QuizQuestionBank.GetQuestionsForModule(moduleKey, CurrentSelectionMode());
 
             if (quizTitleLabel != null)
             {
@@ -630,6 +638,39 @@ namespace MartProg.Quiz
         private string CurrentModuleKey()
         {
             return ResearchLogger.Instance != null ? ResearchLogger.Instance.ModuleName : "";
+        }
+
+        // No Godot equivalent — supports QuizQuestionBank's Selection
+        // deviation (a): the Selection quiz is filtered to the mode the
+        // learner is currently in, instead of source's mixed all-modes bank.
+        //
+        // The reference is looked up lazily and cached rather than exposed as
+        // a [SerializeField], deliberately: adding an Inspector slot would
+        // have meant an Editor step in a phase that is otherwise script-only,
+        // and a slot left unassigned would silently drop every Selection quiz
+        // back to the mixed bank with no warning. FindFirstObjectByType
+        // cannot be forgotten.
+        //
+        // FindObjectsInactive.Include matters — the Selection module root can
+        // be inactive at the moment the quiz opens depending on how the
+        // module was entered.
+        //
+        // Returns "" for every module except Selection, and "" if no
+        // SelectionController exists at all; both make GetQuestionsForModule
+        // fall through to source's unfiltered behaviour.
+        private SelectionController cachedSelectionController;
+
+        private string CurrentSelectionMode()
+        {
+            if (CurrentModuleKey() != "Selection") return "";
+
+            if (cachedSelectionController == null)
+            {
+                cachedSelectionController =
+                    FindFirstObjectByType<SelectionController>(FindObjectsInactive.Include);
+            }
+
+            return cachedSelectionController != null ? cachedSelectionController.CurrentMode : "";
         }
 
         // Godot: clean_quiz_question_text() — see porting note 8 above.

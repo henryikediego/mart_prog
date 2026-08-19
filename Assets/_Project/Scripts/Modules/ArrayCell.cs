@@ -82,4 +82,32 @@ public class ArrayCell : MonoBehaviour
     {
         SetValueFontScale(1f);
     }
+
+    // Added for Phase 25c (Selection, Nested If). SelectionModule widens the
+    // RESULT box for long results like "Exam score too low" by scaling the
+    // cell's X axis — but this label is a CHILD of the cell, so that scale
+    // propagates into the glyphs and smears them horizontally. Counter-
+    // scaling the label by the inverse keeps the text correctly proportioned
+    // inside a wider box.
+    //
+    // Pass the parent's X growth factor (1 = no growth). Absolute, not
+    // cumulative: calling it repeatedly with different values is safe.
+    private Vector3 defaultValueLabelScale = Vector3.zero;
+
+    public void SetValueLabelCounterScaleX(float parentXGrowth)
+    {
+        if (valueLabel == null) return;
+
+        if (defaultValueLabelScale == Vector3.zero)
+        {
+            defaultValueLabelScale = valueLabel.transform.localScale;
+        }
+
+        float safeGrowth = Mathf.Approximately(parentXGrowth, 0f) ? 1f : parentXGrowth;
+
+        valueLabel.transform.localScale = new Vector3(
+            defaultValueLabelScale.x / safeGrowth,
+            defaultValueLabelScale.y,
+            defaultValueLabelScale.z);
+    }
 }
