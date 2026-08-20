@@ -203,15 +203,23 @@ namespace MartProg.Modules
             if (linkedListModule != null) linkedListModule.ResetList();
             if (valueInput != null) valueInput.text = "";
 
-            DashboardController.Instance?.SetSummary("Linked List Module");
+            // Phase 26b dashboard audit — see DashboardController.cs.
+            DashboardController.Instance?.SetSummary(
+                "A linked list stores values as nodes. Each node contains data and a link " +
+                "to the next node.");
             DashboardController.Instance?.SetInstruction(
-                "Choose Insert, Delete Head, Search, Traverse, or Reset to continue.");
+                "Choose Insert, Delete Head, Search, Traverse, Reset, or Quiz to continue.");
             DashboardController.Instance?.SetOperation("No operation selected yet.");
             DashboardController.Instance?.SetExplanation(
                 "A linked list begins with a head node. Each node points to the next node, " +
                 "and the final node points to null.");
-            // Blank on entry, not populated — see porting note 3 above.
-            DashboardController.Instance?.SetStatus("");
+            // Populated on entry as of the Phase 26b/26c dashboard audit.
+            // It used to be blanked here, faithfully reproducing Godot (which
+            // hides index_explanation_label for every non-Memory module) — but
+            // Unity's panels are permanent, so "faithful" rendered as a headed
+            // box with nothing in it. The reset-format writer is the correct
+            // one for entry, since EnterModule() has just reset the list.
+            SetStatusFromDeleteOrReset();
             RebuildDashboardLayout();
 
             RefreshProgress();

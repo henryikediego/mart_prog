@@ -197,12 +197,24 @@ namespace MartProg.Modules
             if (arrayModule != null) arrayModule.ResetArray();
             if (valueInput != null) valueInput.text = "";
 
-            DashboardController.Instance?.SetSummary("Array/List Module");
+            // Phase 26b dashboard audit — see the DASHBOARD PANEL CONTRACT
+            // note in DashboardController.cs. Summary now carries Godot's
+            // module_description_label sentence, not just the title.
+            DashboardController.Instance?.SetSummary(
+                "Arrays/lists store values using indexes. The first value is usually at index 0.");
             DashboardController.Instance?.SetInstruction(
-                "Choose Insert, Delete, Search, Traverse, or Reset to continue.");
+                "Choose Insert, Delete, Search, Traverse, Reset, or Quiz to continue.");
             DashboardController.Instance?.SetOperation("No operation selected yet.");
+            // Godot's wording, with ONE deliberate correction: source reads
+            // "The current array/list values IS stored", which is a verb-
+            // agreement error in student-facing text. Corrected to "are" in
+            // Phase 26b at the user's decision, and recorded here alongside
+            // the migration's other deliberate deviations (LoopModule's /2.2
+            // typo, LoopsController's success-on-rejection handler). The rest
+            // of the sentence is verbatim — an earlier Unity draft had
+            // paraphrased the whole line away, which is what the audit caught.
             DashboardController.Instance?.SetExplanation(
-                "Values are stored in numbered positions called indexes.");
+                "The current array/list values are stored in numbered positions called indexes.");
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();

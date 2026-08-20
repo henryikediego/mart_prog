@@ -148,12 +148,16 @@ namespace MartProg.Modules
             if (stackModule != null) stackModule.ResetStack();
             if (valueInput != null) valueInput.text = "";
 
-            DashboardController.Instance?.SetSummary("Stack Module");
+            // Phase 26b dashboard audit — see DashboardController.cs.
+            DashboardController.Instance?.SetSummary(
+                "A stack stores values using the Last-In, First-Out principle. " +
+                "The last value pushed is the first value popped.");
             DashboardController.Instance?.SetInstruction(
-                "Choose Push, Pop, Search, Traverse, or Reset to continue.");
+                "Choose Push, Pop, Search, Traverse, Reset, or Quiz to continue.");
             DashboardController.Instance?.SetOperation("No operation selected yet.");
             DashboardController.Instance?.SetExplanation(
-                "Values are added to and removed from the top of the stack.");
+                "A stack works like a pile of items. New values are added to the top, " +
+                "and removal also happens from the top.");
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();

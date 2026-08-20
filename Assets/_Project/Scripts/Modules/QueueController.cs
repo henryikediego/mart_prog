@@ -163,9 +163,12 @@ namespace MartProg.Modules
             if (queueModule != null) queueModule.ResetQueue();
             if (valueInput != null) valueInput.text = "";
 
-            DashboardController.Instance?.SetSummary("Queue Module");
+            // Phase 26b dashboard audit — see DashboardController.cs.
+            DashboardController.Instance?.SetSummary(
+                "A queue stores values using the First-In, First-Out principle. " +
+                "The first value added is the first value removed.");
             DashboardController.Instance?.SetInstruction(
-                "Choose Enqueue, Dequeue, Search, Traverse, or Reset to continue.");
+                "Choose Enqueue, Dequeue, Search, Traverse, Reset, or Quiz to continue.");
             DashboardController.Instance?.SetOperation("No operation selected yet.");
             DashboardController.Instance?.SetExplanation(
                 "A queue works like a line of people. New values are added at the rear, " +

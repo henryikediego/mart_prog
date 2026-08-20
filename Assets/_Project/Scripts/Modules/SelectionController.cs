@@ -1250,9 +1250,13 @@ namespace MartProg.Modules
                               "Then choose Set Value, Set Condition, Check, Toggle Rule, Reset, or Quiz.";
             }
 
-            // Source's title is "Selection Module: <Mode>" — the mode is part
-            // of the title, not a separate panel.
-            DashboardController.Instance?.SetSummary($"Selection Module: {selectionCurrentMode}\n{summary}");
+            // The module/mode title used to lead this panel ("Selection
+            // Module: Basic If"). Dropped in the Phase 26b/26c audit — the
+            // Change Module selector and the mode dropdown both already name
+            // it, and a panel headed "Summary" should hold a summary. Nothing
+            // is lost here because these three sentences are themselves
+            // mode-specific.
+            DashboardController.Instance?.SetSummary(summary);
             DashboardController.Instance?.SetInstruction(instruction);
             DashboardController.Instance?.SetOperation("No operation selected yet.");
             DashboardController.Instance?.SetExplanation(GetDefaultExplanation());

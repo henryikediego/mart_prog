@@ -172,15 +172,21 @@ namespace MartProg.Modules
             if (functionModule != null) functionModule.ResetFunction();
             if (valueInput != null) valueInput.text = "";
 
-            DashboardController.Instance?.SetSummary("Functions Module");
+            // Phase 26b dashboard audit — see DashboardController.cs.
+            DashboardController.Instance?.SetSummary(
+                "A function is a reusable block of code that can receive input values, " +
+                "process them, and return an output.");
             DashboardController.Instance?.SetInstruction(
                 "Enter two values like 15,25, then choose Set Input, Add, Subtract, Multiply, Reset, or Quiz.");
             DashboardController.Instance?.SetOperation("No operation selected yet.");
             DashboardController.Instance?.SetExplanation(
                 "A function receives values as parameters, performs an operation, " +
                 "and returns a result. For example, add(a, b) returns the sum of a and b.");
-            // Blank on entry — see porting note 6.
-            DashboardController.Instance?.SetStatus("");
+            // Populated on entry as of the Phase 26b/26c dashboard audit —
+            // same reasoning as LinkedListController's. Godot hides this label
+            // for every non-Memory module; Unity's panels are permanent, so an
+            // empty one reads as broken rather than as absent.
+            UpdateFunctionStatusLabel();
             RebuildDashboardLayout();
 
             RefreshProgress();

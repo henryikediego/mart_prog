@@ -187,7 +187,10 @@ namespace MartProg.Modules
             if (loopModule != null) loopModule.ResetLoop();
             if (valueInput != null) valueInput.text = "";
 
-            DashboardController.Instance?.SetSummary("Loops Module");
+            // Phase 26b dashboard audit — see DashboardController.cs.
+            DashboardController.Instance?.SetSummary(
+                "A loop repeats a block of code. It can process each value in a list " +
+                "one value at a time.");
             DashboardController.Instance?.SetInstruction(
                 "Enter values like 5,10,15, then choose Set Values, Step, Run Loop, Reset, or Quiz.");
             DashboardController.Instance?.SetOperation("No operation selected yet.");

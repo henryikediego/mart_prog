@@ -4,6 +4,64 @@ using UnityEngine;
 // Godot used an autoload (global singleton); Unity's equivalent is a
 // singleton MonoBehaviour with a static Instance any script can reach,
 // e.g.  DashboardController.Instance.SetSummary("...");
+//
+// =====================================================================
+// DASHBOARD PANEL CONTRACT  (added Phase 26b, after an audit)
+// =====================================================================
+//
+// Godot has SIX labels stacked in one container. Unity has SIX permanent
+// panels, each with its own visible HEADING. They map one-to-one:
+//
+//   Godot label                  Unity panel     Contains
+//   ---------------------------  --------------  --------------------------
+//   module_title_label           (not shown)     Dropped — see rule 1
+//   module_description_label     Summary         The module's own
+//                                                one-sentence description
+//   code_label                   Instruction     What to do next
+//   code_explanation_label  \
+//     (first line)           >   Operation       What just happened
+//     (second line)          >   Explanation     The concept behind it
+//   index_explanation_label      Status          Current data state
+//   operation_feedback_label     Progress        Progress / counters
+//
+// THREE RULES, all of which were being broken somewhere before the audit:
+//
+// 1. **Summary is the description sentence, and nothing else.** Godot
+//    writes module_title_label AND module_description_label. Six of the
+//    seven controllers built before this audit passed only the TITLE, so a
+//    panel headed "Summary" contained no summary. The first fix passed
+//    title + "\n" + description; the title was then dropped entirely,
+//    because the Change Module selector already names the module and the
+//    panel heading already says what it is. Pass the description only.
+//
+// 2. **Strip Godot's inline prefixes.** Godot's strings begin with
+//    "Instruction: ", "Operation: " and "Explanation: " because its labels
+//    are bare — nothing else would say which is which. Unity's panels are
+//    headed, so keeping the prefix renders as "Instruction / Instruction:
+//    Choose an activity...". Pass the text WITHOUT the prefix. (Reported
+//    from device on Memory, which was the one controller that kept it.)
+//
+// 3. **No panel is ever left empty, including on entry.** Godot hides a
+//    label it has nothing for, and its container shrinks to fit. Unity's
+//    panels are permanent, so an empty one is a headed box with nothing in
+//    it, which reads as a bug rather than as absence. Where Godot hides,
+//    Unity supplies the truthful default: "No operation selected yet." for
+//    Operation, and the real (often zero-valued) status and progress lines.
+//    LinkedListController and FunctionsController each blanked Status in
+//    EnterModule() and only filled it after the first operation; both now
+//    populate it on entry.
+//
+// A NOTE ON WHICH PANEL CHANGES WHEN. Summary is constant for a module.
+// Instruction changes with the mode/activity. Explanation changes with the
+// mode/activity AND with the last action. Operation changes with every
+// action. Status and Progress track data state. Memory shipped with Summary
+// and Explanation swapped, which froze the dashboard — nothing appeared to
+// change as activities changed. If a panel ever looks static, check this
+// list first.
+//
+// Anything ported into these panels should be checked against
+// ar_learning_screen.gd's update_<module>_dashboard() function, which is
+// where all eight modules' six strings actually live.
 public class DashboardController : MonoBehaviour
 {
     public static DashboardController Instance { get; private set; }
