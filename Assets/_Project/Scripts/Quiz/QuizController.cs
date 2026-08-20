@@ -233,6 +233,14 @@ namespace MartProg.Quiz
                  "question text, which source's clean_quiz_question_text() only strips for " +
                  "Memory (porting note 2).")]
         [SerializeField] private Button selectionQuizButton;
+        [Tooltip("Added in Phase 26 alongside the Memory module. Memory's bank is the ONE bank " +
+                 "still deferred (see QuizQuestionBank's class comment), so until Phase 26e this " +
+                 "button correctly reports \"No quiz questions are available for this module\" — " +
+                 "source's own behaviour for an empty bank. Wired now rather than later so the " +
+                 "Memory control strip is complete and MemoryController's visible-button grid " +
+                 "math accounts for it. Note MemoryController HIDES this button in the Final " +
+                 "Assessment activity, which source does deliberately.")]
+        [SerializeField] private Button memoryQuizButton;
 
         [Header("Quiz Panel")]
         [Tooltip("Full-screen dimmed background behind the quiz panel (Image, raycastTarget ON so " +
@@ -439,6 +447,7 @@ namespace MartProg.Quiz
             if (functionsQuizButton != null) functionsQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (loopsQuizButton != null) loopsQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (selectionQuizButton != null) selectionQuizButton.onClick.AddListener(OnQuizButtonClicked);
+            if (memoryQuizButton != null) memoryQuizButton.onClick.AddListener(OnQuizButtonClicked);
             if (optionAButton != null) optionAButton.onClick.AddListener(OnOptionAClicked);
             if (optionBButton != null) optionBButton.onClick.AddListener(OnOptionBClicked);
             if (optionCButton != null) optionCButton.onClick.AddListener(OnOptionCClicked);
