@@ -185,6 +185,13 @@ namespace MartProg.Modules
         /// </summary>
         public void EnterModule()
         {
+            // Phase 29 (F1) backstop: if this controller's GameObject was
+            // disabled mid-animation but the module's was not, the module's
+            // own OnDisable() never fired and isAnimating is still true —
+            // which would make the Reset*() call below silently no-op and
+            // leave the module permanently unusable. Clear it first.
+            if (queueModule != null) queueModule.ForceStopAnimation();
+
             SetBusy(false);
 
             if (queueModule != null) queueModule.ResetQueue();
@@ -195,7 +202,7 @@ namespace MartProg.Modules
                 "A queue stores values using the First-In, First-Out principle. " +
                 "The first value added is the first value removed.");
             DashboardController.Instance?.SetInstruction(
-                "Choose Enqueue, Dequeue, Search, Traverse, Reset, or Quiz to continue.");
+                "Choose Enqueue, Dequeue, Peek, Search, Traverse, Reset, or Quiz to continue.");
             DashboardController.Instance?.SetOperation("No operation selected yet.");
             DashboardController.Instance?.SetExplanation(
                 "A queue works like a line of people. New values are added at the rear, " +
@@ -230,6 +237,21 @@ namespace MartProg.Modules
 
         private void WireButtons()
         {
+
+            // Phase 29 (F11): nothing in the project was wired to onSubmit, so
+
+            // pressing Enter/Done on the on-screen keyboard dismissed it and
+
+            // did nothing — the student had to notice the value was still in
+
+            // the field and find the button. onSubmit (not onEndEdit) is the
+
+            // right event: onEndEdit also fires on focus loss, which would
+
+            // trigger the action when the student merely tapped elsewhere.
+
+            if (valueInput != null) valueInput.onSubmit.AddListener(_ => OnEnqueueClicked());
+
             if (enqueueButton != null) enqueueButton.onClick.AddListener(OnEnqueueClicked);
             if (dequeueButton != null) dequeueButton.onClick.AddListener(OnDequeueClicked);
             if (peekButton != null) peekButton.onClick.AddListener(OnPeekClicked);

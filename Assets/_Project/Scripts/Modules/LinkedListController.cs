@@ -198,6 +198,13 @@ namespace MartProg.Modules
         /// </summary>
         public void EnterModule()
         {
+            // Phase 29 (F1) backstop: if this controller's GameObject was
+            // disabled mid-animation but the module's was not, the module's
+            // own OnDisable() never fired and isAnimating is still true —
+            // which would make the Reset*() call below silently no-op and
+            // leave the module permanently unusable. Clear it first.
+            if (linkedListModule != null) linkedListModule.ForceStopAnimation();
+
             SetBusy(false);
 
             if (linkedListModule != null) linkedListModule.ResetList();
@@ -250,6 +257,21 @@ namespace MartProg.Modules
 
         private void WireButtons()
         {
+
+            // Phase 29 (F11): nothing in the project was wired to onSubmit, so
+
+            // pressing Enter/Done on the on-screen keyboard dismissed it and
+
+            // did nothing — the student had to notice the value was still in
+
+            // the field and find the button. onSubmit (not onEndEdit) is the
+
+            // right event: onEndEdit also fires on focus loss, which would
+
+            // trigger the action when the student merely tapped elsewhere.
+
+            if (valueInput != null) valueInput.onSubmit.AddListener(_ => OnInsertClicked());
+
             if (insertButton != null) insertButton.onClick.AddListener(OnInsertClicked);
             if (deleteButton != null) deleteButton.onClick.AddListener(OnDeleteClicked);
             if (searchButton != null) searchButton.onClick.AddListener(OnSearchClicked);

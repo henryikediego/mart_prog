@@ -136,6 +136,22 @@ public class QueueModule : MonoBehaviour
             return;
         }
 
+        // Phase 30 fix (F10): Instantiate(null, parent) throws
+        // ArgumentException. Start() draws immediately against the default
+        // values, so an unassigned prefab crashed on the FIRST frame this
+        // module was active, before any button was pressed.
+        //
+        // FunctionModule, LoopModule and SelectionModule already guarded this
+        // at their own Instantiate sites; the four earlier modules never got
+        // it. Guarding here rather than at the Instantiate call so the loop
+        // cannot spin once per value throwing each time.
+        if (cellPrefab == null || cellsParent == null)
+        {
+            Debug.LogError("QueueModule: cellPrefab or cellsParent is not assigned; " +
+                           "nothing can be drawn. Assign both in the Inspector.");
+            return;
+        }
+
         ClearContainer(cellsParent);
         currentCells.Clear();
         currentFrontCell = null;
@@ -368,6 +384,19 @@ public class QueueModule : MonoBehaviour
             yield break;
         }
 
+        // Phase 32 fix, reported on device: Search deliberately LEAVES its
+        // found cell green — source breaks out of the loop without restoring
+        // it, and only redraws when the value was NOT found. That was
+        // harmless while Peek was unreachable. Now that Peek is wired and
+        // uses the same green, a Search followed by a Peek showed TWO green
+        // cells and the student could not tell which one Peek was pointing
+        // at.
+        //
+        // Peek clears every existing highlight before applying its own, so
+        // the green on screen always means "this is the cell Peek is showing
+        // you". Search's own behaviour is untouched.
+        RestoreAllCellColors();
+
         isAnimating = true;
 
         Transform frontTransform = currentFrontCell.transform;
@@ -549,6 +578,22 @@ public class QueueModule : MonoBehaviour
         r.material.color = color;
     }
 
+    /// <summary>
+    /// Restores every currently-drawn cell to its original material and label
+    /// colour. Used by Peek to clear a stale Search highlight — see the note
+    /// in HighlightPeek(). Safe to call when nothing is highlighted.
+    /// </summary>
+    private void RestoreAllCellColors()
+    {
+        foreach (GameObject c in currentCells)
+        {
+            if (c == null) continue;
+
+            RestoreCellColor(c);
+            c.GetComponent<ArrayCell>()?.ResetValueLabelColor();
+        }
+    }
+
     private void RestoreCellColor(GameObject cell)
     {
         Renderer r = FindRenderer(cell);
@@ -592,5 +637,45 @@ public class QueueModule : MonoBehaviour
         float c1 = 1.70158f;
         float c3 = c1 + 1f;
         return c3 * x * x * x - c1 * x * x;
+    }
+
+    // -----------------------------------------------------------------
+    // Phase 29 fix (F1): a module can be disabled MID-ANIMATION.
+    //
+    // ChangeModuleController.ShowSelector() disables every module
+    // unconditionally, including the one currently on screen, and the
+    // Change Module button is never made non-interactable — so a student
+    // can tap it during an animation. Disabling a GameObject halts its
+    // coroutines instantly, killing the animation between
+    // "isAnimating = true" and the "isAnimating = false" at its tail.
+    //
+    // Nothing else in the project ever cleared that flag. It stayed true
+    // for the rest of the app run, and because Reset*() self-guards on
+    // it, EnterModule() -> Reset*() silently did nothing on re-entry.
+    // The module was then permanently unusable — every button answered
+    // "Please wait. An animation is still running." until the app was
+    // restarted. Reachable in ~3 seconds of ordinary use during a
+    // Search or Traverse.
+    //
+    // OnDisable() is the primary hook: it fires on every deactivation
+    // whatever the cause. ForceStopAnimation() is public as a backstop
+    // for the case where the CONTROLLER's GameObject is disabled but
+    // this module's is not — OnDisable() here would not run then, so
+    // the controller also calls it from EnterModule().
+    // -----------------------------------------------------------------
+
+    private void OnDisable()
+    {
+        ForceStopAnimation();
+    }
+
+    /// <summary>
+    /// Clears any in-flight animation state. Safe to call at any time.
+    /// See the Phase 29 note above.
+    /// </summary>
+    public void ForceStopAnimation()
+    {
+        StopAllCoroutines();
+        isAnimating = false;
     }
 }

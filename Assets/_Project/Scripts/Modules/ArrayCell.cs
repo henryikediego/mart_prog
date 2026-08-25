@@ -12,10 +12,19 @@ public class ArrayCell : MonoBehaviour
     [SerializeField] private TextMeshPro indexLabel;
 
     // Godot: func set_data(value: int, index: int)
+    //
+    // Phase 30 fix (F9): this and SetValueOnly() below were the only two
+    // methods in this class that dereferenced the labels unguarded — every
+    // other one already checked `if (valueLabel != null)` first. ArrayCell is
+    // the shared cell script for EVERY visual module, and SetValueOnly() runs
+    // on every redraw in seven of them, so an unassigned label on the prefab
+    // would have thrown on the first cell drawn and left the module blank.
+    // Same failure mode as the DashboardController incident: one missing
+    // Inspector reference, no useful error, a whole screen dead.
     public void SetData(int value, int index)
     {
-        valueLabel.text = value.ToString();
-        indexLabel.text = "Index " + index;
+        if (valueLabel != null) valueLabel.text = value.ToString();
+        if (indexLabel != null) indexLabel.text = "Index " + index;
     }
 
     // Matches what array_module.gd's draw_array() actually does:
@@ -23,12 +32,54 @@ public class ArrayCell : MonoBehaviour
     // separate floating index markers are used instead.
     public void SetValueOnly(string valueText)
     {
-        valueLabel.text = valueText;
-        valueLabel.fontStyle = FontStyles.Bold;
-        valueLabel.outlineWidth = 0.25f;
-        valueLabel.outlineColor = Color.black;
+        // Phase 30 fix (F9) — see the note on SetData() above.
+        if (valueLabel != null)
+        {
+            valueLabel.text = valueText;
+            valueLabel.fontStyle = FontStyles.Bold;
+            valueLabel.outlineWidth = 0.25f;
+            valueLabel.outlineColor = Color.black;
 
-        indexLabel.text = "";
+            // Phase 32 fix (F14) — DEVIATION from source, reported on device:
+            // a long value spilled outside its box and became unreadable.
+            //
+            // Insert/Push/Enqueue accept anything int.TryParse takes, which is
+            // up to 11 characters, while every cell font was authored for the
+            // two-digit tutorial defaults (10/20/30). array_module.gd sets a
+            // flat font_size = 96 with no length handling, so source overflows
+            // the same way — but a number the student cannot read is broken
+            // functionality, not a quirk worth preserving.
+            //
+            // The ratio table is NOT invented: it is Godot's own
+            // get_value_font_size() from selection_module.gd (84/68/60/54 by
+            // length), which is the one place source DID handle this. Applying
+            // it here means every module inherits it in one place rather than
+            // five modules each growing their own copy.
+            //
+            // Applied as a MULTIPLIER against the prefab's authored size for
+            // the reason in SetValueFontScale() below — Label3D.font_size and
+            // TextMeshPro.fontSize are not the same unit. SelectionModule
+            // still calls SetValueFontScale() explicitly after this and wins,
+            // since that call is absolute rather than cumulative.
+            SetValueFontScale(FitScaleForLength(valueText));
+        }
+
+        if (indexLabel != null) indexLabel.text = "";
+    }
+
+    /// <summary>
+    /// Godot: selection_module.gd's get_value_font_size(), ported as a ratio
+    /// against the prefab's own authored font size. See SetValueOnly().
+    /// </summary>
+    private static float FitScaleForLength(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return 1f;
+        if (text == "?") return 1f;
+        if (text.Length <= 2) return 1f;
+        if (text.Length <= 4) return 68f / 84f;
+        if (text.Length <= 5) return 60f / 84f;
+        if (text.Length <= 8) return 44f / 84f;
+        return 34f / 84f;
     }
 
     // Added for Phase 18 (Stack): stack_module.gd's search_value()/

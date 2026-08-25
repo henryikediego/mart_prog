@@ -61,12 +61,24 @@ namespace MartProg.Core
                 ? ResearchLogger.Instance.ExportLogToDownloads()
                 : "";
 
+            // Phase 29 fix (F8) — DEVIATION from source, on research-data
+            // grounds. Both builds logged exactly one row for Export Log,
+            // Result = "Requested", written BEFORE the export was attempted
+            // and never followed up. A failed export was therefore
+            // indistinguishable from a successful one in the CSV — which
+            // matters precisely because a failed export is the case where
+            // the researcher most needs to know something went wrong.
+            //
+            // The "Requested" row above is kept so the row Godot writes
+            // still appears; this adds the outcome that was missing.
             if (!string.IsNullOrEmpty(exportedPath))
             {
                 SetFeedback(
                     "Export Log successful.",
                     $"The research log was copied to: {exportedPath}"
                 );
+
+                LogEvent("Export Log", exportedPath, "Success", "Research log exported");
             }
             else
             {
@@ -74,23 +86,78 @@ namespace MartProg.Core
                     "Export Log failed.",
                     "The research log could not be exported."
                 );
+
+                LogEvent("Export Log", "", "Failed", "Research log export failed");
             }
         }
 
+        // Phase 32: how long the button stays "armed" when no dialog exists.
+        private const float ClearLogArmSeconds = 6f;
+        private float clearLogArmedUntil = -1f;
+
+        /// <summary>
+        /// Clearing the log is destructive and unrecoverable, so it always
+        /// takes TWO deliberate actions. Godot did that with a
+        /// ConfirmationDialog; this method keeps that when the dialog exists
+        /// and provides an equivalent when it does not.
+        ///
+        /// **Phase 32 — why the fallback exists.** The 25 Aug research export
+        /// settled it: 1,046 rows going back to 5 August, and the only
+        /// "Clear Log" row in the whole file is from 5 August. Every press
+        /// since then produced no row at all, which means
+        /// OnClearLogConfirmed() has never run — the confirmation has never
+        /// been confirmed, because the dialog never appears.
+        ///
+        /// Rather than keep diagnosing a scene object that may simply never
+        /// have been built, the confirmation now falls back to arming the
+        /// button itself: press once to arm, press again within
+        /// ClearLogArmSeconds to clear. Two deliberate taps, no scene work,
+        /// and it cannot be reached by accident.
+        ///
+        /// The dialog path is still preferred when a dialog is assigned AND
+        /// can actually become visible, so a properly wired scene behaves
+        /// exactly as before.
+        /// </summary>
         private void OnClearLogClicked()
         {
-            // Mirrors Godot's clear_log_confirm_dialog.popup_centered() — Clear
-            // Log never fires directly from this click, only the confirmation.
+            // ---- Preferred path: a real, visible confirmation dialog ----
             if (clearLogConfirmDialog != null)
             {
                 clearLogConfirmDialog.SetActive(true);
+
+                // SetActive(true) does NOT guarantee the dialog is on screen:
+                // if any ancestor is inactive the object stays hidden while
+                // reporting activeSelf == true. activeInHierarchy is what
+                // tells the two apart.
+                if (clearLogConfirmDialog.activeInHierarchy && clearLogConfirmYesButton != null)
+                {
+                    clearLogArmedUntil = -1f;
+                    return;
+                }
+
+                // Unusable — put it back and fall through to the button
+                // fallback rather than leaving a dead button.
+                clearLogConfirmDialog.SetActive(false);
+
+                Debug.LogWarning("AdminController: Clear Log Confirm Dialog is assigned but cannot be " +
+                                 "shown (an ancestor is inactive) or has no Yes button; " +
+                                 "falling back to two-tap confirmation on the button.");
             }
-            else
+
+            // ---- Fallback: arm the button, confirm with a second press ----
+            if (Time.time <= clearLogArmedUntil)
             {
-                // No dialog wired: fail safe by not clearing anything, rather
-                // than silently skipping the confirmation step.
-                Debug.LogWarning("AdminController: Clear Log Confirm Dialog is not assigned; Clear Log was not performed.");
+                clearLogArmedUntil = -1f;
+                OnClearLogConfirmed();
+                return;
             }
+
+            clearLogArmedUntil = Time.time + ClearLogArmSeconds;
+
+            SetFeedback(
+                "Clear Log — press again to confirm.",
+                $"This erases the whole research log and cannot be undone. Press Clear Log " +
+                $"again within {ClearLogArmSeconds:0} seconds to go ahead, or do nothing to cancel.");
         }
 
         private void OnClearLogCancelled()
@@ -113,7 +180,22 @@ namespace MartProg.Core
                     "The research log has been cleared."
                 );
 
-                LogEvent("Clear Log", "", "Success", "Research log cleared and restarted");
+                // Phase 29 fix (F7) — DEVIATION from source's TEXT, to stop
+                // the log making a false claim about itself.
+                //
+                // Both builds logged "Research log cleared and restarted",
+                // but ClearLog() only rewrites the header — it never touches
+                // SessionId or calls StartNewSession(). The next row carries
+                // the SAME SessionID, so a researcher segmenting the CSV by
+                // session was told a boundary existed where none did.
+                //
+                // The wording is corrected rather than the behaviour: making
+                // ClearLog() actually restart the session would change session
+                // semantics mid-study, which is the riskier of the two
+                // changes. If a real session boundary at clear time is wanted
+                // later, call StartNewSession() from ClearLog() and restore
+                // the original wording.
+                LogEvent("Clear Log", "", "Success", "Research log cleared");
             }
             else
             {

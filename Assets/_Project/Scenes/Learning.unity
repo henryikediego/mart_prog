@@ -21594,8 +21594,10 @@ MonoBehaviour:
   arHeight: 0
   cellSizeMultiplier: 1.6
   spacingMultiplier: 0.9
-  markerSideOffset: 1.2
-  markerSideOffsetSingleItem: 1.2
+  markerSideOffset: 0.1
+  markerSideOffsetSingleItem: 0.15
+  placeMarkersVertically: 1
+  markerVerticalGap: 0.4
   markerBaseScale: 0.035
   markerFontSize: 38
   markerForwardOffset: 0.08

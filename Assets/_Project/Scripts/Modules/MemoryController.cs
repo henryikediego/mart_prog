@@ -168,12 +168,17 @@ namespace MartProg.Modules
     ///     TRUTHFUL default, and after a reset the truthful default is that a
     ///     reset happened.
     ///
-    ///     Two consequences worth knowing: the message is worded per activity
-    ///     (Memory resets one at a time, unlike the other seven modules), and
-    ///     the Overview branch deliberately does NOT claim progress was
-    ///     cleared, because ResetActivityProgress() skips Overview. It is also
-    ///     why RefreshDashboard() no longer forces Operation to "" in
-    ///     Overview — that would have swallowed this message.
+    ///     The message is worded per activity, because Memory resets one at
+    ///     a time unlike the other seven modules.
+    ///
+    ///     **Corrected in Phase 32:** this note originally described an
+    ///     Overview-specific branch as though it ran. It does not — Overview's
+    ///     Layouts row sets showReset to false, so Overview has no Reset
+    ///     button, and that branch is unreachable. The claim was written
+    ///     without checking the visibility matrix. The branch is kept as a
+    ///     harmless fallback and the RefreshDashboard() change that lets
+    ///     Overview surface feedback is kept with it, but neither is exercised
+    ///     today.
     /// </summary>
     public class MemoryController : MonoBehaviour, IModuleController
     {
@@ -462,6 +467,13 @@ namespace MartProg.Modules
 
         public void EnterModule()
         {
+            // Phase 29 (F1) backstop: if this controller's GameObject was
+            // disabled mid-animation but the module's was not, the module's
+            // own OnDisable() never fired and isAnimating is still true —
+            // which would make the Reset*() call below silently no-op and
+            // leave the module permanently unusable. Clear it first.
+            if (memoryModule != null) memoryModule.ForceStopAnimation();
+
             SetBusy(false);
 
             currentActivity = ActivityOverview;
@@ -496,6 +508,21 @@ namespace MartProg.Modules
 
         private void WireButtons()
         {
+
+            // Phase 29 (F11): nothing in the project was wired to onSubmit, so
+
+            // pressing Enter/Done on the on-screen keyboard dismissed it and
+
+            // did nothing — the student had to notice the value was still in
+
+            // the field and find the button. onSubmit (not onEndEdit) is the
+
+            // right event: onEndEdit also fires on focus loss, which would
+
+            // trigger the action when the student merely tapped elsewhere.
+
+            if (valueInput != null) valueInput.onSubmit.AddListener(_ => OnInsertClicked());
+
             if (insertButton != null) insertButton.onClick.AddListener(OnInsertClicked);
             if (deleteButton != null) deleteButton.onClick.AddListener(OnDeleteClicked);
             if (searchButton != null) searchButton.onClick.AddListener(OnSearchClicked);
@@ -1892,10 +1919,20 @@ namespace MartProg.Modules
             //
             // Wording follows the house style set by the other seven modules
             // ("Stack reset successful." / "Queue reset successful."), named
-            // per activity because Memory resets one activity at a time. The
-            // Overview branch is worded differently on purpose: Overview is
-            // skipped by ResetActivityProgress() below, so claiming its
-            // progress was cleared would be false.
+            // per activity because Memory resets one activity at a time.
+            //
+            // CORRECTION (Phase 32, from on-device testing): the Overview
+            // branch below is UNREACHABLE. Overview's row in the Layouts
+            // matrix is ActivityLayout(false, false, false, false, false,
+            // false, true) — showReset is false, so Overview has no Reset
+            // button at all. Phase 28b wrote this branch, and a porting note
+            // justifying it, without checking that matrix.
+            //
+            // Kept rather than deleted because it is a harmless fallback if
+            // Overview is ever given a Reset button, and because its wording
+            // is the correct wording for that case — Overview is skipped by
+            // ResetActivityProgress() below, so claiming its progress was
+            // cleared would be false. But it does not run today.
             currentFeedbackText = currentActivity == ActivityOverview
                 ? "Memory Management reset successful. The memory table returned to its starting state."
                 : $"{currentActivity} reset successful. The memory table and this activity's progress returned to their starting state.";
@@ -1951,13 +1988,34 @@ namespace MartProg.Modules
             RefreshDashboard();
         }
 
+        /// <summary>
+        /// Phase 29 fix (F5) — DEVIATION from source, on research-data grounds.
+        ///
+        /// Godot's mark_memory_activity_completed()
+        /// (ar_learning_screen.gd:9136-9150) logs unconditionally, with no
+        /// "already complete" check. Every successful Memory action calls
+        /// this, so a student's fifth Set Variable in an already-completed
+        /// Variables activity wrote TWO rows: the action itself, plus a
+        /// redundant "Memory Progress / Completed" repeating what was
+        /// already true.
+        ///
+        /// Memory is by far the largest module, so any row-count metric over
+        /// it was inflated roughly 2x. The row now fires only on the genuine
+        /// false -> true transition, which is what "Completed" means.
+        ///
+        /// The note is still refreshed on repeat calls: it carries the most
+        /// recent result (e.g. a quiz score), and suppressing that would lose
+        /// information rather than just de-duplicating it.
+        /// </summary>
         private void MarkActivityCompleted(string activityName, string note = "")
         {
-            if (!memoryProgress.ContainsKey(activityName)) return;
+            if (!memoryProgress.TryGetValue(activityName, out bool alreadyComplete)) return;
 
             memoryProgress[activityName] = true;
 
             if (note != "") memoryProgressNotes[activityName] = note;
+
+            if (alreadyComplete) return;
 
             LogEvent("Memory Progress", activityName, "Completed", note);
         }

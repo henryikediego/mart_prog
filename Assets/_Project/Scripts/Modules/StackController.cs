@@ -183,6 +183,13 @@ namespace MartProg.Modules
         /// </summary>
         public void EnterModule()
         {
+            // Phase 29 (F1) backstop: if this controller's GameObject was
+            // disabled mid-animation but the module's was not, the module's
+            // own OnDisable() never fired and isAnimating is still true —
+            // which would make the Reset*() call below silently no-op and
+            // leave the module permanently unusable. Clear it first.
+            if (stackModule != null) stackModule.ForceStopAnimation();
+
             SetBusy(false);
 
             if (stackModule != null) stackModule.ResetStack();
@@ -193,7 +200,7 @@ namespace MartProg.Modules
                 "A stack stores values using the Last-In, First-Out principle. " +
                 "The last value pushed is the first value popped.");
             DashboardController.Instance?.SetInstruction(
-                "Choose Push, Pop, Search, Traverse, Reset, or Quiz to continue.");
+                "Choose Push, Pop, Peek, Search, Traverse, Reset, or Quiz to continue.");
             DashboardController.Instance?.SetOperation("No operation selected yet.");
             DashboardController.Instance?.SetExplanation(
                 "A stack works like a pile of items. New values are added to the top, " +
@@ -228,6 +235,21 @@ namespace MartProg.Modules
 
         private void WireButtons()
         {
+
+            // Phase 29 (F11): nothing in the project was wired to onSubmit, so
+
+            // pressing Enter/Done on the on-screen keyboard dismissed it and
+
+            // did nothing — the student had to notice the value was still in
+
+            // the field and find the button. onSubmit (not onEndEdit) is the
+
+            // right event: onEndEdit also fires on focus loss, which would
+
+            // trigger the action when the student merely tapped elsewhere.
+
+            if (valueInput != null) valueInput.onSubmit.AddListener(_ => OnPushClicked());
+
             if (pushButton != null) pushButton.onClick.AddListener(OnPushClicked);
             if (popButton != null) popButton.onClick.AddListener(OnPopClicked);
             if (peekButton != null) peekButton.onClick.AddListener(OnPeekClicked);

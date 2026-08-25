@@ -87,6 +87,19 @@ public class StackModule : MonoBehaviour
     [SerializeField] private float markerSideOffset = 0.25f;
     [Tooltip("Same gap-beyond-the-box's-edge as Marker Side Offset, used only for the single-item combined 'TOP/BOTTOM' marker (kept slightly wider than Marker Side Offset for the longer label, same reasoning as before the fix).")]
     [SerializeField] private float markerSideOffsetSingleItem = 0.35f;
+    [Tooltip("Phase 33, requested on device: place TOP above the top box and " +
+             "BOTTOM below the bottom box, instead of beside them. The stack is " +
+             "VERTICAL, so a marker offset sideways is pushed out along the axis a " +
+             "phone has least room in — in portrait the labels ran off screen. " +
+             "Placing them on the stack's own axis uses the room that is actually " +
+             "there. Marker Side Offset is ignored while this is on; Marker Vertical " +
+             "Gap is used instead. Turn off to restore the beside-the-stack layout.")]
+    [SerializeField] private bool placeMarkersVertically = true;
+    [Tooltip("Gap (metres, before arScale) BEYOND the top/bottom box's own edge where " +
+             "the markers sit when Place Markers Vertically is on. Measured from the " +
+             "box edge, not from centre, so it tracks Cell Size Multiplier — the same " +
+             "convention as Marker Side Offset.")]
+    [SerializeField] private float markerVerticalGap = 0.30f;
     [SerializeField] private float markerBaseScale = 0.06f;
     [SerializeField] private int markerFontSize = 36;
     [Tooltip("Pulls markers toward the camera, clear of box occlusion — applying the Phase 15 Array lesson (Migration Spec §5) from the start instead of discovering it again on-device.")]
@@ -132,6 +145,22 @@ public class StackModule : MonoBehaviour
     {
         if (isAnimating && !forceRedraw)
         {
+            return;
+        }
+
+        // Phase 30 fix (F10): Instantiate(null, parent) throws
+        // ArgumentException. Start() draws immediately against the default
+        // values, so an unassigned prefab crashed on the FIRST frame this
+        // module was active, before any button was pressed.
+        //
+        // FunctionModule, LoopModule and SelectionModule already guarded this
+        // at their own Instantiate sites; the four earlier modules never got
+        // it. Guarding here rather than at the Instantiate call so the loop
+        // cannot spin once per value throwing each time.
+        if (cellPrefab == null || cellsParent == null)
+        {
+            Debug.LogError("StackModule: cellPrefab or cellsParent is not assigned; " +
+                           "nothing can be drawn. Assign both in the Inspector.");
             return;
         }
 
@@ -185,8 +214,9 @@ public class StackModule : MonoBehaviour
             }
         }
 
-        // Stack markers — beside the stack, not below each cell (see class
-        // comment note 3).
+        // Stack markers. Source places them beside the stack (class comment
+        // note 3); Phase 33 added the option to place them above and below
+        // instead — see placeMarkersVertically.
         if (values.Count == 1)
         {
             CreateStackMarker(
@@ -194,6 +224,7 @@ public class StackModule : MonoBehaviour
                 scaleFactor,
                 markerSideOffsetSingleItem,
                 startOffset,
+                +1,
                 new Color(1.0f, 0.85f, 0.1f, 1f));
         }
         else if (values.Count > 1)
@@ -203,6 +234,7 @@ public class StackModule : MonoBehaviour
                 scaleFactor,
                 markerSideOffset,
                 startOffset + (values.Count - 1) * spacing,
+                +1,
                 new Color(1.0f, 0.85f, 0.1f, 1f));
 
             CreateStackMarker(
@@ -210,6 +242,7 @@ public class StackModule : MonoBehaviour
                 scaleFactor,
                 markerSideOffset,
                 startOffset,
+                -1,
                 new Color(0.4f, 0.8f, 1.0f, 1f));
         }
     }
@@ -246,16 +279,46 @@ public class StackModule : MonoBehaviour
     // old 1.75/1.95 values were calibrated as from-center distances, so
     // expect to dial them down to something much smaller (start around
     // 0.15–0.3) after picking up this fix.
-    private void CreateStackMarker(string text, float scaleFactor, float sideGap, float verticalOffset, Color color)
+    /// <param name="verticalDirection">
+    /// +1 places the marker above its box, -1 below. Only used when
+    /// placeMarkersVertically is on.
+    /// </param>
+    private void CreateStackMarker(
+        string text, float scaleFactor, float sideGap, float verticalOffset,
+        int verticalDirection, Color color)
     {
-        float boxHalfWidth = 0.25f * scaleFactor * arScale * cellSizeMultiplier;
-        float markerX = boxHalfWidth + sideGap * arScale;
+        // The prefab's Box child has a local scale of 0.5, so its half-extent
+        // before this module's own scaling is 0.25 — the same figure the
+        // side-offset maths already used.
+        float boxHalfExtent = 0.25f * scaleFactor * arScale * cellSizeMultiplier;
+
+        float markerX;
+        float markerY;
+
+        if (placeMarkersVertically)
+        {
+            // Phase 33, requested on device. The stack grows along Y, so a
+            // marker offset along X is pushed out on the axis a phone in
+            // portrait has LEAST room in — and because the offset is a fixed
+            // gap beyond the box edge, no amount of scaling brings it back.
+            // Exactly the shape of problem Memory's address marker had, and
+            // the same answer: move it onto an axis that has room.
+            markerX = 0f;
+            markerY = arHeight
+                      + verticalOffset * arScale
+                      + verticalDirection * (boxHalfExtent + markerVerticalGap * arScale);
+        }
+        else
+        {
+            markerX = boxHalfExtent + sideGap * arScale;
+            markerY = arHeight + verticalOffset * arScale;
+        }
 
         GameObject markerObj = new GameObject("StackMarker_" + text.Replace("/", "_"));
         markerObj.transform.SetParent(cellsParent, false);
         markerObj.transform.localPosition = new Vector3(
             markerX,
-            arHeight + verticalOffset * arScale,
+            markerY,
             arDistance - markerForwardOffset
         );
         markerObj.transform.localScale = Vector3.one * markerBaseScale * arScale * cellSizeMultiplier;
@@ -382,6 +445,19 @@ public class StackModule : MonoBehaviour
             onComplete?.Invoke(values[values.Count - 1]);
             yield break;
         }
+
+        // Phase 32 fix, reported on device: Search deliberately LEAVES its
+        // found cell green — source breaks out of the loop without restoring
+        // it, and only redraws when the value was NOT found. That was
+        // harmless while Peek was unreachable. Now that Peek is wired and
+        // uses the same green, a Search followed by a Peek showed TWO green
+        // cells and the student could not tell which one Peek was pointing
+        // at.
+        //
+        // Peek clears every existing highlight before applying its own, so
+        // the green on screen always means "this is the cell Peek is showing
+        // you". Search's own behaviour is untouched.
+        RestoreAllCellColors();
 
         isAnimating = true;
 
@@ -605,6 +681,22 @@ public class StackModule : MonoBehaviour
         r.material.color = color;
     }
 
+    /// <summary>
+    /// Restores every currently-drawn cell to its original material and label
+    /// colour. Used by Peek to clear a stale Search highlight — see the note
+    /// in HighlightPeek(). Safe to call when nothing is highlighted.
+    /// </summary>
+    private void RestoreAllCellColors()
+    {
+        foreach (GameObject c in currentCells)
+        {
+            if (c == null) continue;
+
+            RestoreCellColor(c);
+            c.GetComponent<ArrayCell>()?.ResetValueLabelColor();
+        }
+    }
+
     private void RestoreCellColor(GameObject cell)
     {
         Renderer r = FindRenderer(cell);
@@ -654,5 +746,45 @@ public class StackModule : MonoBehaviour
     private float EaseOutSine(float x)
     {
         return Mathf.Sin((x * Mathf.PI) / 2f);
+    }
+
+    // -----------------------------------------------------------------
+    // Phase 29 fix (F1): a module can be disabled MID-ANIMATION.
+    //
+    // ChangeModuleController.ShowSelector() disables every module
+    // unconditionally, including the one currently on screen, and the
+    // Change Module button is never made non-interactable — so a student
+    // can tap it during an animation. Disabling a GameObject halts its
+    // coroutines instantly, killing the animation between
+    // "isAnimating = true" and the "isAnimating = false" at its tail.
+    //
+    // Nothing else in the project ever cleared that flag. It stayed true
+    // for the rest of the app run, and because Reset*() self-guards on
+    // it, EnterModule() -> Reset*() silently did nothing on re-entry.
+    // The module was then permanently unusable — every button answered
+    // "Please wait. An animation is still running." until the app was
+    // restarted. Reachable in ~3 seconds of ordinary use during a
+    // Search or Traverse.
+    //
+    // OnDisable() is the primary hook: it fires on every deactivation
+    // whatever the cause. ForceStopAnimation() is public as a backstop
+    // for the case where the CONTROLLER's GameObject is disabled but
+    // this module's is not — OnDisable() here would not run then, so
+    // the controller also calls it from EnterModule().
+    // -----------------------------------------------------------------
+
+    private void OnDisable()
+    {
+        ForceStopAnimation();
+    }
+
+    /// <summary>
+    /// Clears any in-flight animation state. Safe to call at any time.
+    /// See the Phase 29 note above.
+    /// </summary>
+    public void ForceStopAnimation()
+    {
+        StopAllCoroutines();
+        isAnimating = false;
     }
 }

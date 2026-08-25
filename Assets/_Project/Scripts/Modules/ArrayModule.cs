@@ -70,6 +70,22 @@ public class ArrayModule : MonoBehaviour
         }
 
         currentCells.Clear();
+        // Phase 30 fix (F10): Instantiate(null, parent) throws
+        // ArgumentException. Start() draws immediately against the default
+        // values, so an unassigned prefab crashed on the FIRST frame this
+        // module was active, before any button was pressed.
+        //
+        // FunctionModule, LoopModule and SelectionModule already guarded this
+        // at their own Instantiate sites; the four earlier modules never got
+        // it. Guarding here rather than at the Instantiate call so the loop
+        // cannot spin once per value throwing each time.
+        if (cellPrefab == null || cellsParent == null)
+        {
+            Debug.LogError("ArrayModule: cellPrefab or cellsParent is not assigned; " +
+                           "nothing can be drawn. Assign both in the Inspector.");
+            return;
+        }
+
         ClearContainer(cellsParent);
         ClearContainer(indexMarkersParent);
 
@@ -534,5 +550,46 @@ public class ArrayModule : MonoBehaviour
     private float EaseOutSine(float x)
     {
         return Mathf.Sin((x * Mathf.PI) / 2f);
+    }
+
+    // -----------------------------------------------------------------
+    // Phase 29 fix (F1): a module can be disabled MID-ANIMATION.
+    //
+    // ChangeModuleController.ShowSelector() disables every module
+    // unconditionally, including the one currently on screen, and the
+    // Change Module button is never made non-interactable — so a student
+    // can tap it during an animation. Disabling a GameObject halts its
+    // coroutines instantly, killing the animation between
+    // "isAnimating = true" and the "isAnimating = false" at its tail.
+    //
+    // Nothing else in the project ever cleared that flag. It stayed true
+    // for the rest of the app run, and because Reset*() self-guards on
+    // it, EnterModule() -> Reset*() silently did nothing on re-entry.
+    // The module was then permanently unusable — every button answered
+    // "Please wait. An animation is still running." until the app was
+    // restarted. Reachable in ~3 seconds of ordinary use during a
+    // Search or Traverse.
+    //
+    // OnDisable() is the primary hook: it fires on every deactivation
+    // whatever the cause. ForceStopAnimation() is public as a backstop
+    // for the case where the CONTROLLER's GameObject is disabled but
+    // this module's is not — OnDisable() here would not run then, so
+    // the controller also calls it from EnterModule().
+    // -----------------------------------------------------------------
+
+    private void OnDisable()
+    {
+        ForceStopAnimation();
+    }
+
+    /// <summary>
+    /// Clears any in-flight animation state. Safe to call at any time.
+    /// See the Phase 29 note above.
+    /// </summary>
+    public void ForceStopAnimation()
+    {
+        StopAllCoroutines();
+        isAnimating = false;
+        isTraversing = false;
     }
 }

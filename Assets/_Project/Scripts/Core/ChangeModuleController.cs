@@ -213,6 +213,16 @@ namespace MartProg.Core
             if (changeModuleButton != null)
                 changeModuleButton.onClick.AddListener(OnChangeModuleClicked);
 
+            // Phase 29 (F11): nothing in the project was wired to onSubmit,
+            // so a student who typed their ID and pressed Enter/Done saw the
+            // keyboard dismiss and nothing else happen. This is the app's
+            // FIRST screen, where a confused student has the least context
+            // to work out that a separate button press is needed.
+            // onSubmit rather than onEndEdit: onEndEdit also fires on focus
+            // loss, which would start a session the moment they tapped away.
+            if (studentIdInput != null)
+                studentIdInput.onSubmit.AddListener(_ => OnConfirmClicked());
+
             if (confirmButton != null)
                 confirmButton.onClick.AddListener(OnConfirmClicked);
 

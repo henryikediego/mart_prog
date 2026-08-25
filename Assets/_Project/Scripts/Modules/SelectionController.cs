@@ -509,6 +509,21 @@ namespace MartProg.Modules
 
         private void WireButtons()
         {
+
+            // Phase 29 (F11): nothing in the project was wired to onSubmit, so
+
+            // pressing Enter/Done on the on-screen keyboard dismissed it and
+
+            // did nothing — the student had to notice the value was still in
+
+            // the field and find the button. onSubmit (not onEndEdit) is the
+
+            // right event: onEndEdit also fires on focus loss, which would
+
+            // trigger the action when the student merely tapped elsewhere.
+
+            if (valueInput != null) valueInput.onSubmit.AddListener(_ => OnSetValueClicked());
+
             if (setValueButton != null) setValueButton.onClick.AddListener(OnSetValueClicked);
             if (setConditionButton != null) setConditionButton.onClick.AddListener(OnSetConditionClicked);
             if (checkButton != null) checkButton.onClick.AddListener(OnCheckClicked);
@@ -1320,12 +1335,12 @@ namespace MartProg.Modules
             if (selectionCurrentMode == ModeElseIf)
             {
                 summary = "An else-if ladder checks several conditions in order. The first true condition determines the result.";
-                instruction = "Enter one score such as 75, then choose Set Score and Check. Use Toggle Rule to switch ladder examples.";
+                instruction = "Enter one score such as 75, then choose Set Score, Check, Toggle Rule, Reset, or Quiz. Toggle Rule switches between ladder examples.";
             }
             else if (selectionCurrentMode == ModeNested)
             {
                 summary = "A nested if statement checks one condition first, then checks another condition inside it.";
-                instruction = "Enter two values such as 65,80. Then choose Set Values and Check. Use Toggle Rule to switch nested examples.";
+                instruction = "Enter two values such as 65,80, then choose Set Values, Check, Toggle Rule, Reset, or Quiz. Toggle Rule switches between nested examples.";
             }
             else
             {

@@ -97,9 +97,34 @@ public class ResearchLogger : MonoBehaviour
     }
 
     // Godot: func csv_escape(text: String) -> String
+    /// <summary>
+    /// Phase 29 fix (F6) — DEVIATION from source, on research-data grounds.
+    ///
+    /// Godot's csv_escape() doubles quotes but never touches newlines, and
+    /// Unity's port matched it. Memory's Debug Exercise and Final Assessment
+    /// log multi-line code as the Value field, so those rows carried a raw
+    /// newline INSIDE a quoted field.
+    ///
+    /// That is legal RFC-4180 and a real CSV parser handles it. But anything
+    /// that splits on lines before parsing — a quick wc -l, a diff, a
+    /// spreadsheet import with the wrong settings, most sanity-check scripts
+    /// — sees one row as two broken ones and can lose quote-state sync for
+    /// the rest of the file. A research log that cannot survive being opened
+    /// naively is a hazard, so newlines are folded to spaces here.
+    ///
+    /// Consequence to know: a multi-line code snippet in the Value column
+    /// now reads as one line. The line breaks were never semantically
+    /// meaningful in that column — the same snippet is shown to the student
+    /// with its formatting intact on screen.
+    /// </summary>
     private string CsvEscape(string text)
     {
-        string escaped = text.Replace("\"", "\"\"");
+        string escaped = text
+            .Replace("\r\n", " ")
+            .Replace("\n", " ")
+            .Replace("\r", " ")
+            .Replace("\"", "\"\"");
+
         return "\"" + escaped + "\"";
     }
 
@@ -172,9 +197,21 @@ public class ResearchLogger : MonoBehaviour
             destinationPath = Path.Combine(Application.persistentDataPath, fileName);
         }
 
+        // Phase 33: also write a fixed-name copy alongside the timestamped
+        // one. Reported on device — with a new file per session, finding the
+        // newest export means reading timestamps off a folder that already
+        // holds dozens. "mart_prog_log_latest.csv" is always the most recent
+        // export, so there is one predictable file to collect.
+        string latestPath = Path.Combine(Application.persistentDataPath, "mart_prog_log_latest.csv");
+
         try
         {
             File.Copy(LogPath, destinationPath, true);
+
+            if (!string.Equals(latestPath, LogPath, StringComparison.Ordinal))
+            {
+                File.Copy(LogPath, latestPath, true);
+            }
         }
         catch (Exception e)
         {
@@ -182,8 +219,53 @@ public class ResearchLogger : MonoBehaviour
             return "";
         }
 
-        Debug.Log("Research log exported to: " + destinationPath);
+        // Phase 33 — the file was always being written; Android just did not
+        // know about it.
+        //
+        // Reported on device: newly exported files were not visible in the
+        // folder, while previously-seen files reappeared after being deleted.
+        // That combination is diagnostic. Android serves a MEDIA INDEX to
+        // MTP and to file managers, not a live directory listing. A file
+        // written by ordinary C# File IO is not in that index until something
+        // tells the scanner, and deleting an indexed entry without deleting
+        // the underlying file just restores it on the next refresh.
+        //
+        // MediaScannerConnection.scanFile() is the supported way to say "this
+        // path changed". Reached through JNI rather than a plugin, compiled
+        // out off-Android, and wrapped so a failure can never lose an export
+        // that has already been written successfully.
+        NotifyAndroidMediaStore(destinationPath);
+        NotifyAndroidMediaStore(latestPath);
+
+        Debug.Log("Research log exported to: " + destinationPath +
+                  " (and " + latestPath + ")");
         return destinationPath;
+    }
+
+    /// <summary>
+    /// Tells Android's media scanner that a file at this path was created or
+    /// changed, so it shows up over USB/MTP and in file managers. No-op
+    /// everywhere else. See the note in ExportLogToDownloads().
+    /// </summary>
+    private static void NotifyAndroidMediaStore(string path)
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        try
+        {
+            using (AndroidJavaClass player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (AndroidJavaObject activity = player.GetStatic<AndroidJavaObject>("currentActivity"))
+            using (AndroidJavaClass scanner = new AndroidJavaClass("android.media.MediaScannerConnection"))
+            {
+                scanner.CallStatic("scanFile", activity, new string[] { path }, null, null);
+            }
+        }
+        catch (Exception e)
+        {
+            // Never fatal: the export itself already succeeded.
+            Debug.LogWarning("Could not notify the Android media scanner about " +
+                             path + ": " + e.Message);
+        }
+#endif
     }
 
     // Godot: func clear_log() -> bool
@@ -198,6 +280,11 @@ public class ResearchLogger : MonoBehaviour
             Debug.LogError("Could not clear research log file: " + e.Message);
             return false;
         }
+
+        // Phase 33: same media-index problem as the export — a cleared file
+        // that Android still has indexed at its old size will keep serving
+        // the old content to MTP and file managers.
+        NotifyAndroidMediaStore(LogPath);
 
         Debug.Log("Research log cleared.");
         return true;
