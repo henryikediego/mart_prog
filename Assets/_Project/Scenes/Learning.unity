@@ -13810,7 +13810,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Student research ID, e.g. S001
+  m_text: Student ID, e.g. s1 or s1c
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -26612,6 +26612,7 @@ MonoBehaviour:
   confirmButton: {fileID: 2138513376}
   messageLabel: {fileID: 472951526}
   studentIdInput: {fileID: 1176525726}
+  studentIdMode: 0
   adminRow: {fileID: 439241559}
   dashboardRoot: {fileID: 2108771543}
   moduleGroups:

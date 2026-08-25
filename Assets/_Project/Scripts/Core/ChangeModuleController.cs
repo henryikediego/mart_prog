@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using System.Text.RegularExpressions;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using MartProg.Modules;
 
@@ -189,10 +191,272 @@ namespace MartProg.Core
                  "Cleared every time the panel opens.")]
         [SerializeField] private TMP_Text messageLabel;
 
+        /// <summary>
+        /// Phase 34: which ID shape this study expects. Set once before a
+        /// study runs — it decides which typo the app is able to catch.
+        /// </summary>
+        public enum StudentIdMode
+        {
+            /// Accepts s1 and s1c/s1e alike. Safe default; catches malformed
+            /// IDs but cannot catch a dropped group letter.
+            AcceptEither,
+
+            /// Requires a c or e suffix. Use for a control/experiment study,
+            /// where "s1" typed instead of "s1c" would leave a participant
+            /// unassigned and you would not find out until analysis.
+            TwoGroups,
+
+            /// Requires NO suffix. Use for a single-group study, where a
+            /// stray letter would invent a group that does not exist.
+            SingleGroup
+        }
+
         [Header("Phase 27 — Student ID")]
         [Tooltip("Godot's student_id_input. Required: no module can start until this " +
                  "is non-empty, and its value becomes ResearchLogger.StudentId.")]
         [SerializeField] private TMP_InputField studentIdInput;
+
+        [Tooltip("Which ID shape this study expects.\n\n" +
+                 "Two Groups — s1c / s2e required (c = control, e = experiment).\n" +
+                 "Single Group — s1 / s2 required, no suffix.\n" +
+                 "Accept Either — both allowed.\n\n" +
+                 "Set this BEFORE a study runs: it is what lets the app catch a " +
+                 "dropped or stray group letter, which is otherwise invisible until " +
+                 "analysis.")]
+        [SerializeField] private StudentIdMode studentIdMode = StudentIdMode.AcceptEither;
+
+        // s, then at least one digit, then an optional single group letter.
+        // Case-insensitive on entry; normalised to lower case before use so
+        // "S1C" and "s1c" can never become two different participants.
+        private static readonly Regex StudentIdPattern =
+            new Regex(@"^s(\d+)([ce])?$", RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// Phase 34. Validates and normalises a typed research ID against the
+        /// configured study design.
+        ///
+        /// Before this, the only check was non-empty — a bare number, a name,
+        /// or anything else was accepted straight into the research log, and
+        /// nothing downstream could tell a mistyped ID from a real one.
+        /// </summary>
+        private bool TryNormaliseStudentId(string raw, out string normalised, out string error)
+        {
+            normalised = "";
+            error = "";
+
+            string trimmed = (raw ?? "").Trim();
+
+            if (trimmed == "")
+            {
+                error = "Please enter a student research ID, for example " + ExampleId() + ".";
+                return false;
+            }
+
+            Match m = StudentIdPattern.Match(trimmed);
+
+            if (!m.Success)
+            {
+                error = "That is not a valid research ID. Use " + ExampleId() +
+                        " — the letter s, a number, " +
+                        (studentIdMode == StudentIdMode.SingleGroup
+                            ? "and nothing after it."
+                            : "then c for control or e for experiment.");
+                return false;
+            }
+
+            string number = m.Groups[1].Value;
+            string suffix = m.Groups[2].Success ? m.Groups[2].Value.ToLowerInvariant() : "";
+
+            if (studentIdMode == StudentIdMode.TwoGroups && suffix == "")
+            {
+                error = "This study has two groups, so the ID needs a group letter: " +
+                        "s" + number + "c for control or s" + number + "e for experiment.";
+                return false;
+            }
+
+            if (studentIdMode == StudentIdMode.SingleGroup && suffix != "")
+            {
+                error = "This study has one group, so the ID should not have a group " +
+                        "letter. Use s" + number + ".";
+                return false;
+            }
+
+            // Leading zeros are stripped so s01c and s1c cannot become two
+            // participants. int.TryParse also rejects an absurdly long entry
+            // rather than overflowing.
+            if (!int.TryParse(number, out int parsedNumber) || parsedNumber < 1)
+            {
+                error = "Participant numbers start at 1. Use " + ExampleId() + ".";
+                return false;
+            }
+
+            number = parsedNumber.ToString();
+
+            normalised = "s" + number + suffix;
+            return true;
+        }
+
+        // =================================================================
+        // Phase 35 — the research ID is registered once, then locked.
+        //
+        // A participant keeps one ID for the whole study, like a university
+        // student number. Until now the field was fully editable every time
+        // the student returned to the selector, so a participant could change
+        // their own ID — by accident or otherwise — and the research log
+        // would show one person as two.
+        //
+        // The lock is against the STUDENT, not the researcher: it persists
+        // across app restarts via PlayerPrefs, and is released by a long
+        // press on the field (see BeginIdRelease). That works whether each
+        // participant has their own device or one device is shared and the
+        // researcher releases the ID between participants.
+        //
+        // Deliberately independent of Clear Log: clearing the log is about
+        // data, releasing the ID is about identity, and wanting one rarely
+        // means wanting the other.
+        // =================================================================
+
+        private const string StudentIdPrefKey = "MARTPROG_RegisteredStudentId";
+
+        [Tooltip("Phase 35: once a research ID is entered it is remembered and the " +
+                 "field is locked, so a participant keeps one ID for the whole study. " +
+                 "Release it with a long press on the field (3 seconds, twice). " +
+                 "Untick to allow the ID to be retyped freely — useful while testing, " +
+                 "not during a study.")]
+        [SerializeField] private bool lockStudentIdOnceRegistered = true;
+
+        [Tooltip("Seconds to hold the locked ID field to begin releasing it.")]
+        [SerializeField] private float idReleaseHoldSeconds = 3f;
+
+        private float idPressStartedAt = -1f;
+        private float idReleaseArmedUntil = -1f;
+
+        private static string RegisteredStudentId =>
+            PlayerPrefs.GetString(StudentIdPrefKey, "");
+
+        private bool IsStudentIdLocked =>
+            lockStudentIdOnceRegistered && RegisteredStudentId != "";
+
+        /// <summary>
+        /// Puts the field into the state matching whether an ID is registered.
+        /// Safe to call repeatedly.
+        /// </summary>
+        private void ApplyStudentIdLockState()
+        {
+            if (studentIdInput == null) return;
+
+            if (IsStudentIdLocked)
+            {
+                studentIdInput.SetTextWithoutNotify(RegisteredStudentId);
+                studentIdInput.interactable = false;
+            }
+            else
+            {
+                studentIdInput.interactable = true;
+            }
+        }
+
+        private void RegisterStudentId(string normalisedId)
+        {
+            if (!lockStudentIdOnceRegistered) return;
+            if (RegisteredStudentId == normalisedId) return;
+
+            PlayerPrefs.SetString(StudentIdPrefKey, normalisedId);
+            PlayerPrefs.Save();
+
+            ResearchLogger.Instance?.LogEvent(
+                "Student ID Registered", normalisedId, "Success",
+                "Research ID registered and locked for this device");
+        }
+
+        /// <summary>
+        /// Long-press handling on the ID field. Two deliberate holds, the same
+        /// arm-then-confirm shape Clear Log uses — a student leaning on the
+        /// screen cannot reach it, and a researcher who knows can do it in
+        /// six seconds without any extra UI.
+        ///
+        /// Wired at runtime through an EventTrigger so this needs no scene
+        /// work. A non-interactable InputField still receives pointer events:
+        /// Selectable checks `interactable` in its own handlers, but
+        /// EventTrigger implements the handler interfaces directly and does
+        /// not. If that ever changes, the fallback is to leave the field
+        /// interactable and set `readOnly = true` instead.
+        /// </summary>
+        private void WireStudentIdLongPress()
+        {
+            if (studentIdInput == null) return;
+
+            EventTrigger trigger = studentIdInput.gameObject.GetComponent<EventTrigger>();
+            if (trigger == null) trigger = studentIdInput.gameObject.AddComponent<EventTrigger>();
+
+            // Start() runs once per GameObject ACTIVATION, so without this a
+            // re-activation would stack a second pair of listeners and fire
+            // the release twice per hold. Same lifecycle trap as the Phase 27
+            // button-grid regression, in a different costume.
+            trigger.triggers.Clear();
+
+            EventTrigger.Entry down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+            down.callback.AddListener(_ => idPressStartedAt = Time.unscaledTime);
+            trigger.triggers.Add(down);
+
+            EventTrigger.Entry up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+            up.callback.AddListener(_ =>
+            {
+                float held = idPressStartedAt < 0f ? 0f : Time.unscaledTime - idPressStartedAt;
+                idPressStartedAt = -1f;
+
+                if (held >= idReleaseHoldSeconds) OnStudentIdLongPress();
+            });
+            trigger.triggers.Add(up);
+        }
+
+        private void OnStudentIdLongPress()
+        {
+            if (!IsStudentIdLocked) return;
+
+            if (Time.unscaledTime <= idReleaseArmedUntil)
+            {
+                string released = RegisteredStudentId;
+
+                ResearchLogger.Instance?.LogEvent(
+                    "Student ID Released", released, "Success",
+                    "Registered research ID released on this device");
+
+                PlayerPrefs.DeleteKey(StudentIdPrefKey);
+                PlayerPrefs.Save();
+
+                idReleaseArmedUntil = -1f;
+
+                if (studentIdInput != null) studentIdInput.SetTextWithoutNotify("");
+                ApplyStudentIdLockState();
+
+                if (messageLabel != null)
+                {
+                    messageLabel.text = "Research ID " + released +
+                                        " released. Enter the next participant's ID.";
+                }
+
+                return;
+            }
+
+            idReleaseArmedUntil = Time.unscaledTime + 10f;
+
+            if (messageLabel != null)
+            {
+                messageLabel.text = "Release the registered ID " + RegisteredStudentId +
+                                    "? Hold the field again to confirm.";
+            }
+        }
+
+        private string ExampleId()
+        {
+            switch (studentIdMode)
+            {
+                case StudentIdMode.TwoGroups:   return "s1c or s2e";
+                case StudentIdMode.SingleGroup: return "s1";
+                default:                        return "s1, s1c or s2e";
+            }
+        }
 
         [Tooltip("Optional. The Export Log / Clear Log / Change Module row. Hidden on the " +
                  "entry screen and shown once a module starts, matching Godot hiding main_ui " +
@@ -222,6 +486,18 @@ namespace MartProg.Core
             // loss, which would start a session the moment they tapped away.
             if (studentIdInput != null)
                 studentIdInput.onSubmit.AddListener(_ => OnConfirmClicked());
+
+            // Phase 35: restore a registered ID and lock the field, before the
+            // selector is first shown.
+            WireStudentIdLongPress();
+            ApplyStudentIdLockState();
+
+            if (IsStudentIdLocked && ResearchLogger.Instance != null)
+            {
+                // The logger needs the ID even before the student presses
+                // Start, so anything logged from the selector carries it.
+                ResearchLogger.Instance.StudentId = RegisteredStudentId;
+            }
 
             if (confirmButton != null)
                 confirmButton.onClick.AddListener(OnConfirmClicked);
@@ -262,7 +538,17 @@ namespace MartProg.Core
 
             if (dashboardRoot != null) dashboardRoot.SetActive(false);
             if (adminRow != null) adminRow.SetActive(false);
-            if (messageLabel != null) messageLabel.text = "";
+            if (messageLabel != null)
+            {
+                // Phase 35: a greyed-out field with someone's ID already in it
+                // is confusing without a word of explanation. Say it plainly
+                // rather than leaving the student to wonder whether they are
+                // meant to type.
+                messageLabel.text = IsStudentIdLocked
+                    ? "Signed in as " + RegisteredStudentId + ". Choose a module to continue."
+                    : "";
+            }
+
             if (moduleSelectorPanel != null) moduleSelectorPanel.SetActive(true);
 
             if (logEvent)
@@ -331,16 +617,33 @@ namespace MartProg.Core
             //
             // Message ported verbatim, S001 example included — it is the only
             // guidance a participant gets on what an ID should look like.
-            string enteredId = studentIdInput != null ? studentIdInput.text.Trim() : "";
+            string enteredId;
 
-            if (enteredId == "")
+            if (IsStudentIdLocked)
             {
-                if (messageLabel != null)
+                // Phase 35: already registered on this device. The field is
+                // non-interactable, but the stored value is used rather than
+                // whatever the field happens to contain — so even if the field
+                // is somehow edited, the registered ID is what gets logged.
+                enteredId = RegisteredStudentId;
+            }
+            else
+            {
+                string typedId = studentIdInput != null ? studentIdInput.text : "";
+
+                if (!TryNormaliseStudentId(typedId, out enteredId, out string idError))
                 {
-                    messageLabel.text = "Please enter a student research ID, for example S001.";
+                    if (messageLabel != null) messageLabel.text = idError;
+                    return;
                 }
 
-                return;
+                // Write the normalised form back so the student sees exactly
+                // what was recorded — "S01C" typed becomes "s1c" on screen and
+                // in the log, rather than the two silently diverging.
+                if (studentIdInput != null && studentIdInput.text != enteredId)
+                {
+                    studentIdInput.SetTextWithoutNotify(enteredId);
+                }
             }
 
             int index = moduleDropdown.value;
@@ -380,6 +683,12 @@ namespace MartProg.Core
                 ResearchLogger.Instance.StudentId = enteredId;
                 ResearchLogger.Instance.ModuleName = selected.moduleKey;
                 ResearchLogger.Instance.StartNewSession();
+
+                // Phase 35: register on first successful start, after the
+                // session exists so the "Student ID Registered" row lands in
+                // the new session rather than the previous one.
+                RegisterStudentId(enteredId);
+                ApplyStudentIdLockState();
             }
 
             if (AppState.Instance != null)

@@ -15,7 +15,35 @@ public class ResearchLogger : MonoBehaviour
 
     private string LogPath => Path.Combine(Application.persistentDataPath, "mart_prog_log.csv");
 
-    private const string CsvHeader = "Timestamp,StudentID,SessionID,Module,Action,Value,Result,Details";
+    /// <summary>
+    /// Phase 34 — DEVIATION from source's CSV schema, at the researcher's
+    /// request. Godot's header is the eight columns below without Group.
+    ///
+    /// The group is DERIVED from StudentId rather than stored separately, so
+    /// the two can never disagree: an ID ending in "c" is control, "e" is
+    /// experiment, anything else (including a single-group "s1" and the
+    /// TEST_STUDENT default) is none. One source of truth, no second field
+    /// to keep in step.
+    /// </summary>
+    public string Group
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(StudentId)) return "none";
+
+            char last = char.ToLowerInvariant(StudentId[StudentId.Length - 1]);
+
+            if (last == 'c') return "control";
+            if (last == 'e') return "experiment";
+
+            return "none";
+        }
+    }
+
+    // Phase 34: Group inserted after StudentID, where a reader expects it.
+    // NOTE this shifts every later column's index by one relative to the
+    // Godot build's CSV — see Migration Spec §8o.
+    private const string CsvHeader = "Timestamp,StudentID,Group,SessionID,Module,Action,Value,Result,Details";
 
     private void Awake()
     {
@@ -53,16 +81,48 @@ public class ResearchLogger : MonoBehaviour
     // Godot: func create_log_file_if_needed()
     public void CreateLogFileIfNeeded()
     {
-        if (!File.Exists(LogPath))
+        try
         {
-            try
+            if (!File.Exists(LogPath))
             {
                 File.WriteAllText(LogPath, CsvHeader + "\n");
+                return;
             }
-            catch (Exception e)
+
+            // Phase 34 schema guard. Adding the Group column changed the row
+            // shape from 8 fields to 9. An existing log still carries the OLD
+            // header, and appending 9-field rows underneath it would produce a
+            // file that is neither shape — unreadable by anything, and the
+            // damage would be silent.
+            //
+            // So: if the header on disk is not the header this build writes,
+            // move the old file aside under a timestamped name and start a
+            // fresh one. Nothing is deleted, and the two schemas never mix in
+            // one file.
+            string firstLine;
+            using (StreamReader reader = new StreamReader(LogPath))
             {
-                Debug.LogError("Could not create research log file: " + e.Message);
+                firstLine = reader.ReadLine() ?? "";
             }
+
+            if (string.Equals(firstLine.Trim(), CsvHeader, StringComparison.Ordinal)) return;
+
+            string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string archivedPath = Path.Combine(
+                Application.persistentDataPath, "mart_prog_log_pre_group_" + stamp + ".csv");
+
+            File.Move(LogPath, archivedPath);
+            File.WriteAllText(LogPath, CsvHeader + "\n");
+
+            Debug.LogWarning("Research log schema changed (Group column added). The previous " +
+                             "log was preserved as: " + archivedPath);
+
+            NotifyAndroidMediaStore(archivedPath);
+            NotifyAndroidMediaStore(LogPath);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Could not create or migrate research log file: " + e.Message);
         }
     }
 
@@ -76,6 +136,7 @@ public class ResearchLogger : MonoBehaviour
         string line =
             CsvEscape(timestamp) + "," +
             CsvEscape(StudentId) + "," +
+            CsvEscape(Group) + "," +
             CsvEscape(SessionId) + "," +
             CsvEscape(ModuleName) + "," +
             CsvEscape(action) + "," +
