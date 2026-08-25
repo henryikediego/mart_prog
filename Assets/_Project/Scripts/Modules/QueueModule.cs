@@ -336,16 +336,19 @@ public class QueueModule : MonoBehaviour
         onComplete?.Invoke(removedValue);
     }
 
-    // Godot: func peek_front() — not wired to any button in the original
-    // app (see class comment note 7); ported for parity only.
+    // Godot: func peek_front() — commented out entirely in queue_module.gd,
+    // and the handler that would have used it was never called (see class
+    // comment note 7), so this was ported for parity only. **Phase 28 changed
+    // that:** QueueController now has a Peek button. See its porting note 8.
     public int? PeekValue()
     {
         if (values.Count == 0) return null;
         return values[0];
     }
 
-    // Godot: func highlight_front() — same "not wired to a button" note as
-    // PeekValue(); ported for parity only.
+    // Godot: func highlight_front() — this is what source's dead
+    // handle_queue_peek() actually called, since peek_front() is commented
+    // out. Phase 28 gave it its first live caller: QueueController.HandlePeek().
     public IEnumerator HighlightPeek(Action<int?> onComplete)
     {
         if (isAnimating || values.Count == 0)
@@ -369,10 +372,23 @@ public class QueueModule : MonoBehaviour
 
         Transform frontTransform = currentFrontCell.transform;
         Vector3 originalScale = frontTransform.localScale;
+        ArrayCell cellScript = currentFrontCell.GetComponent<ArrayCell>();
+
+        // DEVIATION from source, at the project owner's request (Phase 28b) —
+        // same change as StackModule.HighlightPeek(), same reasoning. Godot's
+        // highlight_front() only scales; the peeked cell is now tinted green
+        // for the duration and restored afterwards, using the same
+        // Color(0.1, 0.85, 0.25) this module already uses to mean "found" at
+        // the end of SearchValue().
+        SetCellColor(currentFrontCell, new Color(0.1f, 0.85f, 0.25f, 1.0f));
+        cellScript?.SetValueLabelColor(Color.white);
 
         yield return StartCoroutine(ScaleTo(frontTransform, originalScale * 1.25f, 0.2f, true));
         yield return new WaitForSeconds(0.25f);
         yield return StartCoroutine(ScaleTo(frontTransform, originalScale, 0.2f, false));
+
+        RestoreCellColor(currentFrontCell);
+        cellScript?.ResetValueLabelColor();
 
         isAnimating = false;
 

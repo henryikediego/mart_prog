@@ -97,14 +97,52 @@ namespace MartProg.Modules
     ///    only become TRUE/FALSE after Check"), and every live handler
     ///    passes "?" to sync_selection_visual_for_current_mode(). Preserved.
     ///
-    /// 8. **Set Value's failure path does not log, but the other modes' do.**
-    ///    In `_handle_selection_insert_button()`, the Basic branch returns
-    ///    after `set_selection_dashboard_message(...)` with no
-    ///    ResearchLogger call, while the Else-if and Nested branches both log
-    ///    a "Failed" event. Its SUCCESS path does not log either, again
-    ///    unlike the other two modes. Preserved rather than normalised, for
-    ///    the same research-log-comparability reason as Phase 23's Reset
-    ///    naming: the log is analysed against Godot's output.
+    /// 8. **Set Value's failure path does not log, but its SUCCESS path
+    ///    does — under a name emitted from a different function.**
+    ///
+    ///    **CORRECTED in Phase 27b (research-log audit).** Phase 25 recorded
+    ///    that Basic mode's Set Value "does not log either" on success. That
+    ///    was wrong, and the error came from reading only
+    ///    `_handle_selection_insert_button()`. Its Basic branch is not the
+    ///    whole story: after a clean parse it calls
+    ///    `if has_method("handle_selection_set_value"): await
+    ///    handle_selection_set_value()` — a `has_method` guard that reads
+    ///    like a dead-code hedge but always passes, because the function is
+    ///    defined in the same script. That delegated function logs
+    ///    `"Selection Set Value" / typed_value / "Success" /
+    ///    get_last_action_message()`. Every successful Basic-mode Set Value
+    ///    therefore produces a research row in Godot; Unity produced none
+    ///    until this phase. Now emitted.
+    ///
+    ///    The failure half of the original note stands and is unchanged: a
+    ///    bad parse returns from the button handler BEFORE delegating, so
+    ///    nothing is logged, while Else-if and Nested both log a "Failed"
+    ///    event from their own branches. That asymmetry is source and is
+    ///    preserved.
+    ///
+    ///    Two consequences of the same delegation, both handled here:
+    ///
+    ///    (a) `handle_selection_set_value()` re-validates the input and has
+    ///        its own "Empty input" and "Invalid integer input" failure
+    ///        logs. Both are UNREACHABLE — the button handler already
+    ///        validated the identical field — so they are deliberately not
+    ///        ported. Their absence is correct, not an omission.
+    ///
+    ///    (b) The function's success tail runs `value_input.text = ""`, so
+    ///        Basic mode clears the input box after Set Value while Else-if's
+    ///        Set Score and Nested's Set Values do NOT — neither delegates.
+    ///        One of source's own inconsistencies; now reproduced exactly
+    ///        (see HandleSetValue / HandleSetScore / HandleSetNestedValues).
+    ///
+    ///    **Deliberately NOT ported from that function:** its
+    ///    `index_explanation_label.text = selection_module.get_status_text()`
+    ///    line, and its `show_code`/`show_code_explanation` calls, all of
+    ///    which read SelectionModule — the dead shadow implementation (note
+    ///    1), whose value and rule list differ from the live screen state.
+    ///    Porting them would put dead-code state on screen. Documented as a
+    ///    deviation; the observable difference is that Unity's Status panel
+    ///    keeps showing live state where Godot briefly shows the shadow
+    ///    module's.
     ///
     /// 9. **Reset logs as plain "Reset"** — unprefixed, matching Functions
     ///    (Phase 23 note 4) rather than Loops' "Loop Reset". Source's own
@@ -444,6 +482,29 @@ namespace MartProg.Modules
             ClearVisualForCurrentMode();
             ApplyButtonLabelsForMode();
             RefreshDashboardForMode();
+        
+            // Phase 27 regression fix — the responsive button grid is sized
+            // HERE as well as in InitializeDeferred().
+            //
+            // Phase 27 made ChangeModuleController disable every module at
+            // Start() so the app can boot to the selector. Unity's script
+            // execution order between two components' Start() methods is
+            // undefined, so this controller's Start() sometimes runs FIRST,
+            // launching InitializeDeferred() — and then the GameObject is
+            // disabled a moment later, which halts the coroutine before its
+            // `yield return null` resumes. ApplyResponsiveButtonLayout()
+            // never runs. When the student later picks this module the object
+            // is re-enabled, but Start() does not run a second time, so the
+            // coroutine never restarts and the grid keeps its prefab cell
+            // size — narrow buttons, reported on Array/List while Stack and
+            // Memory looked correct purely because their Start() happened to
+            // run after they were already disabled.
+            //
+            // EnterModule() is called on every entry by ChangeModuleController,
+            // so applying it here is reliable regardless of that ordering.
+            // The call is idempotent, so the deferred one doing it too is
+            // harmless.
+            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()
@@ -631,8 +692,9 @@ namespace MartProg.Modules
 
             string typed = valueInput != null ? valueInput.text.Trim() : "";
 
-            // Godot: parse_single_integer_input(). Note neither the failure
-            // nor the success path logs in the Basic branch — porting note 8.
+            // Godot: parse_single_integer_input(). The FAILURE path does not
+            // log — the button handler returns before delegating. The success
+            // path below does, via handle_selection_set_value(). Note 8.
             if (string.IsNullOrEmpty(typed) || !int.TryParse(typed, out int parsed))
             {
                 SetOperationExplanation(
@@ -648,6 +710,28 @@ namespace MartProg.Modules
             SetOperationExplanation(
                 $"Selection value set to {selectionBasicValue}.",
                 $"This value will be tested against the current condition: value {selectionBasicConditionText}.");
+
+            // Godot: the success tail of handle_selection_set_value(), which
+            // _handle_selection_insert_button() delegates to once the parse
+            // succeeds. Basic mode's success DOES log, and it clears the
+            // input box — neither of which Else-if or Nested do, because
+            // neither delegates. Porting note 8.
+            // The details column is SelectionModule.get_last_action_message()
+            // after its set_value_from_text() — and the ">= 50" in it is a
+            // CONSTANT, not the student's current condition. The shadow
+            // module's current_rule and threshold are only ever written by
+            // its own toggle_rule() and set_condition_from_text(), both of
+            // which are dead code (note 1), so get_rule_code() returns
+            // "value >= 50" for the lifetime of the app no matter what the
+            // student toggles on screen. A source defect, but it lives in a
+            // log field rather than in the UI, and reproducing it is the
+            // whole point of this row — normalising it would break the
+            // column-for-column comparison against the Godot build's CSV.
+            // Flagged in the dev report rather than fixed. Porting note 8.
+            LogEvent("Selection Set Value", typed, "Success",
+                $"Value set to {selectionBasicValue}. Click Check to evaluate value >= 50.");
+
+            if (valueInput != null) valueInput.text = "";
 
             RefreshStatusAndProgress();
         }

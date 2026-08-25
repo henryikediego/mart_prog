@@ -89,6 +89,36 @@ namespace MartProg.Modules
     ///    silently kills any coroutine running on it, which could otherwise
     ///    leave this controller stuck "busy" forever if the student switched
     ///    away mid-animation.
+    ///
+    /// 8. **Insert logs under TWO different event names, split by outcome —
+    ///    and that is source, not a defect here.** Phase 27b research-log
+    ///    audit. Godot spreads one button press across two functions:
+    ///    `_handle_array_list_insert_button()` validates and logs its own
+    ///    three failures under `"Insert"`, returning each time; only on a
+    ///    clean parse does it `await handle_array_insert()`, and THAT
+    ///    function logs under `"Array Insert"`. So a Godot press emits
+    ///    exactly one row either way, named `"Insert"` when it fails early
+    ///    and `"Array Insert"` when it reaches the module:
+    ///
+    ///        empty input              -> "Insert"        Failed
+    ///        non-integer input        -> "Insert"        Failed
+    ///        screen counter at max    -> "Insert"        Failed
+    ///        module refused the value -> "Array Insert"  Failed
+    ///        inserted                 -> "Array Insert"  Success
+    ///
+    ///    Unity previously logged all five as `"Insert"`. Corrected to match
+    ///    source exactly, on the same log-comparability grounds as Phase 23's
+    ///    Reset naming — these CSVs are analysed against the Godot build's.
+    ///    Note the two `"Array Insert"` rows also pass `str(new_value)`, the
+    ///    PARSED integer, where the `"Insert"` rows pass the raw typed text;
+    ///    so a student typing "007" produces `007` on a failure row and `7`
+    ///    on a success row. Ported literally, including that.
+    ///
+    ///    Anyone filtering the research CSV for array insert activity must
+    ///    therefore match BOTH names. Two of Godot's own `"Array Insert"`
+    ///    failure branches (empty input, invalid integer) are unreachable —
+    ///    the button handler validates the same field first — so they have
+    ///    no Unity equivalent and never appear in either build's logs.
     /// </summary>
     public class ArrayListController : MonoBehaviour, IModuleController
     {
@@ -218,6 +248,29 @@ namespace MartProg.Modules
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();
+        
+            // Phase 27 regression fix — the responsive button grid is sized
+            // HERE as well as in InitializeDeferred().
+            //
+            // Phase 27 made ChangeModuleController disable every module at
+            // Start() so the app can boot to the selector. Unity's script
+            // execution order between two components' Start() methods is
+            // undefined, so this controller's Start() sometimes runs FIRST,
+            // launching InitializeDeferred() — and then the GameObject is
+            // disabled a moment later, which halts the coroutine before its
+            // `yield return null` resumes. ApplyResponsiveButtonLayout()
+            // never runs. When the student later picks this module the object
+            // is re-enabled, but Start() does not run a second time, so the
+            // coroutine never restarts and the grid keeps its prefab cell
+            // size — narrow buttons, reported on Array/List while Stack and
+            // Memory looked correct purely because their Start() happened to
+            // run after they were already disabled.
+            //
+            // EnterModule() is called on every entry by ChangeModuleController,
+            // so applying it here is reliable regardless of that ordering.
+            // The call is idempotent, so the deferred one doing it too is
+            // harmless.
+            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()
@@ -363,7 +416,11 @@ namespace MartProg.Modules
                 SetOperationExplanation(
                     $"Insert failed. {arrayModule.GetLastActionMessage()}",
                     "The value was not inserted.");
-                LogEvent("Insert", typedValue, "Failed", arrayModule.GetLastActionMessage());
+                // Godot: this branch lives in handle_array_insert(), not in
+                // _handle_array_list_insert_button() — so source logs it under
+                // "Array Insert", and passes str(new_value) rather than the raw
+                // typed text. Porting note 8.
+                LogEvent("Array Insert", newValue.ToString(), "Failed", arrayModule.GetLastActionMessage());
                 yield break;
             }
 
@@ -372,7 +429,10 @@ namespace MartProg.Modules
             SetOperationExplanation(
                 $"Inserted value {newValue} at index {insertedIndex}.",
                 $"numbers.append({newValue}) adds a new value to the end of the array/list.");
-            LogEvent("Insert", typedValue, "Success", arrayModule.GetLastActionMessage());
+            // Godot logs the SUCCESS row under a different name from the
+            // failure rows — "Array Insert", from handle_array_insert().
+            // Porting note 8.
+            LogEvent("Array Insert", newValue.ToString(), "Success", arrayModule.GetLastActionMessage());
 
             if (valueInput != null) valueInput.text = "";
 

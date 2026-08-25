@@ -16,19 +16,27 @@ namespace MartProg.Core
     /// Spec §5) that stood in for this since Phase 16, for the three modules
     /// that exist so far.
     ///
-    /// Scope decision, stated up front: Godot reuses ONE panel (`student_panel`)
-    /// for two different moments — the app's very first launch screen (which
-    /// also asks for a Student ID via `student_id_input` before anything else
-    /// is usable) and every later "Change Module" reopening of that same panel.
-    /// Unity never ported the first-launch/Student-ID moment; every module
-    /// controller already defaults ResearchLogger.StudentId / AppState.StudentId
-    /// to "TEST_STUDENT" and the app has always started directly inside
-    /// whichever module's GameObjects were left enabled in the Hierarchy (see
-    /// Migration Spec §5's single-active-module convention, in place since
-    /// Phase 16). This phase ports only the module-*switching* half of
-    /// student_panel — the ID-entry half stays out of scope, unrequested and
-    /// separable. Confirming a selection here does not touch ResearchLogger's
-    /// StudentId at all.
+    /// **Phase 27: the deferred half is now built.** Godot reuses ONE panel
+    /// (`student_panel`) for two moments — the app's first launch screen,
+    /// which asks for a Student ID before anything else is usable, and every
+    /// later "Change Module" reopening of that same panel. Phase 20 ported
+    /// only the module-SWITCHING half and recorded the ID-entry half as out
+    /// of scope; the app started directly inside whichever module's
+    /// GameObjects were left enabled in the Hierarchy (Migration Spec §5),
+    /// and ResearchLogger.StudentId kept its "TEST_STUDENT" default.
+    ///
+    /// That default was written into **every row of mart_prog_log.csv**,
+    /// whose header is
+    /// `Timestamp,StudentID,SessionID,Module,Action,Value,Result,Details`.
+    /// For an application whose purpose is collecting per-student interaction
+    /// data, an identity column reading "TEST_STUDENT" for every participant
+    /// is not a cosmetic gap. That is why this was taken before the remaining
+    /// quiz-bank and log-name audits.
+    ///
+    /// Now ported: the app boots to this panel, a Student ID is required
+    /// before any module can start, and the entered value is written to
+    /// ResearchLogger.StudentId ahead of StartNewSession(). Godot's exact
+    /// message text is used for the empty case.
     ///
     /// Porting decisions and preserved/adapted source quirks:
     ///
@@ -175,9 +183,21 @@ namespace MartProg.Core
         [SerializeField] private TMP_Dropdown moduleDropdown;
         [SerializeField] private Button confirmButton;
 
-        [Tooltip("Shows \"<Module> is not available yet.\" when an unbuilt module is confirmed — " +
-                 "the Unity equivalent of student_error_label. Cleared every time the panel opens.")]
+        [Tooltip("Godot's student_error_label, which carries BOTH of this panel's messages: " +
+                 "\"Please enter a student research ID, for example S001.\" and " +
+                 "\"<Module> is not available yet.\" Source uses one label for both. " +
+                 "Cleared every time the panel opens.")]
         [SerializeField] private TMP_Text messageLabel;
+
+        [Header("Phase 27 — Student ID")]
+        [Tooltip("Godot's student_id_input. Required: no module can start until this " +
+                 "is non-empty, and its value becomes ResearchLogger.StudentId.")]
+        [SerializeField] private TMP_InputField studentIdInput;
+
+        [Tooltip("Optional. The Export Log / Clear Log / Change Module row. Hidden on the " +
+                 "entry screen and shown once a module starts, matching Godot hiding main_ui " +
+                 "in _ready(). Leave empty and the row simply stays visible throughout.")]
+        [SerializeField] private GameObject adminRow;
 
         [Header("Shared Dashboard (hidden while selecting)")]
         [Tooltip("The dashboard's root Canvas object (Canvas > DashboardRoot). Optional — if " +
@@ -198,13 +218,51 @@ namespace MartProg.Core
 
             PopulateDropdown();
 
-            // Unlike Godot, Unity's app doesn't start ON this selector — it
-            // starts directly inside whichever module's objects were already
-            // enabled in the Hierarchy (Migration Spec §5). So the panel
-            // starts hidden here, not shown, matching Unity's existing entry
-            // point rather than Godot's _ready().
-            if (moduleSelectorPanel != null) moduleSelectorPanel.SetActive(false);
+            // Phase 27: the app now BOOTS to this selector, matching Godot's
+            // _ready() —
+            //
+            //     student_panel.visible = true
+            //     main_ui.visible = false
+            //     quiz_panel.visible = false
+            //     ar_world.visible = false
+            //
+            // Until now Unity started inside whichever module was left
+            // enabled in the Hierarchy (Migration Spec §5's single-active-
+            // module convention), which is why no Student ID was ever asked
+            // for. Everything is hidden here instead, in code, so the scene's
+            // enabled/disabled state at edit time no longer decides where the
+            // app opens.
+            ShowSelector(logEvent: false);
+        }
+
+        /// <summary>
+        /// Godot: the shared body of _ready() and
+        /// _on_change_module_button_pressed() — hide the module world, show
+        /// the panel, clear the error label. Only the log event differs, so
+        /// that is the parameter.
+        /// </summary>
+        private void ShowSelector(bool logEvent)
+        {
+            foreach (ModuleGroupEntry entry in moduleGroups)
+            {
+                if (entry.controlStrip != null) entry.controlStrip.SetActive(false);
+                if (entry.moduleRoot != null) entry.moduleRoot.SetActive(false);
+                if (entry.controllerObject != null) entry.controllerObject.SetActive(false);
+            }
+
+            if (dashboardRoot != null) dashboardRoot.SetActive(false);
+            if (adminRow != null) adminRow.SetActive(false);
             if (messageLabel != null) messageLabel.text = "";
+            if (moduleSelectorPanel != null) moduleSelectorPanel.SetActive(true);
+
+            if (logEvent)
+            {
+                ResearchLogger.Instance?.LogEvent(
+                    "Change Module",
+                    "",
+                    "Opened",
+                    "User returned to module selection screen");
+            }
         }
 
         /// <summary>
@@ -237,33 +295,43 @@ namespace MartProg.Core
         /// </summary>
         public void OnChangeModuleClicked()
         {
-            foreach (ModuleGroupEntry entry in moduleGroups)
-            {
-                if (entry.controlStrip != null) entry.controlStrip.SetActive(false);
-                if (entry.moduleRoot != null) entry.moduleRoot.SetActive(false);
-                if (entry.controllerObject != null) entry.controllerObject.SetActive(false);
-            }
-
-            if (dashboardRoot != null) dashboardRoot.SetActive(false);
-            if (messageLabel != null) messageLabel.text = "";
-            if (moduleSelectorPanel != null) moduleSelectorPanel.SetActive(true);
-
-            ResearchLogger.Instance?.LogEvent(
-                "Change Module",
-                "",
-                "Opened",
-                "User returned to module selection screen");
+            // Godot does NOT clear student_id_input here — the field keeps
+            // its text, so a student returning to the selector mid-session
+            // simply presses Start again rather than retyping their ID.
+            // Preserved: only the error label is cleared.
+            ShowSelector(logEvent: true);
         }
 
         /// <summary>
-        /// Direct port of _on_start_module_button_pressed(), minus the
-        /// Student ID validation (out of scope — see class comment). Reads
-        /// the dropdown selection, blocks with a message if that module
-        /// isn't built yet (porting note 2), otherwise switches to it.
+        /// Direct port of _on_start_module_button_pressed(), Student ID
+        /// validation included as of Phase 27. Order matters and matches
+        /// source: the ID is checked FIRST, before the dropdown is read at
+        /// all, so an empty ID blocks every module equally.
         /// </summary>
         public void OnConfirmClicked()
         {
             if (moduleDropdown == null || moduleGroups.Count == 0) return;
+
+            // Godot:
+            //     var entered_id = student_id_input.text.strip_edges()
+            //     if entered_id == "":
+            //         set_label_text(student_error_label,
+            //             "Please enter a student research ID, for example S001.")
+            //         return
+            //
+            // Message ported verbatim, S001 example included — it is the only
+            // guidance a participant gets on what an ID should look like.
+            string enteredId = studentIdInput != null ? studentIdInput.text.Trim() : "";
+
+            if (enteredId == "")
+            {
+                if (messageLabel != null)
+                {
+                    messageLabel.text = "Please enter a student research ID, for example S001.";
+                }
+
+                return;
+            }
 
             int index = moduleDropdown.value;
             if (index < 0 || index >= moduleGroups.Count) return;
@@ -295,8 +363,26 @@ namespace MartProg.Core
 
             if (ResearchLogger.Instance != null)
             {
+                // Godot: ResearchLogger.student_id = entered_id, set
+                // immediately before start_new_session(). The order matters —
+                // StartNewSession() writes a session-start row, and that row
+                // must already carry the real ID rather than the default.
+                ResearchLogger.Instance.StudentId = enteredId;
                 ResearchLogger.Instance.ModuleName = selected.moduleKey;
                 ResearchLogger.Instance.StartNewSession();
+            }
+
+            if (AppState.Instance != null)
+            {
+                // Unity-side mirror. Godot sets only ResearchLogger's copy,
+                // because it has no AppState — but this project added one in
+                // Phase 13 and it has carried the same "TEST_STUDENT" default
+                // ever since. Leaving the two out of step would make whichever
+                // one a future reader happens to consult a coin toss.
+                //
+                // If AppState has no StudentId field in your build, this is
+                // the one line to delete.
+                AppState.Instance.StudentId = enteredId;
             }
 
             StartCoroutine(EnterSelectedModuleDeferred(selected));
@@ -328,6 +414,7 @@ namespace MartProg.Core
             }
 
             if (dashboardRoot != null) dashboardRoot.SetActive(true);
+            if (adminRow != null) adminRow.SetActive(true);
             if (moduleSelectorPanel != null) moduleSelectorPanel.SetActive(false);
 
             ResearchLogger.Instance?.LogEvent(

@@ -75,6 +75,28 @@ namespace MartProg.Modules
     ///    ArrayListController/StackController — see Migration Spec §8f.
     ///    Lets ChangeModuleController.cs reset + refresh Queue on every
     ///    switch into it, not just the scene's first frame.
+    ///
+    /// 8. **Phase 28: Peek is wired here, and this is a DEVIATION from
+    ///    source's reachability — deliberately.** Same situation as Stack
+    ///    (see StackController porting note 9, which carries the full
+    ///    reasoning). Godot defines `handle_queue_peek()` at
+    ///    ar_learning_screen.gd:6433 — complete, with a `queue[0]` code
+    ///    sample, explanation, empty-queue branch and logging under the name
+    ///    "Peek" — and it has **no callers anywhere**.
+    ///    `configure_buttons_for_current_module()`'s Queue branch wires only
+    ///    Enqueue, Dequeue, Search, Traverse, Reset and Quiz.
+    ///
+    ///    Queue's version is deader still: `queue_module.gd`'s own
+    ///    `peek_front()` is **commented out entirely**, so source's live
+    ///    handler calls `highlight_front()` instead. Unity's
+    ///    QueueModule.PeekValue()/HighlightPeek() were ported anyway and
+    ///    marked "parity only" (see that class's note 7); this phase gives
+    ///    HighlightPeek() its first caller.
+    ///
+    ///    Forced by the Phase 28 quiz audit: Queue Q8 ("What does peek do in
+    ///    a queue?") tested an operation no student could perform. The
+    ///    project owner chose to wire the operation rather than drop the
+    ///    question.
     /// </summary>
     public class QueueController : MonoBehaviour, IModuleController
     {
@@ -86,6 +108,11 @@ namespace MartProg.Modules
         [SerializeField] private TMP_InputField valueInput;
         [SerializeField] private Button enqueueButton;
         [SerializeField] private Button dequeueButton;
+        [Tooltip("Phase 28: NEW. Godot defines a complete handle_queue_peek() " +
+                 "but never calls it, so Peek was unreachable in both builds " +
+                 "while a quiz question tested it. Wired here rather than " +
+                 "dropping the question — see porting note 8.")]
+        [SerializeField] private Button peekButton;
         [SerializeField] private Button searchButton;
         [SerializeField] private Button traverseButton;
         [SerializeField] private Button resetButton;
@@ -176,12 +203,36 @@ namespace MartProg.Modules
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();
+        
+            // Phase 27 regression fix — the responsive button grid is sized
+            // HERE as well as in InitializeDeferred().
+            //
+            // Phase 27 made ChangeModuleController disable every module at
+            // Start() so the app can boot to the selector. Unity's script
+            // execution order between two components' Start() methods is
+            // undefined, so this controller's Start() sometimes runs FIRST,
+            // launching InitializeDeferred() — and then the GameObject is
+            // disabled a moment later, which halts the coroutine before its
+            // `yield return null` resumes. ApplyResponsiveButtonLayout()
+            // never runs. When the student later picks this module the object
+            // is re-enabled, but Start() does not run a second time, so the
+            // coroutine never restarts and the grid keeps its prefab cell
+            // size — narrow buttons, reported on Array/List while Stack and
+            // Memory looked correct purely because their Start() happened to
+            // run after they were already disabled.
+            //
+            // EnterModule() is called on every entry by ChangeModuleController,
+            // so applying it here is reliable regardless of that ordering.
+            // The call is idempotent, so the deferred one doing it too is
+            // harmless.
+            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()
         {
             if (enqueueButton != null) enqueueButton.onClick.AddListener(OnEnqueueClicked);
             if (dequeueButton != null) dequeueButton.onClick.AddListener(OnDequeueClicked);
+            if (peekButton != null) peekButton.onClick.AddListener(OnPeekClicked);
             if (searchButton != null) searchButton.onClick.AddListener(OnSearchClicked);
             if (traverseButton != null) traverseButton.onClick.AddListener(OnTraverseClicked);
             if (resetButton != null) resetButton.onClick.AddListener(OnResetClicked);
@@ -237,6 +288,7 @@ namespace MartProg.Modules
             int count = 0;
             if (enqueueButton != null) count++;
             if (dequeueButton != null) count++;
+            if (peekButton != null) count++;
             if (searchButton != null) count++;
             if (traverseButton != null) count++;
             if (resetButton != null) count++;
@@ -350,7 +402,62 @@ namespace MartProg.Modules
                 SetOperationExplanation(
                     "Dequeue failed. The queue is empty.",
                     "Dequeue cannot remove a value because there are no values currently stored in the queue.");
-                LogEvent("Queue Dequeue", "", "Failed", "Queue is empty");
+                // Phase 27b: port of handle_queue_dequeue()'s own failure
+                // path, not the button handler's — delegated handler's name
+                // and details. Was "Queue Dequeue" / "Queue is empty".
+                LogEvent("Dequeue", "", "Failed", "Queue was empty");
+            }
+
+            RefreshStatusAndProgress();
+        }
+
+        // ---------------------------------------------------------------
+        // Peek — Phase 28. See porting note 8.
+        // ---------------------------------------------------------------
+
+        public void OnPeekClicked()
+        {
+            if (isBusy || queueModule == null) return;
+            StartCoroutine(HandlePeek());
+        }
+
+        /// <summary>
+        /// Godot: handle_queue_peek() (ar_learning_screen.gd:6433), ported
+        /// line for line. Complete in source and never called — see porting
+        /// note 8. Phase 28 wires it.
+        ///
+        /// Event name is a bare "Peek" — the same name Stack's Peek uses,
+        /// because source logs both from their delegated handlers with no
+        /// module prefix. That is source's own inconsistency (contrast
+        /// "Queue Dequeue" vs "Dequeue" above) and is preserved. Analysis of
+        /// the research CSV therefore needs the Module column, not the Action
+        /// column, to tell a Stack peek from a Queue peek.
+        /// </summary>
+        private IEnumerator HandlePeek()
+        {
+            SetBusy(true);
+
+            int? frontValue = null;
+            yield return StartCoroutine(queueModule.HighlightPeek(result => frontValue = result));
+
+            SetBusy(false);
+
+            if (frontValue.HasValue)
+            {
+                // Explanation text is source's verbatim; the Operation line
+                // drops source's "Peek: " prefix per the Phase 26b dashboard
+                // contract and follows the house phrasing used by Dequeue.
+                SetOperationExplanation(
+                    $"Peeked the front of the queue: {frontValue.Value}. Peek does not remove it.",
+                    "queue[0] reads the first value in the Python list. It views the front value without removing it.");
+                LogEvent("Peek", frontValue.Value.ToString(), "Success", "Viewed front queue value");
+            }
+            else
+            {
+                SetOperationExplanation(
+                    "Peek failed. The queue is empty.",
+                    "queue[0] cannot be used when the queue is empty because there is no front value.");
+                LogEvent("Peek", "", "Failed", "Queue was empty");
             }
 
             RefreshStatusAndProgress();

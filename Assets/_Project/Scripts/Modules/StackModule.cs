@@ -352,16 +352,18 @@ public class StackModule : MonoBehaviour
         onComplete?.Invoke(removedValue);
     }
 
-    // Godot: func peek_value() — not wired to any button in the original
-    // app (see Migration Spec §11); ported for parity only.
+    // Godot: func peek_value() — was not wired to any button in the
+    // original app (see Migration Spec §11), so this was ported for parity
+    // only. **Phase 28 changed that:** StackController now has a Peek button
+    // that calls HighlightPeek() below. See StackController porting note 9.
     public int? PeekValue()
     {
         if (values.Count == 0) return null;
         return values[values.Count - 1];
     }
 
-    // Godot: func highlight_peek() — same "not wired to a button" note as
-    // PeekValue(); ported for parity only.
+    // Godot: func highlight_peek() — dead in source alongside PeekValue().
+    // Phase 28 gave it its first caller: StackController.HandlePeek().
     public IEnumerator HighlightPeek(Action<int?> onComplete)
     {
         if (isAnimating || values.Count == 0)
@@ -385,10 +387,28 @@ public class StackModule : MonoBehaviour
 
         Transform topTransform = currentTopCell.transform;
         Vector3 originalScale = topTransform.localScale;
+        ArrayCell cellScript = currentTopCell.GetComponent<ArrayCell>();
+
+        // DEVIATION from source, at the project owner's request (Phase 28b).
+        // Godot's highlight_peek() only scales the top cell — no colour change
+        // at all. On device the scale pulse alone was not enough to say WHICH
+        // cell was peeked, so the peeked cell is now tinted green for the
+        // duration of the animation and restored afterwards.
+        //
+        // The green is deliberately the SAME literal this module already uses
+        // to mean "found" at the end of SearchValue() — Color(0.1, 0.85, 0.25)
+        // — rather than a new shade. Both modules and ArrayModule use it, and
+        // in Godot too, so "green = this is the cell you asked about" stays
+        // one idea across the app instead of becoming three similar greens.
+        SetCellColor(currentTopCell, new Color(0.1f, 0.85f, 0.25f, 1.0f));
+        cellScript?.SetValueLabelColor(Color.white);
 
         yield return StartCoroutine(ScaleTo(topTransform, originalScale * 1.25f, 0.2f, true));
         yield return new WaitForSeconds(0.25f);
         yield return StartCoroutine(ScaleTo(topTransform, originalScale, 0.2f, false));
+
+        RestoreCellColor(currentTopCell);
+        cellScript?.ResetValueLabelColor();
 
         isAnimating = false;
 

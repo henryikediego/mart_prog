@@ -575,11 +575,17 @@ namespace MartProg.Quiz
         {
             string moduleKey = CurrentModuleKey();
 
-            quizQuestions = QuizQuestionBank.GetQuestionsForModule(moduleKey, CurrentSelectionMode());
+            string subMode = CurrentSubMode();
+
+            quizQuestions = QuizQuestionBank.GetQuestionsForModule(moduleKey, subMode);
 
             if (quizTitleLabel != null)
             {
-                quizTitleLabel.text = QuizQuestionBank.GetDisplayName(moduleKey) + " Mini Quiz";
+                // Memory titles its quiz with the ACTIVITY name, matching
+                // source's `current_memory_activity + " Mini Quiz"`. Every
+                // other module uses its own display name.
+                quizTitleLabel.text =
+                    QuizQuestionBank.GetDisplayName(moduleKey, subMode) + " Mini Quiz";
             }
 
             if (quizQuestions.Count == 0)
@@ -669,17 +675,47 @@ namespace MartProg.Quiz
         // fall through to source's unfiltered behaviour.
         private SelectionController cachedSelectionController;
 
-        private string CurrentSelectionMode()
-        {
-            if (CurrentModuleKey() != "Selection") return "";
+        // Phase 26e: the Memory module's progress tracker counts the quiz as
+        // its fourteenth and final step. See ShowQuizResult().
+        private MemoryController cachedMemoryController;
 
-            if (cachedSelectionController == null)
+        /// Generalised in Phase 26f. Selection and Memory are the project's
+        /// two sub-mode modules, and both need their quiz keyed by the
+        /// sub-mode the student is actually in — Selection by mode, Memory by
+        /// activity. One accessor serves both, so QuizQuestionBank takes a
+        /// single `subMode` parameter rather than one per module.
+        ///
+        /// Returns "" for every other module, which is what keeps the six
+        /// banks with no sub-modes on the unfiltered path.
+        private string CurrentSubMode()
+        {
+            string moduleKey = CurrentModuleKey();
+
+            if (moduleKey == "Selection")
             {
-                cachedSelectionController =
-                    FindFirstObjectByType<SelectionController>(FindObjectsInactive.Include);
+                if (cachedSelectionController == null)
+                {
+                    cachedSelectionController =
+                        FindFirstObjectByType<SelectionController>(FindObjectsInactive.Include);
+                }
+
+                return cachedSelectionController != null
+                    ? cachedSelectionController.CurrentMode : "";
             }
 
-            return cachedSelectionController != null ? cachedSelectionController.CurrentMode : "";
+            if (moduleKey == "Memory")
+            {
+                if (cachedMemoryController == null)
+                {
+                    cachedMemoryController =
+                        FindFirstObjectByType<MemoryController>(FindObjectsInactive.Include);
+                }
+
+                return cachedMemoryController != null
+                    ? cachedMemoryController.CurrentActivity : "";
+            }
+
+            return "";
         }
 
         // Godot: clean_quiz_question_text() — see porting note 8 above.
@@ -975,7 +1011,7 @@ namespace MartProg.Quiz
             UseQuizResultLayout();
 
             string moduleDisplayName = QuizQuestionBank.GetDisplayName(CurrentModuleKey());
-            bool isMemory = CurrentModuleKey() == "Memory"; // unreachable today — see porting note 2/8
+            bool isMemory = CurrentModuleKey() == "Memory";
 
             string quizCompletedTitle = isMemory ? "Quiz Completed" : moduleDisplayName + " Quiz Completed";
 
@@ -990,9 +1026,34 @@ namespace MartProg.Quiz
                 quizProgressBar.value = quizScore;
             }
 
-            // Godot's Memory branch here calls mark_memory_activity_completed()
-            // + update_memory_status_label() — deferred along with the rest
-            // of Memory (see porting note 2), not reachable today.
+            // Godot: show_quiz_result()'s Memory branch —
+            //
+            //     if current_module == "Memory":
+            //         mark_memory_activity_completed("Quiz", "Quiz score: ...")
+            //         update_memory_status_label()
+            //
+            // Wired in Phase 26e, after the user asked why the Memory
+            // progress line reads "Next: Quiz" once Final Assessment is done.
+            // It does so because "Quiz" is the fourteenth and final entry of
+            // get_memory_activity_order() — the guided sequence deliberately
+            // ends with the quiz, not with the assessment. Nothing else can
+            // mark that entry, so without this call Memory's tracker would
+            // sit at 13 of 14 forever.
+            //
+            // Resolved lazily and cached, the same way CurrentSubMode()
+            // resolves its controllers and for the same reasons: no
+            // Inspector slot to leave unassigned, and FindObjectsInactive
+            // .Include because the module root can be inactive.
+            if (isMemory)
+            {
+                if (cachedMemoryController == null)
+                {
+                    cachedMemoryController =
+                        FindFirstObjectByType<MemoryController>(FindObjectsInactive.Include);
+                }
+
+                cachedMemoryController?.MarkQuizCompleted(quizScore, quizQuestions.Count);
+            }
 
             StringBuilder resultMessage = new StringBuilder();
             resultMessage.Append("You scored ").Append(quizScore).Append(" out of ")

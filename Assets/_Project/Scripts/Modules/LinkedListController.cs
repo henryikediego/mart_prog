@@ -223,6 +223,29 @@ namespace MartProg.Modules
             RebuildDashboardLayout();
 
             RefreshProgress();
+        
+            // Phase 27 regression fix — the responsive button grid is sized
+            // HERE as well as in InitializeDeferred().
+            //
+            // Phase 27 made ChangeModuleController disable every module at
+            // Start() so the app can boot to the selector. Unity's script
+            // execution order between two components' Start() methods is
+            // undefined, so this controller's Start() sometimes runs FIRST,
+            // launching InitializeDeferred() — and then the GameObject is
+            // disabled a moment later, which halts the coroutine before its
+            // `yield return null` resumes. ApplyResponsiveButtonLayout()
+            // never runs. When the student later picks this module the object
+            // is re-enabled, but Start() does not run a second time, so the
+            // coroutine never restarts and the grid keeps its prefab cell
+            // size — narrow buttons, reported on Array/List while Stack and
+            // Memory looked correct purely because their Start() happened to
+            // run after they were already disabled.
+            //
+            // EnterModule() is called on every entry by ChangeModuleController,
+            // so applying it here is reliable regardless of that ordering.
+            // The call is idempotent, so the deferred one doing it too is
+            // harmless.
+            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()

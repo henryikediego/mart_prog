@@ -51,6 +51,15 @@ using UnityEngine;
 //    EnterModule() and only filled it after the first operation; both now
 //    populate it on entry.
 //
+// A PANEL NEVER REPEATS ANOTHER PANEL. Godot stacks all six strings in one
+// label, so it happily builds a block that includes text already shown
+// above it — there is no "above it". Unity's panels are separate and
+// headed, so the same composition prints the sentence twice. Anything that
+// assembles one panel's text must therefore EXCLUDE what another panel
+// already owns. MemoryController.GetModeDetailsBlock() is where this bit:
+// it ported Godot's habit of leading the Operation block with the
+// explanation text, which the Explanation panel was already displaying.
+//
 // A NOTE ON WHICH PANEL CHANGES WHEN. Summary is constant for a module.
 // Instruction changes with the mode/activity. Explanation changes with the
 // mode/activity AND with the last action. Operation changes with every

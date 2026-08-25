@@ -57,6 +57,41 @@ namespace MartProg.Modules
     ///    ArrayListController — see its porting note 7 and Migration Spec
     ///    §8f. Lets ChangeModuleController.cs reset + refresh Stack on every
     ///    switch into it, not just the scene's first frame.
+    ///
+    /// 9. **Phase 28: Peek is wired here, and this is a DEVIATION from
+    ///    source's reachability — deliberately.** Godot defines
+    ///    `handle_stack_peek()` at ar_learning_screen.gd:6068. It is
+    ///    complete: highlight animation, `stack[-1]` code sample, explanation
+    ///    text, dashboard feedback, an empty-stack branch, and research
+    ///    logging under the name "Peek". It also has **no callers anywhere in
+    ///    the 11,925-line script**, and
+    ///    `configure_buttons_for_current_module()`'s Stack branch wires only
+    ///    Push, Pop, Search, Traverse, Reset and Quiz. So Peek was dead in
+    ///    Godot and, ported faithfully, stayed dead in Unity —
+    ///    StackModule.PeekValue() and HighlightPeek() were both carried over
+    ///    and marked "ported for parity only".
+    ///
+    ///    The Phase 28 quiz audit is what forced the decision: **two of the
+    ///    Stack bank's ten questions key on Peek** ("What does peek do in a
+    ///    stack?" and "Which operation should be used to check the top value
+    ///    without deleting it?"). Whoever wrote that bank assumed Peek was
+    ///    reachable. The choice was to delete the questions or to wire the
+    ///    operation, and the project owner chose to wire it: Peek is the
+    ///    third canonical stack operation, taught beside push and pop
+    ///    everywhere, so its absence was a gap in what the app teaches rather
+    ///    than a scoping decision anyone had made on purpose.
+    ///
+    ///    Precedent: Phase 26e revived `handle_memory_step()` on the same
+    ///    reasoning — a complete exercise whose only defect was that nothing
+    ///    called it. This closes the last of the three dead handlers found in
+    ///    the Phase 27b log audit (the other two, `handle_function_call()`
+    ///    and `handle_function_set_inputs()`, stay dead because live buttons
+    ///    already cover what they do).
+    ///
+    ///    Consequences to know about: the button grid goes from 6 to 7, and
+    ///    the "Peek" research-log event name — Godot-only and never actually
+    ///    emitted by either build until now — becomes live in Unity. A Godot
+    ///    export will still contain no Peek rows.
     /// </summary>
     public class StackController : MonoBehaviour, IModuleController
     {
@@ -68,6 +103,11 @@ namespace MartProg.Modules
         [SerializeField] private TMP_InputField valueInput;
         [SerializeField] private Button pushButton;
         [SerializeField] private Button popButton;
+        [Tooltip("Phase 28: NEW. Godot defines a complete handle_stack_peek() " +
+                 "but never calls it, so Peek was unreachable in both builds " +
+                 "while two quiz questions tested it. Wired here rather than " +
+                 "dropping the questions — see porting note 9.")]
+        [SerializeField] private Button peekButton;
         [SerializeField] private Button searchButton;
         [SerializeField] private Button traverseButton;
         [SerializeField] private Button resetButton;
@@ -161,12 +201,36 @@ namespace MartProg.Modules
             RebuildDashboardLayout();
 
             RefreshStatusAndProgress();
+        
+            // Phase 27 regression fix — the responsive button grid is sized
+            // HERE as well as in InitializeDeferred().
+            //
+            // Phase 27 made ChangeModuleController disable every module at
+            // Start() so the app can boot to the selector. Unity's script
+            // execution order between two components' Start() methods is
+            // undefined, so this controller's Start() sometimes runs FIRST,
+            // launching InitializeDeferred() — and then the GameObject is
+            // disabled a moment later, which halts the coroutine before its
+            // `yield return null` resumes. ApplyResponsiveButtonLayout()
+            // never runs. When the student later picks this module the object
+            // is re-enabled, but Start() does not run a second time, so the
+            // coroutine never restarts and the grid keeps its prefab cell
+            // size — narrow buttons, reported on Array/List while Stack and
+            // Memory looked correct purely because their Start() happened to
+            // run after they were already disabled.
+            //
+            // EnterModule() is called on every entry by ChangeModuleController,
+            // so applying it here is reliable regardless of that ordering.
+            // The call is idempotent, so the deferred one doing it too is
+            // harmless.
+            ApplyResponsiveButtonLayout();
         }
 
         private void WireButtons()
         {
             if (pushButton != null) pushButton.onClick.AddListener(OnPushClicked);
             if (popButton != null) popButton.onClick.AddListener(OnPopClicked);
+            if (peekButton != null) peekButton.onClick.AddListener(OnPeekClicked);
             if (searchButton != null) searchButton.onClick.AddListener(OnSearchClicked);
             if (traverseButton != null) traverseButton.onClick.AddListener(OnTraverseClicked);
             if (resetButton != null) resetButton.onClick.AddListener(OnResetClicked);
@@ -225,6 +289,7 @@ namespace MartProg.Modules
             int count = 0;
             if (pushButton != null) count++;
             if (popButton != null) count++;
+            if (peekButton != null) count++;
             if (searchButton != null) count++;
             if (traverseButton != null) count++;
             if (resetButton != null) count++;
@@ -351,7 +416,66 @@ namespace MartProg.Modules
                 SetOperationExplanation(
                     "Pop failed. The stack is empty.",
                     "There is nothing to pop.");
-                LogEvent("Stack Pop", "", "Failed", "Stack is empty");
+                // Phase 27b: this branch is the port of handle_stack_pop()'s
+                // own failure path, NOT the button handler's — so it takes
+                // the delegated handler's name and details, exactly as the
+                // success row above does. Was "Stack Pop" / "Stack is empty".
+                LogEvent("Pop", "", "Failed", "Stack was empty or unavailable");
+            }
+
+            RefreshStatusAndProgress();
+        }
+
+        // ---------------------------------------------------------------
+        // Peek — Phase 28. See porting note 9.
+        // ---------------------------------------------------------------
+
+        public void OnPeekClicked()
+        {
+            if (isBusy || stackModule == null) return;
+            StartCoroutine(HandlePeek());
+        }
+
+        /// <summary>
+        /// Godot: handle_stack_peek() (ar_learning_screen.gd:6068), ported
+        /// line for line. That function is complete in source — animation,
+        /// code sample, explanation, empty-case handling and research logging
+        /// — and has NO callers anywhere in the 11,925-line script, so Peek
+        /// was unreachable in Godot and stayed unreachable through the port.
+        /// Phase 28 wires it. Porting note 9.
+        ///
+        /// Note the event name is a bare "Peek", not "Stack Peek": source
+        /// logs it from the delegated handler, and there is no button-handler
+        /// wrapper to carry a prefixed name. Consistent with the Phase 27b
+        /// contract (Migration Spec §8o) — a log call takes the name of the
+        /// function it lives in.
+        /// </summary>
+        private IEnumerator HandlePeek()
+        {
+            SetBusy(true);
+
+            int? topValue = null;
+            yield return StartCoroutine(stackModule.HighlightPeek(result => topValue = result));
+
+            SetBusy(false);
+
+            if (topValue.HasValue)
+            {
+                // Explanation text is source's verbatim; the Operation line
+                // drops source's "Peek: " prefix per the Phase 26b dashboard
+                // contract (the panel heading already says Operation) and
+                // follows the house phrasing used by Pop and Push above.
+                SetOperationExplanation(
+                    $"Peeked the top of the stack: {topValue.Value}. Peek does not remove the value.",
+                    "stack[-1] reads the last value in the Python list. It views the top value without removing it.");
+                LogEvent("Peek", topValue.Value.ToString(), "Success", "Viewed top stack value");
+            }
+            else
+            {
+                SetOperationExplanation(
+                    "Peek failed. The stack is empty.",
+                    "stack[-1] cannot be used when the stack is empty because there is no top value.");
+                LogEvent("Peek", "", "Failed", "Stack was empty");
             }
 
             RefreshStatusAndProgress();
