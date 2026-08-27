@@ -23,6 +23,18 @@ namespace MartProg.Menu
     /// the sequencing §5 argued for after three Safe Mode incidents made
     /// "one screen at a time" the rule.
     ///
+    /// **Phase 39: a third button, Feedback.** Deliberately reopens the
+    /// two-button scope above — reasonably, since Feedback was one of the
+    /// four items excluded for having open design questions, and
+    /// Backlog §6.6 answers both. Kept visually the quietest of the three
+    /// (a faint `#242424` fill, barely a step up from the background, dim
+    /// text) so it doesn't compete with Start Learning or read as equal in
+    /// weight to About. First built fully transparent — corrected after
+    /// seeing it on screen, where no fill at all read as loose caption text
+    /// rather than a button; see Stage 39 doc §5. See FeedbackController's
+    /// own class comment for why Feedback lives here rather than behind
+    /// Help.
+    ///
     /// **NOT A PORT.** Godot's `main_menu.gd` in full is a student ID field, a
     /// dead programming-language dropdown, and a Start button that changes
     /// scene. There is no landing page, no About, no navigation. Every
@@ -70,9 +82,15 @@ namespace MartProg.Menu
                  "deleted from the scene.")]
         [SerializeField] private Button aboutButton;
 
+        [Tooltip("Opens the Feedback screen (Phase 39). Third and visually " +
+                 "quietest of the Landing Page's buttons — a faint #242424 " +
+                 "fill, dim text. See Stage 39 doc §5 for the exact styling.")]
+        [SerializeField] private Button feedbackButton;
+
         [Header("Wiring")]
         [SerializeField] private ChangeModuleController changeModuleController;
         [SerializeField] private AboutController aboutController;
+        [SerializeField] private FeedbackController feedbackController;
 
         [Header("Optional")]
         [Tooltip("Optional. Shows \"Signed in as s1c\" when an ID is registered on " +
@@ -121,6 +139,9 @@ namespace MartProg.Menu
 
             if (aboutButton != null)
                 aboutButton.onClick.AddListener(OnAboutClicked);
+
+            if (feedbackButton != null)
+                feedbackButton.onClick.AddListener(OnFeedbackClicked);
         }
 
         public void Show()
@@ -159,6 +180,14 @@ namespace MartProg.Menu
             // button returns here with no state to restore. See
             // AboutController's class comment.
             if (aboutController != null) aboutController.Show();
+        }
+
+        public void OnFeedbackClicked()
+        {
+            // Same draws-on-top, hides-nothing pattern as About — see
+            // FeedbackController's class comment. Its own Show() decides
+            // whether to present the form or the no-ID message.
+            if (feedbackController != null) feedbackController.Show();
         }
 
         private void RefreshSignedInLabel()
