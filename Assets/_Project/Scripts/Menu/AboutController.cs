@@ -83,11 +83,16 @@ namespace MartProg.Menu
                  "a half-height gap, <alpha=#CC> for body text. Change them here if " +
                  "you change them there, so this block doesn't become the one that " +
                  "looks different.\n\n" +
+                 "NOTE <alpha> has NO closing tag in TextMeshPro — it is a state " +
+                 "setter, so </alpha> is not a tag and TMP prints it literally. " +
+                 "Restore full brightness with <alpha=#FF>, or just let the block " +
+                 "end; alpha resets at the start of every text object.\n\n" +
                  "To show the bare number instead, delete the second 'Version ' " +
                  "so the last line reads just {0}.")]
         [SerializeField]
         private string versionFormat =
-            "<size=118%><b>Version</b></size>\n<size=45%>\n</size><alpha=#CC>Version {0}";
+            "<size=118%><b><color=#8AB4F8>Version</color></b></size>\n" +
+            "<size=45%>\n</size><alpha=#CC>Version {0}";
 
         [Tooltip("Optional. The About panel's Scroll Rect (the ScrollView object). " +
                  "If assigned, the panel reopens scrolled back to the top rather " +
@@ -96,11 +101,21 @@ namespace MartProg.Menu
                  "and harmless, just untidy.")]
         [SerializeField] private ScrollRect contentScroll;
 
+        private void Awake()
+        {
+            // Hidden by default, in Awake() rather than Start() — Unity runs
+            // every Awake() before any Start(), so no other script's Start()
+            // can be racing this one to decide what is visible at boot.
+            // Moved here in Phase 38 after the equivalent line on the Landing
+            // Page turned out to be order-dependent; About was never actually
+            // bitten, but the two screens should not differ in something this
+            // easy to get wrong.
+            if (aboutPanel != null) aboutPanel.SetActive(false);
+        }
+
         private void Start()
         {
             if (backButton != null) backButton.onClick.AddListener(Hide);
-
-            if (aboutPanel != null) aboutPanel.SetActive(false);
         }
 
         /// <summary>

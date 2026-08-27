@@ -142,12 +142,37 @@ namespace MartProg.Core
     ///    fine while the buttons were dead. Both loops now toggle all three
     ///    references together.
     ///
-    /// 9. **Phase 37: a TEMPORARY "About" button was added to this same
-    ///    ModuleSelectorPanel**, since it's still the app's real first screen
-    ///    and there is no Landing Page yet. See AboutController.cs and the
-    ///    Phase 37 stage doc — this is a placeholder entry point, not a
-    ///    permanent feature of the selector itself, and should come back out
-    ///    once the Landing Page shell exists.
+    /// 9. **Phase 38: this panel is no longer the app's first screen.** The
+    ///    Landing Page is. Godot has nothing equivalent — `main_menu.gd` is a
+    ///    student ID field, a dead language dropdown and a Start button, and
+    ///    `student_panel` was always the first thing a participant saw. So
+    ///    this is new behaviour rather than a closer port, and it is the point
+    ///    where this screen stops being a direct translation of source.
+    ///
+    ///    What did NOT change: everything this panel does once open, and the
+    ///    hiding of the module world at boot (now `HideModuleWorld()`, still
+    ///    the honest port of `_ready()`). Only what appears on top of it.
+    ///
+    ///    Phase 37's temporary About button on this panel is gone with it —
+    ///    that was always a placeholder for exactly this.
+    ///
+    ///    **The fallback is deliberate:** leave `landingPage` unassigned and
+    ///    the app boots straight here again, exactly as it did from Phase 27
+    ///    to Phase 37. The Godot-matching boot path is one Inspector field
+    ///    away, not deleted.
+    ///
+    /// 10. **DEVIATION — an optional Back button on this panel.** Porting
+    ///    note 3 records that source has no Cancel/Back: the only way out of
+    ///    `student_panel` is confirming a selection. That was reasonable while
+    ///    this panel WAS the first screen — there was nowhere behind it to go.
+    ///    With a Landing Page in front, the same absence becomes a dead end:
+    ///    a student who opens module choice and wants to read About instead
+    ///    would have no way back.
+    ///
+    ///    So `selectorBackButton` exists, and is optional. Leave it unassigned
+    ///    to keep source behaviour exactly. The deviation is in reachability,
+    ///    not in what the panel does — the same category as Phase 28 wiring up
+    ///    Peek.
     /// </summary>
     public class ChangeModuleController : MonoBehaviour
     {
@@ -339,7 +364,14 @@ namespace MartProg.Core
         private float idPressStartedAt = -1f;
         private float idReleaseArmedUntil = -1f;
 
-        private static string RegisteredStudentId =>
+        /// <summary>
+        /// The ID registered on this device, or "" if none. Public as of
+        /// Phase 38 so the Landing Page can greet a returning participant
+        /// without duplicating the PlayerPrefs key — one place owns that
+        /// string, and a second copy of it is exactly how two screens end up
+        /// disagreeing about who is signed in.
+        /// </summary>
+        public static string RegisteredStudentId =>
             PlayerPrefs.GetString(StudentIdPrefKey, "");
 
         private bool IsStudentIdLocked =>
@@ -480,24 +512,38 @@ namespace MartProg.Core
         [Header("Module Groups (order MUST match the dropdown — 8 entries; 5 may be unbuilt)")]
         [SerializeField] private List<ModuleGroupEntry> moduleGroups = new List<ModuleGroupEntry>();
 
-        [Header("Phase 37 — About (TEMPORARY entry point)")]
-        [Tooltip("TEMPORARY. A button added directly to ModuleSelectorPanel, not part " +
-                 "of the Godot source, since this panel is currently the app's real " +
-                 "first screen and there is no Landing Page yet. Moves to the Landing " +
-                 "Page's own About button once that's built (Backlog §5/§7 item 3) — " +
-                 "this field should be left unassigned at that point, not kept as a " +
-                 "second way in. See AboutController's class comment.")]
-        [SerializeField] private Button aboutButton;
+        // Phase 37's TEMPORARY About button on this panel is GONE as of Phase
+        // 38 — the Landing Page owns that entry point now, which was always
+        // the plan (Backlog §5/§7 item 3). The `aboutButton` / `aboutController`
+        // fields that carried it have been removed rather than left unassigned,
+        // so nothing suggests there is a second way in. The AboutButton
+        // GameObject on ModuleSelectorPanel should be deleted from the scene
+        // too — see the Phase 38 stage doc.
 
-        [SerializeField] private AboutController aboutController;
+        [Header("Phase 38 — Landing Page")]
+        [Tooltip("The Landing Page, which owns the app's first screen as of Phase 38.\n\n" +
+                 "ASSIGNED: this controller hides everything at boot and lets the " +
+                 "Landing Page show itself; Start Learning then calls back into " +
+                 "OpenSelectorFromLanding().\n\n" +
+                 "EMPTY: the app boots straight to this selector exactly as it did " +
+                 "from Phase 27 to Phase 37. That fallback is deliberate — it keeps " +
+                 "the Godot-matching boot path one Inspector field away, rather than " +
+                 "deleted.")]
+        [SerializeField] private LandingPageController landingPage;
+
+        [Tooltip("Optional. A Back button on ModuleSelectorPanel, returning to the " +
+                 "Landing Page. DEVIATION from source — see porting note 10. Leave " +
+                 "empty if you want the Godot behaviour of no way out of this panel " +
+                 "except confirming a module.")]
+        [SerializeField] private Button selectorBackButton;
 
         private void Start()
         {
             if (changeModuleButton != null)
                 changeModuleButton.onClick.AddListener(OnChangeModuleClicked);
 
-            if (aboutButton != null && aboutController != null)
-                aboutButton.onClick.AddListener(aboutController.Show);
+            if (selectorBackButton != null)
+                selectorBackButton.onClick.AddListener(OnSelectorBackClicked);
 
             // Phase 29 (F11): nothing in the project was wired to onSubmit,
             // so a student who typed their ID and pressed Enter/Done saw the
@@ -526,7 +572,7 @@ namespace MartProg.Core
 
             PopulateDropdown();
 
-            // Phase 27: the app now BOOTS to this selector, matching Godot's
+            // Phase 27: the app BOOTS to this selector, matching Godot's
             // _ready() —
             //
             //     student_panel.visible = true
@@ -534,22 +580,45 @@ namespace MartProg.Core
             //     quiz_panel.visible = false
             //     ar_world.visible = false
             //
-            // Until now Unity started inside whichever module was left
+            // Before that, Unity started inside whichever module was left
             // enabled in the Hierarchy (Migration Spec §5's single-active-
             // module convention), which is why no Student ID was ever asked
             // for. Everything is hidden here instead, in code, so the scene's
             // enabled/disabled state at edit time no longer decides where the
             // app opens.
-            ShowSelector(logEvent: false);
+            //
+            // Phase 38 puts the Landing Page in front of it. The module world
+            // is still hidden here — that part is unchanged and still matches
+            // _ready() — but the SELECTOR is no longer what appears. Godot has
+            // no landing page at all, so this is new behaviour, not a port
+            // (see the class comment's porting note 9).
+            //
+            // Driven from here rather than from LandingPageController.Start()
+            // deliberately: Unity does not guarantee Start() ordering between
+            // two MonoBehaviours in the same frame, and "which screen does the
+            // app open on" must not depend on that. One script decides, and it
+            // is the one that already owned the decision.
+            if (landingPage != null)
+            {
+                HideModuleWorld();
+                if (moduleSelectorPanel != null) moduleSelectorPanel.SetActive(false);
+                landingPage.Show();
+            }
+            else
+            {
+                ShowSelector(logEvent: false);
+            }
         }
 
         /// <summary>
-        /// Godot: the shared body of _ready() and
-        /// _on_change_module_button_pressed() — hide the module world, show
-        /// the panel, clear the error label. Only the log event differs, so
-        /// that is the parameter.
+        /// Phase 38: the hiding half of ShowSelector(), split out so the
+        /// Landing Page can put the app into "nothing running" state at boot
+        /// without also opening the selector.
+        ///
+        /// This is the part that genuinely ports Godot's _ready() — main_ui
+        /// and ar_world hidden. What varies is only what gets shown on top.
         /// </summary>
-        private void ShowSelector(bool logEvent)
+        private void HideModuleWorld()
         {
             foreach (ModuleGroupEntry entry in moduleGroups)
             {
@@ -560,6 +629,51 @@ namespace MartProg.Core
 
             if (dashboardRoot != null) dashboardRoot.SetActive(false);
             if (adminRow != null) adminRow.SetActive(false);
+        }
+
+        /// <summary>
+        /// Phase 38: entry from the Landing Page's Start Learning button.
+        ///
+        /// Does NOT log. Godot's boot into student_panel logs nothing either,
+        /// and this is the same moment — the student arriving at module choice
+        /// for the first time, not returning to it. The "Change Module" row is
+        /// reserved for an actual mid-session return, so that a count of those
+        /// rows still means what it has always meant.
+        /// </summary>
+        public void OpenSelectorFromLanding()
+        {
+            ShowSelector(logEvent: false);
+        }
+
+        /// <summary>
+        /// Phase 38: Back from the selector to the Landing Page.
+        ///
+        /// See porting note 10 — this button does not exist in source, and is
+        /// optional here.
+        /// </summary>
+        public void OnSelectorBackClicked()
+        {
+            if (landingPage == null) return;
+
+            if (moduleSelectorPanel != null) moduleSelectorPanel.SetActive(false);
+            landingPage.Show();
+        }
+
+        /// <summary>
+        /// Godot: the shared body of _ready() and
+        /// _on_change_module_button_pressed() — hide the module world, show
+        /// the panel, clear the error label. Only the log event differs, so
+        /// that is the parameter.
+        /// </summary>
+        private void ShowSelector(bool logEvent)
+        {
+            HideModuleWorld();
+
+            // Phase 38: the Landing Page must go away when the selector opens,
+            // including on the Change Module path mid-session — otherwise it
+            // would still be sitting on top of the selector.
+            if (landingPage != null) landingPage.Hide();
+
             if (messageLabel != null)
             {
                 // Phase 35: a greyed-out field with someone's ID already in it
