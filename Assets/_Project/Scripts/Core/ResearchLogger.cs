@@ -40,10 +40,32 @@ public class ResearchLogger : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Phase 36 — second DEVIATION from source's CSV schema, at the
+    /// researcher's request (Backlog_Landing_Page_And_Navigation.md §4.1).
+    /// Godot has no equivalent column at all; nothing in either build has
+    /// ever recorded which build wrote a given row.
+    ///
+    /// Reads Unity's own Application.version, which is Player Settings →
+    /// Version (Editor-only, not settable from code — see the Phase 36 stage
+    /// doc for the exact steps). Every row stamps it directly rather than
+    /// only a session-start row, on the reasoning that "which rows came from
+    /// which build" is exactly the question this column exists to answer,
+    /// and a direct per-row value answers it without a join back to a
+    /// session-start row by SessionId.
+    /// </summary>
+    public string Version => Application.version;
+
     // Phase 34: Group inserted after StudentID, where a reader expects it.
-    // NOTE this shifts every later column's index by one relative to the
-    // Godot build's CSV — see Migration Spec §8o.
-    private const string CsvHeader = "Timestamp,StudentID,Group,SessionID,Module,Action,Value,Result,Details";
+    // Phase 36: Version inserted before StudentID, grouping the two columns
+    // that describe the ROW ITSELF (when, and by which build) ahead of the
+    // columns that describe the PARTICIPANT (who, which group, which
+    // session). NOTE both phases shift later columns' indices relative to
+    // the Godot build's CSV, and relative to each other — see Migration Spec
+    // §8o, which any analysis script reading exports across phases should
+    // consult rather than assuming fixed positions.
+    private const string CsvHeader =
+        "Timestamp,Version,StudentID,Group,SessionID,Module,Action,Value,Result,Details";
 
     private void Awake()
     {
@@ -89,16 +111,20 @@ public class ResearchLogger : MonoBehaviour
                 return;
             }
 
-            // Phase 34 schema guard. Adding the Group column changed the row
-            // shape from 8 fields to 9. An existing log still carries the OLD
-            // header, and appending 9-field rows underneath it would produce a
-            // file that is neither shape — unreadable by anything, and the
-            // damage would be silent.
+            // Schema guard, first written for Phase 34 (the Group column) and
+            // now reused as-is for Phase 36 (the Version column) — this check
+            // is generic to ANY header change, not specific to either. A
+            // changed column count or order means an existing log still
+            // carries the OLD header, and appending new-shape rows underneath
+            // it would produce a file that is neither shape — unreadable by
+            // anything, and the damage would be silent.
             //
             // So: if the header on disk is not the header this build writes,
             // move the old file aside under a timestamped name and start a
             // fresh one. Nothing is deleted, and the two schemas never mix in
-            // one file.
+            // one file. This will archive-and-restart the log ONE MORE TIME
+            // on the first launch of the build that adds Version, exactly as
+            // it did for Group — expected, not a bug.
             string firstLine;
             using (StreamReader reader = new StreamReader(LogPath))
             {
@@ -109,13 +135,13 @@ public class ResearchLogger : MonoBehaviour
 
             string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string archivedPath = Path.Combine(
-                Application.persistentDataPath, "mart_prog_log_pre_group_" + stamp + ".csv");
+                Application.persistentDataPath, "mart_prog_log_pre_migration_" + stamp + ".csv");
 
             File.Move(LogPath, archivedPath);
             File.WriteAllText(LogPath, CsvHeader + "\n");
 
-            Debug.LogWarning("Research log schema changed (Group column added). The previous " +
-                             "log was preserved as: " + archivedPath);
+            Debug.LogWarning("Research log schema changed (header did not match this build's). " +
+                             "The previous log was preserved as: " + archivedPath);
 
             NotifyAndroidMediaStore(archivedPath);
             NotifyAndroidMediaStore(LogPath);
@@ -135,6 +161,7 @@ public class ResearchLogger : MonoBehaviour
 
         string line =
             CsvEscape(timestamp) + "," +
+            CsvEscape(Version) + "," +
             CsvEscape(StudentId) + "," +
             CsvEscape(Group) + "," +
             CsvEscape(SessionId) + "," +

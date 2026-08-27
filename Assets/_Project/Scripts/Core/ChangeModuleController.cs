@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using MartProg.Modules;
+using MartProg.Menu;
 
 namespace MartProg.Core
 {
@@ -140,6 +141,13 @@ namespace MartProg.Core
     ///    active state) — which is what made the dashboard/reset side look
     ///    fine while the buttons were dead. Both loops now toggle all three
     ///    references together.
+    ///
+    /// 9. **Phase 37: a TEMPORARY "About" button was added to this same
+    ///    ModuleSelectorPanel**, since it's still the app's real first screen
+    ///    and there is no Landing Page yet. See AboutController.cs and the
+    ///    Phase 37 stage doc — this is a placeholder entry point, not a
+    ///    permanent feature of the selector itself, and should come back out
+    ///    once the Landing Page shell exists.
     /// </summary>
     public class ChangeModuleController : MonoBehaviour
     {
@@ -472,10 +480,24 @@ namespace MartProg.Core
         [Header("Module Groups (order MUST match the dropdown — 8 entries; 5 may be unbuilt)")]
         [SerializeField] private List<ModuleGroupEntry> moduleGroups = new List<ModuleGroupEntry>();
 
+        [Header("Phase 37 — About (TEMPORARY entry point)")]
+        [Tooltip("TEMPORARY. A button added directly to ModuleSelectorPanel, not part " +
+                 "of the Godot source, since this panel is currently the app's real " +
+                 "first screen and there is no Landing Page yet. Moves to the Landing " +
+                 "Page's own About button once that's built (Backlog §5/§7 item 3) — " +
+                 "this field should be left unassigned at that point, not kept as a " +
+                 "second way in. See AboutController's class comment.")]
+        [SerializeField] private Button aboutButton;
+
+        [SerializeField] private AboutController aboutController;
+
         private void Start()
         {
             if (changeModuleButton != null)
                 changeModuleButton.onClick.AddListener(OnChangeModuleClicked);
+
+            if (aboutButton != null && aboutController != null)
+                aboutButton.onClick.AddListener(aboutController.Show);
 
             // Phase 29 (F11): nothing in the project was wired to onSubmit,
             // so a student who typed their ID and pressed Enter/Done saw the
