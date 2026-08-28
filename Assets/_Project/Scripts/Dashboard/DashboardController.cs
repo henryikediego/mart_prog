@@ -110,6 +110,12 @@ public class DashboardController : MonoBehaviour
         explanationPanel = explanation;
         statusPanel = status;
         progressPanel = progress;
+
+        // Phase 42 fix: self-apply the moment wiring finishes, rather than
+        // trusting a caller elsewhere to have already pushed the right
+        // value in. See ApplySavedTextScale()'s comment for why that
+        // trust turned out to be misplaced.
+        ApplySavedTextScale();
     }
 
     // Fix (Phase 17): these six panel references are only wired up by an
@@ -195,5 +201,74 @@ public class DashboardController : MonoBehaviour
         }
 
         progressPanel.SetContent(textValue);
+    }
+
+    // ----- Accessibility text scale (Phase 42, no Godot equivalent) -----
+    //
+    // Broadcasts to all six panels in one call.
+    //
+    // CORRECTED after the first real test. This was originally written to
+    // be called exactly once, from
+    // LandingPageController.OnStartLearningClicked(), on the theory that a
+    // user-triggered click is necessarily later than every MonoBehaviour's
+    // own Awake()/Start() for that frame — so it would always land after
+    // DashboardContainer.Start() had already called Initialize() above.
+    // That reasoning was wrong: a real Play-mode test hit the warning
+    // below on that exact click, meaning Initialize() had NOT run yet —
+    // whatever activates the Dashboard/DashboardContainer hierarchy
+    // apparently happens later than the Landing Page's own Start Learning
+    // click, not before it (unsurprising in hindsight, given
+    // ChangeModuleController is documented elsewhere as keeping "the
+    // module world" hidden at boot — DashboardContainer.cs itself was
+    // never supplied to confirm the exact mechanism, so this is inferred
+    // from the observed warning, not read from that file).
+    //
+    // Fixed by no longer depending on being called at the right moment at
+    // all: Initialize() above now calls ApplySavedTextScale() itself, the
+    // instant the panels are wired, regardless of when that turns out to
+    // be. LandingPageController.OnStartLearningClicked() still calls this
+    // method directly too — now a live re-apply for the (normal) case
+    // where Initialize() already ran and the participant is pressing Start
+    // Learning again after changing their choice, not the only path that
+    // makes the scale take effect.
+    public void SetTextScale(float multiplier)
+    {
+        if (summaryPanel == null)
+        {
+            // Deliberately silent here, unlike the six Set*() methods
+            // above. A call landing before Initialize() isn't lost the way
+            // a dropped SetSummary()/etc. call would be: Initialize()
+            // itself calls ApplySavedTextScale() the moment it finishes
+            // wiring, so whatever this call would have set gets applied
+            // moments later regardless, from the same saved value. Given
+            // this is now a confirmed-normal occurrence on the very first
+            // Start Learning click (see above), warning on it here would
+            // fire on every ordinary run, not just a real ordering bug.
+            return;
+        }
+
+        summaryPanel.SetTextScale(multiplier);
+        instructionPanel.SetTextScale(multiplier);
+        operationPanel.SetTextScale(multiplier);
+        explanationPanel.SetTextScale(multiplier);
+        statusPanel.SetTextScale(multiplier);
+        progressPanel.SetTextScale(multiplier);
+    }
+
+    private const string TextScalePrefsKey = "MartProg_TextScale";
+
+    // Pulls the currently saved accessibility scale and applies it,
+    // instead of waiting to be pushed one by a caller whose timing isn't
+    // guaranteed (see SetTextScale()'s comment). Written by
+    // LandingPageController.OnTextScaleClicked()/Start() as a plain float,
+    // not the Normal/Large/Extra-Large index — this class has no reason to
+    // know about that naming, only the resulting multiplier. Defaults to
+    // 1.0 (Normal) if nothing has been saved yet, which is also the
+    // correct behaviour on a fresh install before the Landing Page has
+    // ever written the key.
+    private void ApplySavedTextScale()
+    {
+        float savedScale = PlayerPrefs.GetFloat(TextScalePrefsKey, 1.0f);
+        SetTextScale(savedScale);
     }
 }

@@ -47,6 +47,33 @@ namespace MartProg.Menu
     /// CONCEPT") and why this is the one Landing Page screen that logs its
     /// own opening.
     ///
+    /// **Phase 42: a text-size control, not a button.** Backlog §4.4/§3.2 —
+    /// the one exception to "researcher sets it, participant doesn't see
+    /// it": text size is inclusion, not a confound. Deliberately NOT a
+    /// Settings menu (§3.2 rejects that shape outright) and deliberately
+    /// NOT live-adjustable mid-module — every dashboard InformationPanel and
+    /// every AR-space label is set once, at creation time, with no
+    /// re-render hook, so a live control would need all of them to start
+    /// listening for changes instead of just reading a value once. This
+    /// phase wires the dashboard half only (DashboardController.SetTextScale(),
+    /// which reaches all six InformationPanels); the AR labels are their own
+    /// separate, larger follow-up — see InformationPanel.SetTextScale()'s
+    /// comment for why.
+    ///
+    /// **The scale is applied twice, on purpose, and neither call is the
+    /// "real" one.** The choice, once made, is written straight to
+    /// `PlayerPrefs` (both here and in `OnTextScaleClicked()`), and
+    /// `DashboardController.Initialize()` reads it and self-applies the
+    /// instant its panels are wired — regardless of when that turns out to
+    /// be relative to anything on this screen. `OnStartLearningClicked()`
+    /// also pushes it explicitly, as a live re-apply for a participant who
+    /// changes their mind and presses Start Learning a second time. The
+    /// first version of this only pushed from the click, on the assumption
+    /// that a user-triggered click necessarily lands after
+    /// `DashboardContainer.Start()` has already run — a real Play-mode test
+    /// proved that assumption wrong (see `DashboardController.SetTextScale()`'s
+    /// comment), which is why the pull-based fix exists at all.
+    ///
     /// **NOT A PORT.** Godot's `main_menu.gd` in full is a student ID field, a
     /// dead programming-language dropdown, and a Start button that changes
     /// scene. There is no landing page, no About, no navigation. Every
@@ -103,6 +130,18 @@ namespace MartProg.Menu
                  "About, not Feedback's quiet one — see the class comment.")]
         [SerializeField] private Button helpButton;
 
+        [Header("Accessibility (Phase 42)")]
+        [Tooltip("Cycles Normal -> Large -> Extra Large -> Normal. Backlog " +
+                 "§4.4 — dashboard text only this phase, see the class " +
+                 "comment. Not a Settings menu: one button, one label, " +
+                 "nothing else.")]
+        [SerializeField] private Button textScaleButton;
+
+        [Tooltip("Shows the current choice, e.g. \"Text Size: Normal\". " +
+                 "Refreshed on load from the saved PlayerPrefs value and " +
+                 "every time textScaleButton is pressed.")]
+        [SerializeField] private TMP_Text textScaleLabel;
+
         [Header("Wiring")]
         [SerializeField] private ChangeModuleController changeModuleController;
         [SerializeField] private AboutController aboutController;
@@ -129,6 +168,28 @@ namespace MartProg.Menu
                  "tag.")]
         [SerializeField]
         private string signedInFormat = "<size=85%><alpha=#99>Signed in as {0}";
+
+        // ----- Accessibility text scale (Phase 42) -----
+        //
+        // Three fixed, named steps rather than a continuous slider —
+        // easier to reason about, easier to log as a discrete category
+        // (see OnTextScaleClicked()), and matches the common
+        // Normal/Large/Extra-Large accessibility pattern rather than
+        // inventing a new one. 1.0 is the prefab's own authored size, so
+        // "Normal" is always a true no-op.
+        private static readonly float[] TextScaleValues = { 1.0f, 1.15f, 1.3f };
+        private static readonly string[] TextScaleNames = { "Normal", "Large", "Extra Large" };
+        private const string TextScaleIndexPrefsKey = "MartProg_TextScaleIndex";
+
+        // Separate from the index above on purpose: DashboardController
+        // reads this one directly (PlayerPrefs.GetFloat) to self-apply the
+        // moment its Initialize() runs, with no reason to know about
+        // Normal/Large/Extra-Large naming or which index that maps to —
+        // just the resulting multiplier. Kept in lockstep with the index
+        // everywhere the index is written (Start() and OnTextScaleClicked()).
+        private const string TextScaleFloatPrefsKey = "MartProg_TextScale";
+
+        private int currentTextScaleIndex = 0;
 
         private void Awake()
         {
@@ -162,6 +223,25 @@ namespace MartProg.Menu
 
             if (helpButton != null)
                 helpButton.onClick.AddListener(OnHelpClicked);
+
+            if (textScaleButton != null)
+                textScaleButton.onClick.AddListener(OnTextScaleClicked);
+
+            // Loaded here rather than Awake(): PlayerPrefs reads are cheap
+            // and synchronous either way, but Start() is where every other
+            // one-time setup in this class already lives, and there's no
+            // reason for this one to be the exception.
+            currentTextScaleIndex = Mathf.Clamp(
+                PlayerPrefs.GetInt(TextScaleIndexPrefsKey, 0), 0, TextScaleValues.Length - 1);
+            RefreshTextScaleLabel();
+
+            // Written here too, not just in OnTextScaleClicked(): on a
+            // fresh install this key has never been set, and
+            // DashboardController.ApplySavedTextScale()'s own 1.0 default
+            // already matches index 0 — but writing it explicitly keeps
+            // the float authoritative from the very first frame rather
+            // than relying on two independent defaults happening to agree.
+            PlayerPrefs.SetFloat(TextScaleFloatPrefsKey, TextScaleValues[currentTextScaleIndex]);
         }
 
         public void Show()
@@ -186,11 +266,54 @@ namespace MartProg.Menu
                 return;
             }
 
+            // CORRECTED after the first real test: this used to be the ONLY
+            // place the accessibility scale got applied, on the theory that
+            // a user-triggered click necessarily lands after
+            // DashboardContainer.Start() has already called
+            // DashboardController.Instance.Initialize(). That theory was
+            // wrong — a real Play-mode run hit
+            // "SetTextScale() called before Initialize() finished wiring
+            // panels" on this exact click, meaning whatever activates the
+            // Dashboard hierarchy runs later than this one. The real fix is
+            // on DashboardController's side now: Initialize() itself pulls
+            // the saved scale and self-applies the moment it's wired,
+            // regardless of ordering (see its comment). This call is no
+            // longer load-bearing for the first Start Learning press — it's
+            // a live re-apply for the case where Initialize() already ran
+            // and the participant changed their choice before pressing
+            // Start Learning a second time.
+            DashboardController.Instance?.SetTextScale(TextScaleValues[currentTextScaleIndex]);
+
             // Hide() is not called here — OpenSelectorFromLanding() runs
             // ShowSelector(), which hides this page itself. Doing it in one
             // place means the Change Module path mid-session behaves the same
             // way as this one, rather than the two drifting apart.
             changeModuleController.OpenSelectorFromLanding();
+        }
+
+        public void OnTextScaleClicked()
+        {
+            currentTextScaleIndex = (currentTextScaleIndex + 1) % TextScaleValues.Length;
+            PlayerPrefs.SetInt(TextScaleIndexPrefsKey, currentTextScaleIndex);
+            PlayerPrefs.SetFloat(TextScaleFloatPrefsKey, TextScaleValues[currentTextScaleIndex]);
+            RefreshTextScaleLabel();
+
+            // Logged for the same reason Help logs its own opening (see
+            // HelpController.Show()): this is a between-participants choice,
+            // not a step everyone takes identically, which is what makes it
+            // worth a row rather than noise.
+            ResearchLogger.Instance?.LogEvent(
+                "Text Size Changed",
+                TextScaleNames[currentTextScaleIndex],
+                "Selected",
+                "Participant set the dashboard text size before starting.");
+        }
+
+        private void RefreshTextScaleLabel()
+        {
+            if (textScaleLabel == null) return;
+
+            textScaleLabel.text = "Text Size: " + TextScaleNames[currentTextScaleIndex];
         }
 
         public void OnAboutClicked()
