@@ -35,6 +35,18 @@ namespace MartProg.Menu
     /// own class comment for why Feedback lives here rather than behind
     /// Help.
     ///
+    /// **Phase 41: a fourth button, Help.** Backlog §5/§7 item 6, held back
+    /// through Phases 38–40 on §3.1's intervention-vs-scaffolding question —
+    /// resolved by §6.1 (no cohort boundary to protect) and §6.3 (the
+    /// researcher's own framing accepted: scaffolding, not intervention).
+    /// Given About's visual tier, not Feedback's quiet one — nothing in the
+    /// backlog asks Help to read as secondary the way Feedback deliberately
+    /// does, and a screen a confused participant needs to actually find
+    /// should not be the hardest button to notice. See HelpController's own
+    /// class comment for the content rule ("explains the APP, never the
+    /// CONCEPT") and why this is the one Landing Page screen that logs its
+    /// own opening.
+    ///
     /// **NOT A PORT.** Godot's `main_menu.gd` in full is a student ID field, a
     /// dead programming-language dropdown, and a Start button that changes
     /// scene. There is no landing page, no About, no navigation. Every
@@ -62,9 +74,9 @@ namespace MartProg.Menu
     /// is already implied by the session-start row `ResearchLogger` writes,
     /// and a "pressed Start Learning" row would record a step every
     /// participant takes exactly once — no variance, no covariate, nothing to
-    /// analyse. Help will be different when it arrives: whether a participant
-    /// opened it varies between people, which is precisely what makes it
-    /// worth a row (Backlog §6.3).
+    /// analyse. Help (Phase 41) is different, on purpose: whether a
+    /// participant opened it varies between people, which is precisely what
+    /// makes it worth a row (Backlog §6.3) — see HelpController.Show().
     /// </summary>
     public class LandingPageController : MonoBehaviour
     {
@@ -87,10 +99,15 @@ namespace MartProg.Menu
                  "fill, dim text. See Stage 39 doc §5 for the exact styling.")]
         [SerializeField] private Button feedbackButton;
 
+        [Tooltip("Opens the Help screen (Phase 41). Same visual tier as " +
+                 "About, not Feedback's quiet one — see the class comment.")]
+        [SerializeField] private Button helpButton;
+
         [Header("Wiring")]
         [SerializeField] private ChangeModuleController changeModuleController;
         [SerializeField] private AboutController aboutController;
         [SerializeField] private FeedbackController feedbackController;
+        [SerializeField] private HelpController helpController;
 
         [Header("Optional")]
         [Tooltip("Optional. Shows \"Signed in as s1c\" when an ID is registered on " +
@@ -142,6 +159,9 @@ namespace MartProg.Menu
 
             if (feedbackButton != null)
                 feedbackButton.onClick.AddListener(OnFeedbackClicked);
+
+            if (helpButton != null)
+                helpButton.onClick.AddListener(OnHelpClicked);
         }
 
         public void Show()
@@ -188,6 +208,14 @@ namespace MartProg.Menu
             // FeedbackController's class comment. Its own Show() decides
             // whether to present the form or the no-ID message.
             if (feedbackController != null) feedbackController.Show();
+        }
+
+        public void OnHelpClicked()
+        {
+            // Same draws-on-top, hides-nothing pattern as About — see
+            // HelpController's class comment. Show() also logs a "Help
+            // Opened" row, unlike every other button on this screen.
+            if (helpController != null) helpController.Show();
         }
 
         private void RefreshSignedInLabel()
