@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using TMPro;
 using System.Text.RegularExpressions;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using MartProg.Modules;
 using MartProg.Menu;
@@ -173,6 +172,26 @@ namespace MartProg.Core
     ///    to keep source behaviour exactly. The deviation is in reachability,
     ///    not in what the panel does — the same category as Phase 28 wiring up
     ///    Peek.
+    ///
+    /// 11. **Phase 40 — ID release relocated; study mode now runtime-adjustable.**
+    ///    Two changes, both driven by the new Researcher Area gated screen
+    ///    rather than by this file's own scope growing:
+    ///
+    ///    Releasing a registered ID used to be a hidden long press directly on
+    ///    `studentIdInput` (Phase 35) — a workaround for there being no gated
+    ///    screen yet. Now that one exists, that gesture is gone from this file
+    ///    entirely; `ReleaseRegisteredId()` is a plain public method a plain
+    ///    button in the Researcher Area calls. `WireStudentIdLongPress()` /
+    ///    `OnStudentIdLongPress()` and their supporting fields are deleted, not
+    ///    just unwired — the EventTrigger they built no longer exists either.
+    ///
+    ///    `studentIdMode` was build-time only (Inspector default, one value for
+    ///    the life of the build). `EffectiveStudentIdMode` reads a PlayerPrefs
+    ///    override first, so a researcher can switch a device between study
+    ///    designs from the Researcher Area's toggle without a rebuild — useful
+    ///    for testing all three shapes on one device, or correcting a
+    ///    misconfigured device without reflashing it. The Inspector field is
+    ///    unchanged and still the fallback for a device nothing has set yet.
     /// </summary>
     public class ChangeModuleController : MonoBehaviour
     {
@@ -206,9 +225,11 @@ namespace MartProg.Core
         }
 
         [Header("Trigger")]
-        [Tooltip("The shared \"Change Module\" button — sits alongside Export Log / Clear Log in " +
-                 "the same admin row per the Godot source's admin_button_row grouping, but is " +
-                 "wired here rather than through AdminController, which stays scoped to logging.")]
+        [Tooltip("The \"Change Module\" button, wired here rather than through a logging-scoped " +
+                 "controller — matches the Godot source's admin_button_row grouping, which put " +
+                 "it alongside Export Log / Clear Log. Those two lived on AdminController until " +
+                 "Phase 40 retired it in favor of the gated Researcher Area; Change Module was " +
+                 "never part of that move and has always been wired here.")]
         [SerializeField] private Button changeModuleButton;
 
         [Header("Selector Panel")]
@@ -258,6 +279,43 @@ namespace MartProg.Core
                  "analysis.")]
         [SerializeField] private StudentIdMode studentIdMode = StudentIdMode.AcceptEither;
 
+        // Phase 40: the study design a device expects is now adjustable at
+        // runtime from the Researcher Area, not just at build time from the
+        // Inspector. PlayerPrefs is checked first; the Inspector field above
+        // remains the fallback for a device nothing has ever set on — so a
+        // fresh install still behaves exactly as before this phase existed.
+        private const string StudentIdModePrefKey = "MARTPROG_StudentIdMode";
+
+        /// <summary>
+        /// The study design actually in effect on this device — PlayerPrefs
+        /// first, falling back to the Inspector-configured <see cref="studentIdMode"/>
+        /// when nothing has been set on-device yet. Every internal check
+        /// (<see cref="TryNormaliseStudentId"/>, <see cref="ExampleId"/>) reads
+        /// this, never the raw field, so a mode change from the Researcher
+        /// Area takes effect immediately without a rebuild.
+        /// </summary>
+        public StudentIdMode EffectiveStudentIdMode
+        {
+            get
+            {
+                int stored = PlayerPrefs.GetInt(StudentIdModePrefKey, -1);
+                return stored >= 0 && System.Enum.IsDefined(typeof(StudentIdMode), stored)
+                    ? (StudentIdMode)stored
+                    : studentIdMode;
+            }
+        }
+
+        /// <summary>
+        /// Phase 40: called from the Researcher Area's Student ID Mode
+        /// toggle. Persists immediately so the choice survives an app
+        /// restart, matching how the registered ID itself persists.
+        /// </summary>
+        public void SetStudentIdMode(StudentIdMode mode)
+        {
+            PlayerPrefs.SetInt(StudentIdModePrefKey, (int)mode);
+            PlayerPrefs.Save();
+        }
+
         // s, then at least one digit, then an optional single group letter.
         // Case-insensitive on entry; normalised to lower case before use so
         // "S1C" and "s1c" can never become two different participants.
@@ -291,7 +349,7 @@ namespace MartProg.Core
             {
                 error = "That is not a valid research ID. Use " + ExampleId() +
                         " — the letter s, a number, " +
-                        (studentIdMode == StudentIdMode.SingleGroup
+                        (EffectiveStudentIdMode == StudentIdMode.SingleGroup
                             ? "and nothing after it."
                             : "then c for control or e for experiment.");
                 return false;
@@ -300,14 +358,14 @@ namespace MartProg.Core
             string number = m.Groups[1].Value;
             string suffix = m.Groups[2].Success ? m.Groups[2].Value.ToLowerInvariant() : "";
 
-            if (studentIdMode == StudentIdMode.TwoGroups && suffix == "")
+            if (EffectiveStudentIdMode == StudentIdMode.TwoGroups && suffix == "")
             {
                 error = "This study has two groups, so the ID needs a group letter: " +
                         "s" + number + "c for control or s" + number + "e for experiment.";
                 return false;
             }
 
-            if (studentIdMode == StudentIdMode.SingleGroup && suffix != "")
+            if (EffectiveStudentIdMode == StudentIdMode.SingleGroup && suffix != "")
             {
                 error = "This study has one group, so the ID should not have a group " +
                         "letter. Use s" + number + ".";
@@ -339,10 +397,17 @@ namespace MartProg.Core
         // would show one person as two.
         //
         // The lock is against the STUDENT, not the researcher: it persists
-        // across app restarts via PlayerPrefs, and is released by a long
-        // press on the field (see BeginIdRelease). That works whether each
-        // participant has their own device or one device is shared and the
-        // researcher releases the ID between participants.
+        // across app restarts via PlayerPrefs.
+        //
+        // Phase 40: release moved off this field entirely. It used to be a
+        // long press directly on the input field (3 seconds, twice) — a
+        // hidden gesture that stood in for the gated screen this project
+        // didn't have yet. Now that the Researcher Area exists (reached by
+        // its own long press on About's version block), nesting a second
+        // hidden gesture inside an already-gated screen is redundant
+        // complexity, not extra safety. Release is a plain, clearly-labeled
+        // button there, calling the public ReleaseRegisteredId() below
+        // directly. See ResearcherAreaController's class comment.
         //
         // Deliberately independent of Clear Log: clearing the log is about
         // data, releasing the ID is about identity, and wanting one rarely
@@ -353,16 +418,10 @@ namespace MartProg.Core
 
         [Tooltip("Phase 35: once a research ID is entered it is remembered and the " +
                  "field is locked, so a participant keeps one ID for the whole study. " +
-                 "Release it with a long press on the field (3 seconds, twice). " +
-                 "Untick to allow the ID to be retyped freely — useful while testing, " +
-                 "not during a study.")]
+                 "Release it from the Researcher Area (Phase 40) — see " +
+                 "ReleaseRegisteredId() below. Untick to allow the ID to be retyped " +
+                 "freely — useful while testing, not during a study.")]
         [SerializeField] private bool lockStudentIdOnceRegistered = true;
-
-        [Tooltip("Seconds to hold the locked ID field to begin releasing it.")]
-        [SerializeField] private float idReleaseHoldSeconds = 3f;
-
-        private float idPressStartedAt = -1f;
-        private float idReleaseArmedUntil = -1f;
 
         /// <summary>
         /// The ID registered on this device, or "" if none. Public as of
@@ -410,87 +469,45 @@ namespace MartProg.Core
         }
 
         /// <summary>
-        /// Long-press handling on the ID field. Two deliberate holds, the same
-        /// arm-then-confirm shape Clear Log uses — a student leaning on the
-        /// screen cannot reach it, and a researcher who knows can do it in
-        /// six seconds without any extra UI.
+        /// Phase 40: extracted from the old long-press handler's confirmed
+        /// branch (see the Phase 35 block comment above for why release moved
+        /// off this field). Called directly by ResearcherAreaController's
+        /// Release Registered ID button — no arm/confirm state of its own,
+        /// since that two-tap-arm pattern now lives in the button itself,
+        /// matching Export Log / Clear Log / Clear Feedback there.
         ///
-        /// Wired at runtime through an EventTrigger so this needs no scene
-        /// work. A non-interactable InputField still receives pointer events:
-        /// Selectable checks `interactable` in its own handlers, but
-        /// EventTrigger implements the handler interfaces directly and does
-        /// not. If that ever changes, the fallback is to leave the field
-        /// interactable and set `readOnly = true` instead.
+        /// Returns the ID that was released ("" if none was registered) so
+        /// the caller can show it in its own confirmation message without a
+        /// second PlayerPrefs read after the key is already gone.
         /// </summary>
-        private void WireStudentIdLongPress()
+        public string ReleaseRegisteredId()
         {
-            if (studentIdInput == null) return;
+            if (!IsStudentIdLocked) return "";
 
-            EventTrigger trigger = studentIdInput.gameObject.GetComponent<EventTrigger>();
-            if (trigger == null) trigger = studentIdInput.gameObject.AddComponent<EventTrigger>();
+            string released = RegisteredStudentId;
 
-            // Start() runs once per GameObject ACTIVATION, so without this a
-            // re-activation would stack a second pair of listeners and fire
-            // the release twice per hold. Same lifecycle trap as the Phase 27
-            // button-grid regression, in a different costume.
-            trigger.triggers.Clear();
+            ResearchLogger.Instance?.LogEvent(
+                "Student ID Released", released, "Success",
+                "Registered research ID released on this device");
 
-            EventTrigger.Entry down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-            down.callback.AddListener(_ => idPressStartedAt = Time.unscaledTime);
-            trigger.triggers.Add(down);
+            PlayerPrefs.DeleteKey(StudentIdPrefKey);
+            PlayerPrefs.Save();
 
-            EventTrigger.Entry up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
-            up.callback.AddListener(_ =>
-            {
-                float held = idPressStartedAt < 0f ? 0f : Time.unscaledTime - idPressStartedAt;
-                idPressStartedAt = -1f;
-
-                if (held >= idReleaseHoldSeconds) OnStudentIdLongPress();
-            });
-            trigger.triggers.Add(up);
-        }
-
-        private void OnStudentIdLongPress()
-        {
-            if (!IsStudentIdLocked) return;
-
-            if (Time.unscaledTime <= idReleaseArmedUntil)
-            {
-                string released = RegisteredStudentId;
-
-                ResearchLogger.Instance?.LogEvent(
-                    "Student ID Released", released, "Success",
-                    "Registered research ID released on this device");
-
-                PlayerPrefs.DeleteKey(StudentIdPrefKey);
-                PlayerPrefs.Save();
-
-                idReleaseArmedUntil = -1f;
-
-                if (studentIdInput != null) studentIdInput.SetTextWithoutNotify("");
-                ApplyStudentIdLockState();
-
-                if (messageLabel != null)
-                {
-                    messageLabel.text = "Research ID " + released +
-                                        " released. Enter the next participant's ID.";
-                }
-
-                return;
-            }
-
-            idReleaseArmedUntil = Time.unscaledTime + 10f;
+            if (studentIdInput != null) studentIdInput.SetTextWithoutNotify("");
+            ApplyStudentIdLockState();
 
             if (messageLabel != null)
             {
-                messageLabel.text = "Release the registered ID " + RegisteredStudentId +
-                                    "? Hold the field again to confirm.";
+                messageLabel.text = "Research ID " + released +
+                                    " released. Enter the next participant's ID.";
             }
+
+            return released;
         }
 
         private string ExampleId()
         {
-            switch (studentIdMode)
+            switch (EffectiveStudentIdMode)
             {
                 case StudentIdMode.TwoGroups:   return "s1c or s2e";
                 case StudentIdMode.SingleGroup: return "s1";
@@ -498,9 +515,43 @@ namespace MartProg.Core
             }
         }
 
-        [Tooltip("Optional. The Export Log / Clear Log / Change Module row. Hidden on the " +
-                 "entry screen and shown once a module starts, matching Godot hiding main_ui " +
-                 "in _ready(). Leave empty and the row simply stays visible throughout.")]
+        /// <summary>
+        /// Phase 40 fix. `studentIdInput`'s placeholder text was a plain
+        /// string typed once into the Editor scene — harmless while
+        /// `studentIdMode` was a build-time-only Inspector field, since
+        /// whoever set that up would naturally type a matching placeholder
+        /// at the same time. It became actively misleading the moment
+        /// <see cref="EffectiveStudentIdMode"/> could change on-device: a
+        /// researcher switching a device to Two Groups from the Researcher
+        /// Area would still see "e.g. s1 or s1c" on the field a Two-Groups
+        /// study actually rejects a bare "s1" from.
+        ///
+        /// Reuses <see cref="ExampleId"/> — the exact same text already
+        /// shown in the validation error messages — rather than a second,
+        /// separately-worded example living only here, which is exactly how
+        /// the two could drift apart again. Called from
+        /// <see cref="ShowSelector"/> every time the panel is about to be
+        /// shown, not just once from <see cref="Start"/>, since the mode can
+        /// change on a completely different screen (the Researcher Area)
+        /// while this one isn't even open.
+        /// </summary>
+        private void RefreshStudentIdPlaceholder()
+        {
+            if (studentIdInput == null) return;
+
+            TMP_Text placeholder = studentIdInput.placeholder as TMP_Text;
+            if (placeholder == null) return;
+
+            placeholder.text = "Student ID, e.g. " + ExampleId();
+        }
+
+        [Tooltip("Optional. The Change Module row. Hidden on the entry screen and shown " +
+                 "once a module starts, matching Godot hiding main_ui in _ready(). Leave " +
+                 "empty and the row simply stays visible throughout.\n\n" +
+                 "Phase 40: Export Log / Clear Log moved off this row entirely, into the " +
+                 "gated Researcher Area (AdminController is retired) — Change Module stays " +
+                 "here since it is a legitimate participant action, not a researcher-only " +
+                 "one.")]
         [SerializeField] private GameObject adminRow;
 
         [Header("Shared Dashboard (hidden while selecting)")]
@@ -556,8 +607,9 @@ namespace MartProg.Core
                 studentIdInput.onSubmit.AddListener(_ => OnConfirmClicked());
 
             // Phase 35: restore a registered ID and lock the field, before the
-            // selector is first shown.
-            WireStudentIdLongPress();
+            // selector is first shown. Phase 40: no long-press wiring here any
+            // more — release now happens from the Researcher Area's own
+            // button (ReleaseRegisteredId()), not a gesture on this field.
             ApplyStudentIdLockState();
 
             if (IsStudentIdLocked && ResearchLogger.Instance != null)
@@ -684,6 +736,13 @@ namespace MartProg.Core
                     ? "Signed in as " + RegisteredStudentId + ". Choose a module to continue."
                     : "";
             }
+
+            // Phase 40: the placeholder has to be refreshed every time this
+            // panel is about to be shown, not just once at Start() — see
+            // RefreshStudentIdPlaceholder()'s own comment for why a
+            // one-time-only version would go stale the moment a researcher
+            // uses the new Student ID Mode toggle.
+            RefreshStudentIdPlaceholder();
 
             if (moduleSelectorPanel != null) moduleSelectorPanel.SetActive(true);
 

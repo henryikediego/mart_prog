@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace MartProg.Menu
@@ -49,6 +50,18 @@ namespace MartProg.Menu
     /// question), About carries no research-validity weight either way
     /// (Backlog §3.7: "the least risky item on the list"). Considered and
     /// deliberately left out, not an oversight.
+    ///
+    /// **Phase 40: the version block is also a hidden entry point.** A long
+    /// press on it (3 seconds, twice — see WireVersionLongPress()) opens the
+    /// new Researcher Area, the gated screen consolidating Export/Clear Log,
+    /// Export/Clear Feedback, Release Registered ID, and the Student ID Mode
+    /// toggle. Chosen deliberately to mirror Android's own "tap the build
+    /// number to unlock developer options" convention — a place on a settings-
+    /// adjacent screen that a participant has no reason to touch repeatedly,
+    /// but a researcher who knows can reach in seconds. See
+    /// ResearcherAreaController's class comment for the rest of that screen,
+    /// and ChangeModuleController's class comment (porting note 11) for why
+    /// this replaces what used to be a long press on the Student ID field.
     /// </summary>
     public class AboutController : MonoBehaviour
     {
@@ -101,6 +114,22 @@ namespace MartProg.Menu
                  "and harmless, just untidy.")]
         [SerializeField] private ScrollRect contentScroll;
 
+        [Header("Researcher Area (Phase 40)")]
+        [Tooltip("Opened by a long press on the version block below — see " +
+                 "WireVersionLongPress(). Leave unassigned to disable the reveal " +
+                 "gesture entirely; the version block then behaves as plain text, " +
+                 "exactly as it did before Phase 40.")]
+        [SerializeField] private ResearcherAreaController researcherAreaController;
+
+        [Tooltip("Seconds to hold the version block to arm the reveal gesture. " +
+                 "Mirrors the exact timing the Student ID release long-press used " +
+                 "before Phase 40 moved it to a plain button — see " +
+                 "ChangeModuleController's class comment, porting note 11.")]
+        [SerializeField] private float researcherAreaHoldSeconds = 3f;
+
+        private float versionPressStartedAt = -1f;
+        private float researcherAreaArmedUntil = -1f;
+
         private void Awake()
         {
             // Hidden by default, in Awake() rather than Start() — Unity runs
@@ -116,6 +145,8 @@ namespace MartProg.Menu
         private void Start()
         {
             if (backButton != null) backButton.onClick.AddListener(Hide);
+
+            WireVersionLongPress();
         }
 
         /// <summary>
@@ -164,6 +195,78 @@ namespace MartProg.Menu
         public void Hide()
         {
             if (aboutPanel != null) aboutPanel.SetActive(false);
+        }
+
+        /// <summary>
+        /// Phase 40: a hidden long-press reveal for the Researcher Area, on
+        /// the version block only — mirrors Android's own "tap the build
+        /// number" convention for reaching developer options, adapted to this
+        /// project's existing long-press/arm-then-confirm shape (the Student
+        /// ID release gesture used the same 3-second/twice timing on a
+        /// different field before Phase 40 moved it to a plain button — see
+        /// ChangeModuleController's class comment, porting note 11).
+        ///
+        /// Deliberately gives NO visible feedback at either step — no armed
+        /// message, no on-screen state change until the panel itself opens.
+        /// The participant-facing gesture this mirrors showed "hold again to
+        /// confirm" because it was meant to be openly known and used by a
+        /// trained researcher with a participant present. This one is the
+        /// opposite: it exists so the entry point stays quietly tucked away
+        /// rather than announcing itself to whoever is holding the device. A
+        /// Debug.Log marks each step for a developer reading the device log;
+        /// nothing reaches the screen.
+        ///
+        /// Wired at runtime through an EventTrigger rather than in the scene,
+        /// same approach as the gesture it replaces — versionText is plain
+        /// TMP_Text with no Selectable at all, so EventTrigger is actually
+        /// the only way to give it pointer handling, not just the safer one.
+        /// </summary>
+        private void WireVersionLongPress()
+        {
+            if (researcherAreaController == null) return;
+            if (versionText == null) return;
+
+            EventTrigger trigger = versionText.gameObject.GetComponent<EventTrigger>();
+            if (trigger == null) trigger = versionText.gameObject.AddComponent<EventTrigger>();
+
+            // Start() runs once per GameObject ACTIVATION. AboutController
+            // sits on an object that is active for the app's whole lifetime
+            // (only aboutPanel toggles), so this only ever runs once in
+            // practice — cleared anyway as cheap insurance against the exact
+            // class of bug the Phase 27 button grid had, matching the same
+            // defensive line in every other EventTrigger wiring in this
+            // project.
+            trigger.triggers.Clear();
+
+            EventTrigger.Entry down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+            down.callback.AddListener(_ => versionPressStartedAt = Time.unscaledTime);
+            trigger.triggers.Add(down);
+
+            EventTrigger.Entry up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+            up.callback.AddListener(_ =>
+            {
+                float held = versionPressStartedAt < 0f ? 0f : Time.unscaledTime - versionPressStartedAt;
+                versionPressStartedAt = -1f;
+
+                if (held >= researcherAreaHoldSeconds) OnVersionLongPress();
+            });
+            trigger.triggers.Add(up);
+        }
+
+        private void OnVersionLongPress()
+        {
+            if (researcherAreaController == null) return;
+
+            if (Time.unscaledTime <= researcherAreaArmedUntil)
+            {
+                researcherAreaArmedUntil = -1f;
+                Debug.Log("AboutController: Researcher Area reveal confirmed.");
+                researcherAreaController.Show();
+                return;
+            }
+
+            researcherAreaArmedUntil = Time.unscaledTime + 10f;
+            Debug.Log("AboutController: Researcher Area reveal armed — hold the version block again to confirm.");
         }
     }
 }
