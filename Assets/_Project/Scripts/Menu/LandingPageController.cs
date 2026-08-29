@@ -97,6 +97,19 @@ namespace MartProg.Menu
     /// Migration Spec §5, applied to visibility rather than to singleton
     /// reads.
     ///
+    /// **Phase 44: a fifth button, Continue Learning — the one from the
+    /// original mockup that was conditional from the start ("if progress
+    /// tracking is implemented").** Hidden by default and shown only once
+    /// `ChangeModuleController.CanContinueLearning()` says there's somewhere
+    /// to go — no registered participant, or nothing left incomplete, and it
+    /// stays off. Unlike every other button here, this one does not open an
+    /// overlay on top of the Landing Page: `ChangeModuleController
+    /// .ContinueLearning()` goes straight into the target module, hiding
+    /// this page the same way `OpenSelectorFromLanding()` already does for
+    /// Start Learning. See `ChangeModuleController`'s class comment, porting
+    /// note 13, for what "next" means and how Memory resumes to a specific
+    /// activity rather than just reopening.
+    ///
     /// **Nothing here is logged**, matching About (Phase 37). Opening the app
     /// is already implied by the session-start row `ResearchLogger` writes,
     /// and a "pressed Start Learning" row would record a step every
@@ -115,6 +128,14 @@ namespace MartProg.Menu
         [Header("Buttons")]
         [Tooltip("The dominant call to action — opens the module selector.")]
         [SerializeField] private Button startLearningButton;
+
+        [Tooltip("Continue Learning (Phase 44). Jumps straight into the next " +
+                 "incomplete module — no selector, no dropdown — or resumes " +
+                 "Memory to its next incomplete activity if that's the module. " +
+                 "Hidden whenever ChangeModuleController.CanContinueLearning() " +
+                 "is false: no registered ID, or nothing left to continue. " +
+                 "Refreshed every time this page shows, in RefreshContinueLearningButton().")]
+        [SerializeField] private Button continueLearningButton;
 
         [Tooltip("Opens the About screen (Phase 37). This is About's permanent " +
                  "home; the temporary button on ModuleSelectorPanel should be " +
@@ -215,6 +236,9 @@ namespace MartProg.Menu
             if (startLearningButton != null)
                 startLearningButton.onClick.AddListener(OnStartLearningClicked);
 
+            if (continueLearningButton != null)
+                continueLearningButton.onClick.AddListener(OnContinueLearningClicked);
+
             if (aboutButton != null)
                 aboutButton.onClick.AddListener(OnAboutClicked);
 
@@ -247,6 +271,7 @@ namespace MartProg.Menu
         public void Show()
         {
             RefreshSignedInLabel();
+            RefreshContinueLearningButton();
 
             if (landingPanel != null) landingPanel.SetActive(true);
         }
@@ -289,6 +314,54 @@ namespace MartProg.Menu
             // place means the Change Module path mid-session behaves the same
             // way as this one, rather than the two drifting apart.
             changeModuleController.OpenSelectorFromLanding();
+        }
+
+        /// <summary>
+        /// Phase 44 — Continue Learning. Skips the selector entirely:
+        /// ChangeModuleController.ContinueLearning() already knows which
+        /// module is next and hides this page itself, the same "one place
+        /// decides visibility" discipline OnStartLearningClicked() follows
+        /// for OpenSelectorFromLanding(). Only reachable when
+        /// RefreshContinueLearningButton() left the button active, but this
+        /// method does not assume that — ContinueLearning() itself
+        /// re-checks and no-ops safely either way.
+        /// </summary>
+        public void OnContinueLearningClicked()
+        {
+            if (changeModuleController == null)
+            {
+                Debug.LogWarning(
+                    "LandingPageController: Continue Learning was pressed but no " +
+                    "ChangeModuleController is assigned, so there is nothing to open.");
+                return;
+            }
+
+            // Same live re-apply as OnStartLearningClicked() above, and for
+            // the same reason — see its own comment. Not load-bearing: the
+            // target module's own DashboardController.Initialize() will pull
+            // the saved scale regardless of whether this call lands before
+            // or after it.
+            DashboardController.Instance?.SetTextScale(TextScaleValues[currentTextScaleIndex]);
+
+            changeModuleController.ContinueLearning();
+        }
+
+        /// <summary>
+        /// Shows or hides Continue Learning based on whether there's
+        /// anything to continue to right now — re-evaluated every time this
+        /// page is about to display (see Show()), never cached, since
+        /// progress can change from anywhere in a session (a quiz just
+        /// completed, an ID just released). Hidden rather than shown-and-
+        /// disabled when there's nothing to continue to, matching the
+        /// original proposal's own framing: "Continue Learning — resume
+        /// where the user stopped, if progress is stored."
+        /// </summary>
+        private void RefreshContinueLearningButton()
+        {
+            if (continueLearningButton == null) return;
+
+            bool canContinue = changeModuleController != null && changeModuleController.CanContinueLearning();
+            continueLearningButton.gameObject.SetActive(canContinue);
         }
 
         public void OnTextScaleClicked()

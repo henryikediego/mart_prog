@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using MartProg.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -179,6 +180,26 @@ namespace MartProg.Modules
     ///     harmless fallback and the RefreshDashboard() change that lets
     ///     Overview surface feedback is kept with it, but neither is exercised
     ///     today.
+    ///
+    /// 12. **Phase 44 — Continue Learning. NOT A PORT; memoryProgress stops
+    ///     being per-session-only.** Every note above still describes the
+    ///     in-session behaviour exactly as it always has — InitializeProgress()
+    ///     still builds a fresh true/false entry per ActivityOrder key, and
+    ///     switching activities still only clears the visual table, never
+    ///     progress (note 10). What changes is where InitializeProgress()
+    ///     gets its STARTING values from: previously always false for
+    ///     everything (Backlog §3.6 named this explicitly — "Memory's
+    ///     14-activity tracker is per-session and resets"); now, whatever was
+    ///     already completed by the currently REGISTERED student
+    ///     (ChangeModuleController.RegisteredStudentId — same identity Phase
+    ///     43's completed-quiz tracking already keys on, and for the same
+    ///     reason: releasing one participant's ID and registering the next
+    ///     must not carry the previous participant's progress into this
+    ///     dictionary). See the persistence block above MarkActivityCompleted()
+    ///     and the new public ResumeToNextActivity() below, called by
+    ///     ChangeModuleController only on a Continue-Learning entry, never on
+    ///     an ordinary Change-Module-to-Memory pick — a manual pick still
+    ///     resets to Overview exactly as before, unaffected by this.
     /// </summary>
     public class MemoryController : MonoBehaviour, IModuleController
     {
@@ -495,15 +516,122 @@ namespace MartProg.Modules
         /// Godot: the memory_progress dictionary literal. Built at runtime
         /// from ActivityOrder so the two can never drift apart — source keeps
         /// them as two separate literals that happen to agree.
+        ///
+        /// Phase 44: starting values now come from LoadPersistedProgress()
+        /// instead of always false — see class comment note 12. Still runs
+        /// exactly once, from Start(), same as before this phase; still the
+        /// only place memoryProgressNotes is rebuilt from scratch (notes
+        /// themselves are not persisted — only which activities are done,
+        /// which is all ResumeToNextActivity()/GetNextActivity() need).
         private void InitializeProgress()
         {
             memoryProgress.Clear();
             memoryProgressNotes.Clear();
 
+            HashSet<string> saved = LoadPersistedProgress();
+
             foreach (string key in ActivityOrder)
             {
-                memoryProgress[key] = false;
+                memoryProgress[key] = saved.Contains(key);
             }
+        }
+
+        // =================================================================
+        // Phase 44 — Continue Learning: cross-session progress persistence.
+        // See class comment note 12 for why this exists and what it does and
+        // does not change about in-session behaviour.
+        //
+        // Comma-separated completed activity keys, PlayerPrefs' only native
+        // string shape — same encoding choice as
+        // ChangeModuleController.CompletedQuizzesPrefKey.
+        // =================================================================
+
+        private const string MemoryProgressPrefKeyPrefix = "MARTPROG_MemoryProgress_";
+
+        /// <summary>
+        /// PlayerPrefs key for the current participant's persisted Memory
+        /// progress, or null if no student ID is registered yet — nothing to
+        /// key it to, same as ChangeModuleController.CompletedQuizzesPrefKey.
+        /// </summary>
+        private static string MemoryProgressPrefKey
+        {
+            get
+            {
+                string id = ChangeModuleController.RegisteredStudentId;
+                return string.IsNullOrEmpty(id) ? null : MemoryProgressPrefKeyPrefix + id;
+            }
+        }
+
+        private static HashSet<string> LoadPersistedProgress()
+        {
+            var result = new HashSet<string>();
+
+            string key = MemoryProgressPrefKey;
+            if (key == null) return result;
+
+            string stored = PlayerPrefs.GetString(key, "");
+            if (string.IsNullOrEmpty(stored)) return result;
+
+            foreach (string activityName in stored.Split(','))
+            {
+                if (!string.IsNullOrEmpty(activityName)) result.Add(activityName);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Writes the full current completion state, replacing whatever was
+        /// there — not an incremental append. Called after every mutation to
+        /// memoryProgress that should survive a restart: a completion
+        /// (MarkActivityCompleted, on the false->true transition), a single
+        /// activity reset (ResetActivityProgress), and the full "reset
+        /// progress" text command. Safe to call with no student ID
+        /// registered (a no-op — see MemoryProgressPrefKey).
+        /// </summary>
+        private static void SavePersistedProgress(Dictionary<string, bool> progress)
+        {
+            string key = MemoryProgressPrefKey;
+            if (key == null) return;
+
+            var completed = new List<string>();
+            foreach (KeyValuePair<string, bool> entry in progress)
+            {
+                if (entry.Value) completed.Add(entry.Key);
+            }
+
+            PlayerPrefs.SetString(key, string.Join(",", completed));
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>
+        /// Phase 44 (Continue Learning): jumps straight to the next
+        /// incomplete activity per GetNextActivity() — the exact logic
+        /// already driving the dashboard's own "Next:" line (note 8) — by
+        /// calling SetMemoryActivity(), the same path a student's own
+        /// dropdown selection already goes through. Indistinguishable from a
+        /// manual selection once it runs, not a special resume mode.
+        ///
+        /// Called by ChangeModuleController only on a Continue Learning
+        /// entry, after EnterModule() above has already run its normal
+        /// per-visit reset (Overview, empty table) — this simply moves the
+        /// selection on from there, the same as if the student had opened
+        /// the dropdown themselves.
+        ///
+        /// "Quiz" (GetNextActivity()'s return once every dropdown activity is
+        /// done — note 9) is deliberately NOT passed to SetMemoryActivity():
+        /// it is not a dropdown entry, it is a button, and per the Layouts
+        /// table that button is visible on every activity except Final
+        /// Assessment — which, by definition, is already complete in this
+        /// case. EnterModule()'s own Overview default already leaves the Quiz
+        /// button reachable, so no further action is needed.
+        /// </summary>
+        public void ResumeToNextActivity()
+        {
+            string next = GetNextActivity();
+            if (string.IsNullOrEmpty(next) || next == "Quiz") return;
+
+            SetMemoryActivity(next);
         }
 
         private void WireButtons()
@@ -1187,6 +1315,11 @@ namespace MartProg.Modules
                 // just the current one, and logs it as its own event.
                 foreach (string key in ActivityOrder) memoryProgress[key] = false;
                 memoryProgressNotes.Clear();
+
+                // Phase 44: clear the persisted copy too — same reasoning as
+                // ResetActivityProgress()'s save call, just for all fourteen
+                // at once.
+                SavePersistedProgress(memoryProgress);
 
                 LogEvent("Memory Progress", "", "Reset", "Memory progress tracker reset");
 
@@ -2018,6 +2151,11 @@ namespace MartProg.Modules
             if (alreadyComplete) return;
 
             LogEvent("Memory Progress", activityName, "Completed", note);
+
+            // Phase 44: persist on the genuine transition only, same gate as
+            // the log line above — a repeat completion has nothing new to
+            // save.
+            SavePersistedProgress(memoryProgress);
         }
 
         private void ResetActivityProgress(string activityName)
@@ -2026,6 +2164,13 @@ namespace MartProg.Modules
 
             memoryProgress[activityName] = false;
             memoryProgressNotes.Remove(activityName);
+
+            // Phase 44: an in-session reset (OnResetClicked()) must also
+            // clear the persisted copy — otherwise a participant who resets
+            // an activity and closes the app before redoing it would find it
+            // still marked complete (and skipped by GetNextActivity()) on
+            // their next launch.
+            SavePersistedProgress(memoryProgress);
         }
 
         private int GetCompletedCount()

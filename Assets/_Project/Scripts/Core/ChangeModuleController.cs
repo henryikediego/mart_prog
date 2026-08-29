@@ -209,6 +209,22 @@ namespace MartProg.Core
     ///    toggle shape exactly. See EffectiveEnforceModuleOrder,
     ///    SetEnforceModuleOrder(), MarkModuleQuizCompleted(), and
     ///    IsUnlockedByModuleOrder() below.
+    ///
+    /// 13. **Phase 44 — Continue Learning. NOT A PORT.** Godot has no
+    ///    progress concept at all — main_menu.gd always opens on a blank
+    ///    student panel. Backlog §6.5 confirmed "progress" means modules,
+    ///    quizzes, and Memory activities together; this reuses porting note
+    ///    12's completed-quiz set as the single "module done" signal for all
+    ///    of that rather than adding a second tracker, and adds Memory-
+    ///    specific step-level resume on top only where the codebase already
+    ///    has a step concept to resume within (MemoryController's own
+    ///    14-activity GetNextActivity(), previously per-session only — see
+    ///    that class's comment note 12 for the cross-session persistence
+    ///    this phase gives it). OnConfirmClicked()'s activation tail is
+    ///    extracted into ActivateModule() so ContinueLearning() below reaches
+    ///    the exact same path a manual confirm already uses, not a second,
+    ///    parallel one. See GetNextIncompleteModule(), CanContinueLearning(),
+    ///    and ContinueLearning() below, and Migration Spec §8w.
     /// </summary>
     public class ChangeModuleController : MonoBehaviour
     {
@@ -735,6 +751,73 @@ namespace MartProg.Core
             return true;
         }
 
+        // =================================================================
+        // Phase 44 — Continue Learning. NOT A PORT — Backlog §3.6/§4.1 (in
+        // the original proposal) and §6.5. Reuses Phase 43's machinery
+        // directly: "module completed" for Continue Learning purposes is the
+        // exact same completed-quiz signal IsUnlockedByModuleOrder() above
+        // gates on, not a second, separate tracker — see Migration Spec §8w.
+        // =================================================================
+
+        /// <summary>
+        /// The first BUILT module in moduleGroups' order whose quiz the
+        /// current registered student hasn't completed yet — "where do you
+        /// pick back up," independent of whether EffectiveEnforceModuleOrder
+        /// is even on; Continue Learning's own notion of "next" doesn't
+        /// depend on whether skipping ahead is currently blocked. Returns
+        /// null once every built module is done (or if none are built).
+        /// </summary>
+        public ModuleGroupEntry GetNextIncompleteModule()
+        {
+            HashSet<string> completed = LoadCompletedQuizModules();
+
+            foreach (ModuleGroupEntry entry in moduleGroups)
+            {
+                if (!entry.IsBuilt) continue;
+                if (!completed.Contains(entry.moduleKey)) return entry;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Whether the Landing Page's Continue Learning button should be
+        /// shown: a registered participant with at least one built module
+        /// still incomplete. Read fresh every time the Landing Page is about
+        /// to show (LandingPageController.Show()), never cached — progress
+        /// can change from anywhere in a session. Once every built module is
+        /// done, this goes false and stays false for that student (matching
+        /// the chosen behaviour: hide the button rather than reopen the last
+        /// module visited).
+        /// </summary>
+        public bool CanContinueLearning()
+        {
+            return !string.IsNullOrEmpty(RegisteredStudentId) && GetNextIncompleteModule() != null;
+        }
+
+        /// <summary>
+        /// Called from the Landing Page's Continue Learning button. Goes
+        /// straight into GetNextIncompleteModule() via the same
+        /// ActivateModule() path OnConfirmClicked() uses — no selector, no
+        /// dropdown, no Student ID re-entry, since a registered ID and a
+        /// target module are both already known. Guards defensively against
+        /// both failing (no registered ID, or nothing left to continue) even
+        /// though CanContinueLearning() should already have hidden the button
+        /// in either case — this method does not assume its caller checked.
+        /// </summary>
+        public void ContinueLearning()
+        {
+            string studentId = RegisteredStudentId;
+            if (string.IsNullOrEmpty(studentId)) return;
+
+            ModuleGroupEntry target = GetNextIncompleteModule();
+            if (target == null) return;
+
+            if (landingPage != null) landingPage.Hide();
+
+            ActivateModule(target, studentId, isResume: true);
+        }
+
         // Phase 37's TEMPORARY About button on this panel is GONE as of Phase
         // 38 — the Landing Page owns that entry point now, which was always
         // the plan (Backlog §5/§7 item 3). The `aboutButton` / `aboutController`
@@ -1043,6 +1126,22 @@ namespace MartProg.Core
                 return;
             }
 
+            ActivateModule(selected, enteredId, isResume: false);
+        }
+
+        /// <summary>
+        /// Phase 44: the activation tail of OnConfirmClicked() — everything
+        /// from "which GameObjects turn on" through "log the session start
+        /// and defer into the controller's own EnterModule()" — extracted
+        /// unchanged so ContinueLearning() below can reach the exact same
+        /// path a manual dropdown confirm already uses, rather than a second,
+        /// parallel copy that could drift from it. <paramref name="isResume"/>
+        /// only affects EnterSelectedModuleDeferred()'s Memory-specific
+        /// branch (see its own comment) — everything else here behaves
+        /// identically for both callers.
+        /// </summary>
+        private void ActivateModule(ModuleGroupEntry selected, string studentId, bool isResume)
+        {
             foreach (ModuleGroupEntry entry in moduleGroups)
             {
                 bool isSelected = entry == selected;
@@ -1062,14 +1161,17 @@ namespace MartProg.Core
                 // immediately before start_new_session(). The order matters —
                 // StartNewSession() writes a session-start row, and that row
                 // must already carry the real ID rather than the default.
-                ResearchLogger.Instance.StudentId = enteredId;
+                ResearchLogger.Instance.StudentId = studentId;
                 ResearchLogger.Instance.ModuleName = selected.moduleKey;
                 ResearchLogger.Instance.StartNewSession();
 
                 // Phase 35: register on first successful start, after the
                 // session exists so the "Student ID Registered" row lands in
-                // the new session rather than the previous one.
-                RegisterStudentId(enteredId);
+                // the new session rather than the previous one. A no-op on
+                // the Continue Learning path — the ID is already registered
+                // (ContinueLearning() requires one), same as RegisterStudentId()
+                // already no-ops for any already-registered ID.
+                RegisterStudentId(studentId);
                 ApplyStudentIdLockState();
             }
 
@@ -1083,17 +1185,28 @@ namespace MartProg.Core
                 //
                 // If AppState has no StudentId field in your build, this is
                 // the one line to delete.
-                AppState.Instance.StudentId = enteredId;
+                AppState.Instance.StudentId = studentId;
             }
 
-            StartCoroutine(EnterSelectedModuleDeferred(selected));
+            StartCoroutine(EnterSelectedModuleDeferred(selected, isResume));
         }
 
         /// <summary>
         /// See porting note 7 above for why this waits two frames before
         /// calling EnterModule() on the target controller.
+        ///
+        /// Phase 44: <paramref name="isResume"/> is true only on a Continue
+        /// Learning entry (see ContinueLearning() below), false on every
+        /// ordinary confirm. When true AND the target is Memory specifically,
+        /// MemoryController.ResumeToNextActivity() runs immediately after
+        /// EnterModule() — so EnterModule()'s own reset to Overview happens
+        /// first, exactly as it always has, and the resume is a second step
+        /// on top of it, not a replacement for it. Every other module has no
+        /// equivalent step-level concept to resume within (see Migration Spec
+        /// §8v/§8w), so isResume changes nothing for them — EnterModule() is
+        /// the whole story, same as a manual confirm.
         /// </summary>
-        private IEnumerator EnterSelectedModuleDeferred(ModuleGroupEntry selected)
+        private IEnumerator EnterSelectedModuleDeferred(ModuleGroupEntry selected, bool isResume)
         {
             yield return null;
             yield return null;
@@ -1105,6 +1218,12 @@ namespace MartProg.Core
                 if (controller != null)
                 {
                     controller.EnterModule();
+
+                    if (isResume && selected.moduleKey == "Memory")
+                    {
+                        MemoryController memoryController = selected.controllerObject.GetComponent<MemoryController>();
+                        memoryController?.ResumeToNextActivity();
+                    }
                 }
                 else
                 {
