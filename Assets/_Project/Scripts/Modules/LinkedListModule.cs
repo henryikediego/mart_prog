@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using MartProg.Menu;
 
 /// <summary>
 /// Direct port of linked_list_module.gd (Phase 21).
@@ -309,12 +310,13 @@ public class LinkedListModule : MonoBehaviour
 
         TextMeshPro tmp = arrowObj.AddComponent<TextMeshPro>();
         tmp.text = "→"; // →
-        tmp.fontSize = GetArrowFontSize();
+        tmp.fontSize = GetArrowFontSize() * LandingPageController.CurrentTextScale; // Phase 45
         tmp.color = arrowColor;
         tmp.fontStyle = FontStyles.Bold;
         tmp.outlineWidth = 0.25f;
         tmp.outlineColor = Color.black;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = false; // Phase 45 fix — see ArrayModule.CreateIndexMarker()
 
         arrowObj.AddComponent<Billboard>();
     }
@@ -338,12 +340,13 @@ public class LinkedListModule : MonoBehaviour
 
         TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
         tmp.text = "NULL";
-        tmp.fontSize = values.Count >= 6 ? 24 : 28;
+        tmp.fontSize = (values.Count >= 6 ? 24 : 28) * LandingPageController.CurrentTextScale; // Phase 45
         tmp.color = nullMarkerColor;
         tmp.fontStyle = FontStyles.Bold;
         tmp.outlineWidth = 0.25f;
         tmp.outlineColor = Color.black;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = false; // Phase 45 fix — see ArrayModule.CreateIndexMarker()
 
         markerObj.AddComponent<Billboard>();
     }
@@ -363,12 +366,13 @@ public class LinkedListModule : MonoBehaviour
 
         TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
         tmp.text = text;
-        tmp.fontSize = markerFontSize;
+        tmp.fontSize = markerFontSize * LandingPageController.CurrentTextScale; // Phase 45
         tmp.color = color;
         tmp.fontStyle = FontStyles.Bold;
         tmp.outlineWidth = 0.25f;
         tmp.outlineColor = Color.black;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = false; // Phase 45 fix — see ArrayModule.CreateIndexMarker()
 
         markerObj.AddComponent<Billboard>();
     }

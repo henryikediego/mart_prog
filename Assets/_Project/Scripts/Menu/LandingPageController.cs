@@ -117,6 +117,28 @@ namespace MartProg.Menu
     /// analyse. Help (Phase 41) is different, on purpose: whether a
     /// participant opened it varies between people, which is precisely what
     /// makes it worth a row (Backlog §6.3) — see HelpController.Show().
+    ///
+    /// **Phase 45: the AR-label half Phase 42 deferred.** That phase's note
+    /// on `InformationPanel.cs` named eight files (Array, ArrayCell, Stack,
+    /// Queue, LinkedList, Loop, Function, Selection) that each set
+    /// `tmp.fontSize` directly at creation with no shared hook; Memory's own
+    /// `BuildLabel()` does the same and is included here too. Unlike the
+    /// dashboard panels, none of those labels are long-lived — every one of
+    /// them is destroyed and rebuilt from scratch on every full redraw
+    /// (`DrawStack()`, `DrawArray()`, and their siblings all `ClearContainer()`
+    /// + recreate before drawing a single marker), and `EnterModule()` runs
+    /// that reset-and-redraw on every entry, including a return visit. So
+    /// there is no re-render hook to build: each module's own fontSize
+    /// assignment just multiplies by `CurrentTextScale` below, and whatever
+    /// is current at the moment of that redraw is what gets drawn — the same
+    /// value this class has already been writing to `PlayerPrefs` since
+    /// Phase 42, reused rather than duplicated under a second key. The
+    /// Landing Page's own text-scale button is unreachable while a module is
+    /// open (it is hidden behind the module selector the moment one opens),
+    /// so "does it update live while a module is on screen" was never a real
+    /// case to design for — the only way to change it is to back out to this
+    /// screen first, which is exactly the moment every AR label the
+    /// participant next sees gets rebuilt anyway.
     /// </summary>
     public class LandingPageController : MonoBehaviour
     {
@@ -209,6 +231,23 @@ namespace MartProg.Menu
         // just the resulting multiplier. Kept in lockstep with the index
         // everywhere the index is written (Start() and OnTextScaleClicked()).
         private const string TextScaleFloatPrefsKey = "MartProg_TextScale";
+
+        // Phase 45: the same pull this class already gives DashboardController
+        // (ApplySavedTextScale() reads TextScaleFloatPrefsKey directly), now
+        // exposed as a public static so the eight AR-label module files can
+        // read it too, at the exact point each of them assigns tmp.fontSize.
+        // A static rather than an instance member on purpose — a module's
+        // helper method has no reference to this MonoBehaviour and has no
+        // reason to acquire one just to read one float; every other
+        // app-wide setting this project reads from an arbitrary call site
+        // (RegisteredStudentId, EffectiveEnforceModuleOrder) already uses
+        // this same "static property, backed directly by PlayerPrefs" shape.
+        // Defaults to 1.0 (Normal), matching ApplySavedTextScale()'s own
+        // default for a fresh install where the key has never been written.
+        public static float CurrentTextScale
+        {
+            get { return PlayerPrefs.GetFloat(TextScaleFloatPrefsKey, 1.0f); }
+        }
 
         private int currentTextScaleIndex = 0;
 

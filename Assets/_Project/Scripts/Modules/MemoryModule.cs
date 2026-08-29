@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine;
+using MartProg.Menu;
 
 namespace MartProg.Modules
 {
@@ -406,7 +407,26 @@ namespace MartProg.Modules
 
         /// Guarded so a zero or negative value in the Inspector collapses the
         /// table to a line rather than inverting it.
-        private float ColumnSpread => Mathf.Max(0.05f, columnSpreadMultiplier);
+        ///
+        /// Phase 45 on-device fix: found with Extra Large text, header
+        /// columns (ADDRESS/NAME especially) visibly crowded and overlapped,
+        /// because this spread was tuned once for Normal-size text and never
+        /// moved when the accessibility scale grew the headers themselves.
+        /// Compensates by HALF of whatever CurrentTextScale adds above 1.0 —
+        /// full compensation (spread * scale) would land Extra Large's 0.75
+        /// default at ~0.975, almost exactly the un-narrowed 1.0 spread this
+        /// multiplier exists to avoid, re-creating the original portrait
+        /// overflow problem. At Normal (scale 1.0) this is an exact no-op,
+        /// so nothing changes for anyone who leaves Text Size alone.
+        private float ColumnSpread
+        {
+            get
+            {
+                float textScale = LandingPageController.CurrentTextScale;
+                float compensation = 1f + (textScale - 1f) * 0.5f;
+                return Mathf.Max(0.05f, columnSpreadMultiplier * compensation);
+            }
+        }
 
         /// Source's ROW_WIDTH, narrowed by the horizontal squeeze.
         private float ScaledRowWidth => RowWidth * ColumnSpread;
@@ -828,7 +848,9 @@ namespace MartProg.Modules
 
             TextMeshPro tmp = labelObj.AddComponent<TextMeshPro>();
             tmp.text = text;
-            tmp.fontSize = fontSize;
+            tmp.fontSize = fontSize * LandingPageController.CurrentTextScale; // Phase 45 — the one choke
+            // point both AddTextLabel() and AddMarkerLabel() route through, so
+            // every row (address, value, header, marker) in this table scales.
             tmp.color = color;
             tmp.outlineWidth = outlineWidth;
             tmp.outlineColor = Color.black;

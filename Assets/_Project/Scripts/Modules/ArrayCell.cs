@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using MartProg.Menu;
 
 // Direct port of array_cell.gd.
 // Godot's Label3D becomes Unity's TextMeshPro (the 3D/world-space
@@ -117,6 +118,17 @@ public class ArrayCell : MonoBehaviour
     // applied against whatever size the prefab itself was authored at.
     private float defaultValueFontSize = -1f;
 
+    // Phase 45: folded the accessibility text scale into this SAME formula
+    // rather than adding a second stored multiplier. SetValueOnly() below
+    // already routes every module's cell value through this one method
+    // (SelectionModule then calls it a second time with its own ratio and
+    // wins — see the comment there), so multiplying LandingPageController
+    // .CurrentTextScale in here reaches every caller for free, in whatever
+    // order they call it, with no separate "content fit" vs "accessibility"
+    // field to keep in sync. Cells are rebuilt fresh on every full redraw
+    // (see LandingPageController's Phase 45 note), so defaultValueFontSize
+    // is always this instance's own true authored baseline, never a
+    // previously-scaled value.
     public void SetValueFontScale(float multiplier)
     {
         if (valueLabel == null) return;
@@ -126,7 +138,7 @@ public class ArrayCell : MonoBehaviour
             defaultValueFontSize = valueLabel.fontSize;
         }
 
-        valueLabel.fontSize = defaultValueFontSize * multiplier;
+        valueLabel.fontSize = defaultValueFontSize * multiplier * LandingPageController.CurrentTextScale;
     }
 
     public void ResetValueFontScale()

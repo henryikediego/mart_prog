@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using MartProg.Menu;
 
 namespace MartProg.Modules
 {
@@ -362,11 +363,19 @@ namespace MartProg.Modules
             Collider blockCollider = block.GetComponent<Collider>();
             if (blockCollider != null) Destroy(blockCollider);
 
+            // Phase 45 fix: the block itself was never part of the
+            // accessibility scale, only loopMessage's fontSize was — so at
+            // Extra Large the (often two-line, e.g. "value = 10\ntotal = 10")
+            // narration text grew past the block's fixed size and spilled
+            // outside it, found on-device. Width and height now grow with
+            // LandingPageController.CurrentTextScale too; depth is left
+            // alone since it's the block's thickness, not text space.
+            float textScale = LandingPageController.CurrentTextScale;
             block.transform.SetParent(loopBlockParent, false);
             block.transform.localPosition = new Vector3(LayoutX(preScaleX), arHeight, arDistance);
             block.transform.localScale = new Vector3(
-                BlockWidth * spacingMultiplier * arScale * cellSizeMultiplier,
-                BlockHeight * arScale * cellSizeMultiplier,
+                BlockWidth * spacingMultiplier * arScale * cellSizeMultiplier * textScale,
+                BlockHeight * arScale * cellSizeMultiplier * textScale,
                 BlockDepth * arScale * cellSizeMultiplier);
             block.transform.localRotation = Quaternion.identity;
 
@@ -417,12 +426,13 @@ namespace MartProg.Modules
 
             TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
             tmp.text = text;
-            tmp.fontSize = fontSize;
+            tmp.fontSize = fontSize * LandingPageController.CurrentTextScale; // Phase 45
             tmp.color = color;
             tmp.fontStyle = FontStyles.Bold;
             tmp.outlineWidth = 0.25f;
             tmp.outlineColor = Color.black;
             tmp.alignment = TextAlignmentOptions.Center;
+            tmp.enableWordWrapping = false; // Phase 45 fix — see ArrayModule.CreateIndexMarker()
 
             markerObj.AddComponent<Billboard>();
         }

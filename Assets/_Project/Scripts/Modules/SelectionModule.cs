@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using MartProg.Menu;
 
 namespace MartProg.Modules
 {
@@ -414,9 +415,12 @@ namespace MartProg.Modules
 
             block.transform.SetParent(conditionParent, false);
             block.transform.localPosition = new Vector3(LayoutX(preScaleX), arHeight, arDistance);
+            // Phase 45: height grows with CurrentTextScale here too, matching
+            // ApplyConditionFontSizeAndWidth() below — this is the block's
+            // INITIAL size, before any Set Condition call has run.
             block.transform.localScale = new Vector3(
                 ConditionWidth * spacingMultiplier * arScale * cellSizeMultiplier,
-                height * arScale * cellSizeMultiplier,
+                height * arScale * cellSizeMultiplier * LandingPageController.CurrentTextScale,
                 ConditionDepth * arScale * cellSizeMultiplier);
             block.transform.localRotation = Quaternion.identity;
 
@@ -458,7 +462,7 @@ namespace MartProg.Modules
 
             TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
             tmp.text = text;
-            tmp.fontSize = fontSize;
+            tmp.fontSize = fontSize * LandingPageController.CurrentTextScale; // Phase 45
             tmp.color = color;
             tmp.fontStyle = FontStyles.Bold;
             tmp.outlineWidth = 0.25f;
@@ -601,7 +605,15 @@ namespace MartProg.Modules
             // otherwise smear the glyphs horizontally (see note 12). The
             // label is counter-scaled by the inverse, so the box gets wider
             // while its text stays correctly proportioned.
-            float growth = Mathf.Max(1f, desiredWidth / OutputBoxWidth);
+            //
+            // Phase 45 on-device fix: same issue as
+            // ApplyConditionFontSizeAndWidth() — desiredWidth only accounts
+            // for text length, but cell.SetValueFontScale() above already
+            // folds in LandingPageController.CurrentTextScale, so the box
+            // needs the same factor or short RESULT text overflows a box
+            // sized only for its un-scaled length bucket.
+            float growth = Mathf.Max(1f,
+                (desiredWidth * LandingPageController.CurrentTextScale) / OutputBoxWidth);
             float baseScale = OutputCellScale * arScale * cellSizeMultiplier;
 
             cell.transform.localScale = new Vector3(baseScale * growth, baseScale, baseScale);
@@ -623,16 +635,31 @@ namespace MartProg.Modules
             else if (text.Length <= 24) { fontSize = 19; desiredWidth = 3.45f; }
             else { fontSize = 16; desiredWidth = 3.80f; }
 
-            conditionLabel.fontSize = fontSize;
+            // Phase 45: this reassignment runs AFTER AddMarker() already set
+            // conditionLabel.fontSize once at creation (see note above this
+            // method's use of AddMarker() to build conditionLabel in the first
+            // place) — without the multiplier here too, this later call would
+            // silently overwrite AddMarker()'s scaled value with an unscaled
+            // one every time the condition text changes.
+            conditionLabel.fontSize = fontSize * LandingPageController.CurrentTextScale;
 
             if (conditionBody == null) return;
 
-            float widthRatio = Mathf.Max(1f, desiredWidth / ConditionWidth);
+            // Phase 45 on-device fix: this ratio previously only accounted for
+            // TEXT LENGTH (the desiredWidth bucket above), never for the
+            // accessibility scale — so short/medium condition text (which
+            // fell into a bucket at or below 1x already) got no extra box
+            // room at all even though its rendered font was up to 1.3x
+            // bigger, and the CONDITION block's neighboring arrow visibly
+            // intruded into it. Folding CurrentTextScale into the same ratio
+            // means the box now grows for BOTH reasons together.
+            float widthRatio = Mathf.Max(1f,
+                (desiredWidth * LandingPageController.CurrentTextScale) / ConditionWidth);
             float height = useTallBlock ? ConditionHeightTall : ConditionHeight;
 
             conditionBody.localScale = new Vector3(
                 ConditionWidth * spacingMultiplier * arScale * cellSizeMultiplier * widthRatio,
-                height * arScale * cellSizeMultiplier,
+                height * arScale * cellSizeMultiplier * LandingPageController.CurrentTextScale,
                 ConditionDepth * arScale * cellSizeMultiplier);
         }
 

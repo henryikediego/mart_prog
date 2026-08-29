@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using MartProg.Menu;
 
 /// <summary>
 /// Direct port of queue_module.gd (Phase 19).
@@ -273,12 +274,13 @@ public class QueueModule : MonoBehaviour
 
         TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
         tmp.text = text;
-        tmp.fontSize = markerFontSize;
+        tmp.fontSize = markerFontSize * LandingPageController.CurrentTextScale; // Phase 45
         tmp.color = color;
         tmp.fontStyle = FontStyles.Bold;
         tmp.outlineWidth = 0.25f;
         tmp.outlineColor = Color.black;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = false; // Phase 45 fix — see ArrayModule.CreateIndexMarker()
 
         // Fix (Phase 18 on-device finding, applied proactively): markers
         // built fresh in code need an explicit Billboard component — there

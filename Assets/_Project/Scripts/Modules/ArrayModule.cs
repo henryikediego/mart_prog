@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using MartProg.Menu;
 
 // Direct port of array_module.gd.
 // Godot's `await tween.finished` becomes Unity coroutines (IEnumerator +
@@ -196,12 +197,18 @@ public class ArrayModule : MonoBehaviour
 
         TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
         tmp.text = text;
-        tmp.fontSize = indexMarkerFontSize;
+        tmp.fontSize = indexMarkerFontSize * LandingPageController.CurrentTextScale; // Phase 45
         tmp.color = new Color(0.4f, 0.85f, 1.0f, 1f);
         tmp.fontStyle = FontStyles.Bold;
         tmp.outlineWidth = 0.25f;
         tmp.outlineColor = Color.black;
         tmp.alignment = TextAlignmentOptions.Center;
+        // Phase 45 fix: TextMeshPro's default RectTransform width was only
+        // ever wide enough by accident, at the pre-Phase-45 font size. Word
+        // wrap was never intended for this one-line marker, and left on it
+        // silently breaks short text onto a second line once fontSize grows
+        // past whatever that default width happens to fit.
+        tmp.enableWordWrapping = false;
 
         // Fix (Phase 18 on-device finding): index markers are built
         // fresh in code on every redraw and were never given a
@@ -225,10 +232,11 @@ public class ArrayModule : MonoBehaviour
 
         TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
         tmp.text = text;
-        tmp.fontSize = 30;
+        tmp.fontSize = 30 * LandingPageController.CurrentTextScale; // Phase 45
         tmp.color = color;
         tmp.outlineWidth = 0.2f;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = false; // Phase 45 fix — see CreateIndexMarker() above
 
         // Same Billboard fix as CreateIndexMarker() above, kept
         // consistent even though this helper is currently unused.
