@@ -289,6 +289,10 @@ namespace MartProg.Modules
         private Transform conditionBody;
         private TextMeshPro conditionLabel;
 
+        // Phase 47 — see RepositionArrows().
+        private TextMeshPro leftArrowMarker;
+        private TextMeshPro rightArrowMarker;
+
         public Transform ConditionBody => conditionBody;
         public Transform OutputCellTransform => outputCell != null ? outputCell.transform : null;
 
@@ -303,6 +307,8 @@ namespace MartProg.Modules
             outputCell = null;
             conditionBody = null;
             conditionLabel = null;
+            leftArrowMarker = null;
+            rightArrowMarker = null;
 
             ClearContainer(inputParent);
             ClearContainer(conditionParent);
@@ -363,15 +369,27 @@ namespace MartProg.Modules
             // RESULT box — likewise no caption below.
             outputCell = CreateValueBox("SelectionResult", resultText, outputCenterX, OutputCellScale, outputParent);
 
-            // Headings
-            AddMarker("VALUE", inputCenterX, HeadingYOffset, HeaderFontSize, ValueColor);
-            AddMarker("CONDITION", conditionCenterX, HeadingYOffset, HeaderFontSize, ConditionColor);
-            AddMarker("RESULT", outputCenterX, HeadingYOffset, HeaderFontSize, ResultColor);
+            // Headings. Phase 47: headers (and the arrows below) grow at
+            // HALF the accessibility scale's rate, not the full rate the
+            // VALUE/RESULT box content gets — see MemoryModule
+            // .AddHeaderRow() for the same idea applied there, with the
+            // fuller reasoning. On-device screenshots at Extra Large showed
+            // "VALUE" and "RESULT" reaching close enough to the screen's
+            // own edges to clip; slowing header growth relieves that
+            // without moving anything's position.
+            float headerTextScale = 1f + (LandingPageController.CurrentTextScale - 1f) * 0.5f;
+            AddMarker("VALUE", inputCenterX, HeadingYOffset, HeaderFontSize, ValueColor, textScaleOverride: headerTextScale);
+            AddMarker("CONDITION", conditionCenterX, HeadingYOffset, HeaderFontSize, ConditionColor, textScaleOverride: headerTextScale);
+            AddMarker("RESULT", outputCenterX, HeadingYOffset, HeaderFontSize, ResultColor, textScaleOverride: headerTextScale);
 
             // Arrows — both true midpoints in this module (contrast Loops,
-            // whose right arrow had a /2.2 typo).
-            AddArrow(leftArrowX);
-            AddArrow(rightArrowX);
+            // whose right arrow had a /2.2 typo). Captured so
+            // RepositionArrows() can move them later, after
+            // SetSelectionVisualTexts() grows the CONDITION/RESULT boxes —
+            // see that method's comment for why this initial position is
+            // not the last word on where they end up.
+            leftArrowMarker = AddArrow(leftArrowX, headerTextScale);
+            rightArrowMarker = AddArrow(rightArrowX, headerTextScale);
         }
 
         private ArrayCell CreateValueBox(string objectName, string text, float preScaleX, float cellScale, Transform parent)
@@ -446,7 +464,11 @@ namespace MartProg.Modules
             return material;
         }
 
-        private TextMeshPro AddMarker(string text, float preScaleX, float preScaleYOffset, int fontSize, Color color, Transform parent = null)
+        // Phase 47: textScaleOverride lets a caller (section headers,
+        // arrows) opt out of the full CurrentTextScale multiplier — see
+        // DrawSelection()'s headerTextScale for why. null (the default)
+        // preserves every existing caller's Phase 45 behaviour exactly.
+        private TextMeshPro AddMarker(string text, float preScaleX, float preScaleYOffset, int fontSize, Color color, Transform parent = null, float? textScaleOverride = null)
         {
             Transform target = parent != null ? parent : markersParent;
             if (target == null) return null;
@@ -462,7 +484,7 @@ namespace MartProg.Modules
 
             TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
             tmp.text = text;
-            tmp.fontSize = fontSize * LandingPageController.CurrentTextScale; // Phase 45
+            tmp.fontSize = fontSize * (textScaleOverride ?? LandingPageController.CurrentTextScale); // Phase 45/47
             tmp.color = color;
             tmp.fontStyle = FontStyles.Bold;
             tmp.outlineWidth = 0.25f;
@@ -485,9 +507,9 @@ namespace MartProg.Modules
             return tmp;
         }
 
-        private void AddArrow(float preScaleX)
+        private TextMeshPro AddArrow(float preScaleX, float? textScaleOverride = null)
         {
-            AddMarker("→", preScaleX, ArrowYOffset, ArrowFontSize, Color.white);
+            return AddMarker("→", preScaleX, ArrowYOffset, ArrowFontSize, Color.white, textScaleOverride: textScaleOverride);
         }
 
         // ---------------------------------------------------------------
@@ -520,6 +542,54 @@ namespace MartProg.Modules
 
             conditionLabel.text = conditionText;
             ApplyConditionFontSizeAndWidth(conditionText);
+
+            RepositionArrows();
+        }
+
+        /// <summary>
+        /// Phase 47 — on-device screenshots at Extra Large showed the
+        /// CONDITION block's neighboring arrow rendering literally through
+        /// the condition text ("Performance Rule" with the arrow crossing
+        /// it like a strikethrough). Root cause: DrawSelection() positions
+        /// both arrows ONCE, from the CONDITION/RESULT boxes' size at that
+        /// moment — but SetSelectionVisualTexts(), the one entry point the
+        /// live app actually calls (class comment note 1), never calls
+        /// DrawSelection() again after the first draw; it only grows
+        /// conditionBody/outputCell's own localScale via
+        /// ApplyConditionFontSizeAndWidth()/ApplyResultFontSizeAndWidth().
+        /// So a box could grow well past wherever the arrow was left
+        /// sitting, swallowing it. Called after both of those, so the
+        /// arrows track each box's ACTUAL current edge instead of a
+        /// snapshot from whenever this module was first drawn.
+        ///
+        /// Reads localPosition/localScale directly off the live
+        /// Transforms rather than recomputing "preScaleX" positions, since
+        /// ApplyResultFontSizeAndWidth() in particular grows outputCell by
+        /// a text-length ratio this method has no other way to know —
+        /// asking the Transform for its actual current width is simpler
+        /// and cannot drift out of sync with what is really on screen.
+        /// inputCell's own box never resizes (ApplyValueFontSize() only
+        /// shrinks its font to fit, never grows the box — see that
+        /// method), so its edge is stable across calls the same way it
+        /// always has been.
+        /// </summary>
+        private void RepositionArrows()
+        {
+            if (leftArrowMarker == null || rightArrowMarker == null) return;
+            if (inputCell == null || conditionBody == null || outputCell == null) return;
+
+            float inputRightEdge = inputCell.transform.localPosition.x + inputCell.transform.localScale.x / 2f;
+            float conditionLeftEdge = conditionBody.localPosition.x - conditionBody.localScale.x / 2f;
+            float conditionRightEdge = conditionBody.localPosition.x + conditionBody.localScale.x / 2f;
+            float outputLeftEdge = outputCell.transform.localPosition.x - outputCell.transform.localScale.x / 2f;
+
+            Vector3 leftPos = leftArrowMarker.transform.localPosition;
+            leftPos.x = (inputRightEdge + conditionLeftEdge) / 2f;
+            leftArrowMarker.transform.localPosition = leftPos;
+
+            Vector3 rightPos = rightArrowMarker.transform.localPosition;
+            rightPos.x = (conditionRightEdge + outputLeftEdge) / 2f;
+            rightArrowMarker.transform.localPosition = rightPos;
         }
 
         /// Whether the CONDITION block uses the taller multi-line geometry.

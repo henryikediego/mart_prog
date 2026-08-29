@@ -263,12 +263,31 @@ namespace MartProg.Modules
             float itemScale = GetItemScaleFactor();
             float itemSpacing = GetItemSpacing();
 
+            // Phase 47 on-device fix: the LOOP block's own rendered width
+            // already grows with CurrentTextScale (Phase 45 Round 2,
+            // CreateLoopBlock() below) so it can contain its (often
+            // two-line) narration text without overflowing — but this edge
+            // math still measured the room around it using the UNSCALED
+            // BlockWidth constant, so the block visually grew past the
+            // space this math reserved for it. On-device this showed as
+            // its edges overlapping the arrow glyphs beside it ("for
+            // value" and "in numbers" both had an arrow rendering into
+            // their first/last character). SectionGap itself is
+            // deliberately left unscaled here — see the headerTextScale
+            // note below for how the separate "DATA"/"LOOP"/"RESULT"
+            // collision symptom is handled instead. Widening every gap in
+            // addition to the block would push those headers further
+            // toward the screen's own edges than necessary, worsening the
+            // edge-clipping the same on-device pass showed for other
+            // modules' outermost labels.
+            float scaledBlockWidth = BlockWidth * LandingPageController.CurrentTextScale;
+
             // Width of the DATA group.
             float dataWidth = values.Count > 1
                 ? (values.Count - 1) * itemSpacing + ItemBoxWidth
                 : ItemBoxWidth;
 
-            float totalWidth = dataWidth + SectionGap + BlockWidth + SectionGap + OutputBoxWidth;
+            float totalWidth = dataWidth + SectionGap + scaledBlockWidth + SectionGap + OutputBoxWidth;
             float leftEdge = -totalWidth / 2f;
 
             // DATA group
@@ -279,8 +298,8 @@ namespace MartProg.Modules
 
             // LOOP block
             float loopLeftEdge = dataRightEdge + SectionGap;
-            float loopCenterX = loopLeftEdge + BlockWidth / 2f;
-            float loopRightEdge = loopCenterX + BlockWidth / 2f;
+            float loopCenterX = loopLeftEdge + scaledBlockWidth / 2f;
+            float loopRightEdge = loopCenterX + scaledBlockWidth / 2f;
 
             // RESULT box
             float outputLeftEdge = loopRightEdge + SectionGap;
@@ -309,13 +328,23 @@ namespace MartProg.Modules
             AddMarker("total", outputCenterX, TotalCaptionYOffset, SmallLabelFontSize, ResultColor);
 
             // ----- Section headers -----
-            AddMarker("DATA", dataCenterX, HeaderYOffset, HeaderFontSize, DataColor);
-            AddMarker("LOOP", loopCenterX, HeaderYOffset, HeaderFontSize, LoopColor);
-            AddMarker("RESULT", outputCenterX, HeaderYOffset, HeaderFontSize, ResultColor);
+            // Phase 47: headers (and the arrows below) grow at HALF the
+            // accessibility scale's rate, not the full rate DATA/RESULT
+            // values get — see MemoryModule.AddHeaderRow() for the same
+            // idea applied there, with the fuller reasoning. Structural/
+            // annotation text a participant reads once and doesn't need to
+            // re-read closely; the values are what accessibility text size
+            // actually exists for. Keeps "DATA"/"LOOP"/"RESULT" from
+            // re-colliding without needing to widen the gaps around them
+            // any further than the block-width fix above already does.
+            float headerTextScale = 1f + (LandingPageController.CurrentTextScale - 1f) * 0.5f;
+            AddMarker("DATA", dataCenterX, HeaderYOffset, HeaderFontSize, DataColor, textScaleOverride: headerTextScale);
+            AddMarker("LOOP", loopCenterX, HeaderYOffset, HeaderFontSize, LoopColor, textScaleOverride: headerTextScale);
+            AddMarker("RESULT", outputCenterX, HeaderYOffset, HeaderFontSize, ResultColor, textScaleOverride: headerTextScale);
 
             // ----- Arrows -----
-            AddArrow(leftArrowX);
-            AddArrow(rightArrowX);
+            AddArrow(leftArrowX, headerTextScale);
+            AddArrow(rightArrowX, headerTextScale);
 
             // ----- CURRENT marker above the active box -----
             if (currentIndex >= 0 && currentIndex < values.Count)
@@ -410,7 +439,11 @@ namespace MartProg.Modules
         }
 
         // Godot: func add_marker(text_value, marker_position, marker_color, font_size, pixel_size)
-        private void AddMarker(string text, float preScaleX, float preScaleYOffset, int fontSize, Color color, Transform parent = null)
+        // Phase 47: textScaleOverride lets a caller (section headers, arrows)
+        // opt out of the full CurrentTextScale multiplier — see DrawLoop()'s
+        // headerTextScale for why. null (the default) preserves every
+        // existing caller's Phase 45 behaviour exactly.
+        private void AddMarker(string text, float preScaleX, float preScaleYOffset, int fontSize, Color color, Transform parent = null, float? textScaleOverride = null)
         {
             Transform target = parent != null ? parent : markersParent;
             if (target == null) return;
@@ -426,7 +459,7 @@ namespace MartProg.Modules
 
             TextMeshPro tmp = markerObj.AddComponent<TextMeshPro>();
             tmp.text = text;
-            tmp.fontSize = fontSize * LandingPageController.CurrentTextScale; // Phase 45
+            tmp.fontSize = fontSize * (textScaleOverride ?? LandingPageController.CurrentTextScale); // Phase 45/47
             tmp.color = color;
             tmp.fontStyle = FontStyles.Bold;
             tmp.outlineWidth = 0.25f;
@@ -438,9 +471,9 @@ namespace MartProg.Modules
         }
 
         // Godot: func add_arrow(marker_position: Vector3)
-        private void AddArrow(float preScaleX)
+        private void AddArrow(float preScaleX, float? textScaleOverride = null)
         {
-            AddMarker("→", preScaleX, 0f, ArrowFontSize, Color.white);
+            AddMarker("→", preScaleX, 0f, ArrowFontSize, Color.white, textScaleOverride: textScaleOverride);
         }
 
         /// Godot: func set_values_from_text(text_value: String)

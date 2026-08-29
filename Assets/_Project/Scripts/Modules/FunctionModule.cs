@@ -350,10 +350,25 @@ namespace MartProg.Modules
 
             resultValue = CalculateResult(currentFunctionName);
 
+            // Phase 47 on-device fix: on a narrower device, "FUNCTION" and
+            // "OUTPUT" rendered with no gap between them at Extra Large,
+            // and the arrow beside the FUNCTION panel overlapped the
+            // display text's closing parenthesis ("add(a, b)"). Neither
+            // InputAX/InputBX/FunctionX/OutputX nor ArrowLeftX/ArrowRightX
+            // move — this module's panel is deliberately NOT resized (see
+            // class comment) — so instead the header labels and the arrow
+            // glyphs grow at HALF the accessibility scale's rate, same as
+            // every other module's section headers (see
+            // MemoryModule.AddHeaderRow() for the fuller reasoning). The
+            // function-name text inside the panel and the a/b/return
+            // values keep the full rate — those are what a participant
+            // actually reads closely.
+            float headerTextScale = 1f + (LandingPageController.CurrentTextScale - 1f) * 0.5f;
+
             // ----- Section headings -----
-            AddTextLabel("INPUTS", (InputAX + InputBX) / 2f, HeadingYOffset, 30, InputColor);
-            AddTextLabel("FUNCTION", FunctionX, HeadingYOffset, 30, FunctionColor);
-            AddTextLabel("OUTPUT", OutputX, HeadingYOffset, 30, OutputColor);
+            AddTextLabel("INPUTS", (InputAX + InputBX) / 2f, HeadingYOffset, 30, InputColor, headerTextScale);
+            AddTextLabel("FUNCTION", FunctionX, HeadingYOffset, 30, FunctionColor, headerTextScale);
+            AddTextLabel("OUTPUT", OutputX, HeadingYOffset, 30, OutputColor, headerTextScale);
 
             // ----- Input a -----
             inputCellA = CreateValueBox("FunctionInput_A", InputAX, InputCellScale, parameterA);
@@ -374,8 +389,8 @@ namespace MartProg.Modules
             AddTextLabel("return", OutputX, CaptionYOffset, 35, InputColor);
 
             // ----- Arrows -----
-            AddArrowLabel(ArrowLeftX);
-            AddArrowLabel(ArrowRightX);
+            AddArrowLabel(ArrowLeftX, headerTextScale);
+            AddArrowLabel(ArrowRightX, headerTextScale);
         }
 
         /// Instantiates one value box. Replaces the inline cell setup
@@ -409,7 +424,11 @@ namespace MartProg.Modules
         }
 
         // Godot: func add_text_label(label_text, label_position, font_size_value, label_color)
-        private void AddTextLabel(string text, float preScaleX, float preScaleYOffset, int fontSize, Color color)
+        // Phase 47: textScaleOverride lets a caller (section headers,
+        // arrows) opt out of the full CurrentTextScale multiplier — see
+        // DrawFunction()'s headerTextScale for why. null (the default)
+        // preserves every existing caller's Phase 45 behaviour exactly.
+        private void AddTextLabel(string text, float preScaleX, float preScaleYOffset, int fontSize, Color color, float? textScaleOverride = null)
         {
             if (labelsParent == null) return;
 
@@ -424,7 +443,7 @@ namespace MartProg.Modules
 
             TextMeshPro tmp = labelObj.AddComponent<TextMeshPro>();
             tmp.text = text;
-            tmp.fontSize = fontSize * LandingPageController.CurrentTextScale; // Phase 45
+            tmp.fontSize = fontSize * (textScaleOverride ?? LandingPageController.CurrentTextScale); // Phase 45/47
             tmp.color = color;
             tmp.fontStyle = FontStyles.Bold;
             tmp.outlineWidth = 0.25f;
@@ -437,9 +456,9 @@ namespace MartProg.Modules
 
         // Godot: func add_arrow_label(arrow_position). Draws "→" — the glyph
         // the LIVE code path uses; dead add_arrow() draws "➜" (note 1).
-        private void AddArrowLabel(float preScaleX)
+        private void AddArrowLabel(float preScaleX, float? textScaleOverride = null)
         {
-            AddTextLabel("→", preScaleX, 0f, 40, Color.white);
+            AddTextLabel("→", preScaleX, 0f, 40, Color.white, textScaleOverride);
         }
 
         // Godot: func add_function_panel(panel_position, panel_size)

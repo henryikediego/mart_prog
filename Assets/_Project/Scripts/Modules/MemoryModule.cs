@@ -408,25 +408,21 @@ namespace MartProg.Modules
         /// Guarded so a zero or negative value in the Inspector collapses the
         /// table to a line rather than inverting it.
         ///
-        /// Phase 45 on-device fix: found with Extra Large text, header
-        /// columns (ADDRESS/NAME especially) visibly crowded and overlapped,
-        /// because this spread was tuned once for Normal-size text and never
-        /// moved when the accessibility scale grew the headers themselves.
-        /// Compensates by HALF of whatever CurrentTextScale adds above 1.0 —
-        /// full compensation (spread * scale) would land Extra Large's 0.75
-        /// default at ~0.975, almost exactly the un-narrowed 1.0 spread this
-        /// multiplier exists to avoid, re-creating the original portrait
-        /// overflow problem. At Normal (scale 1.0) this is an exact no-op,
-        /// so nothing changes for anyone who leaves Text Size alone.
-        private float ColumnSpread
-        {
-            get
-            {
-                float textScale = LandingPageController.CurrentTextScale;
-                float compensation = 1f + (textScale - 1f) * 0.5f;
-                return Mathf.Max(0.05f, columnSpreadMultiplier * compensation);
-            }
-        }
+        /// Phase 45 Round 2 grew this with CurrentTextScale to relieve
+        /// ADDRESS/NAME header crowding at Extra Large. Phase 47 reverts
+        /// that: real on-device testing (a Samsung Galaxy A32, 1080x2400,
+        /// 20:9) showed the wider spread pushed the ADDRESS column half off
+        /// the LEFT edge of the screen, which is worse than the crowding it
+        /// fixed — a column missing entirely is worse than two headers
+        /// sitting close together. See the class comment's porting note 13:
+        /// this table was already tuned right up against a phone's narrow
+        /// horizontal AR field of view even at Normal size ("about 20%
+        /// margin", by design, no room to spare). ColumnSpread is a true
+        /// no-op at every text scale again — the table's rendered width can
+        /// never exceed what already fit at Normal. AddHeaderRow()'s own
+        /// headerTextScale (below) relieves the original crowding a
+        /// different way instead, without widening the table.
+        private float ColumnSpread => columnSpreadMultiplier;
 
         /// Source's ROW_WIDTH, narrowed by the horizontal squeeze.
         private float ScaledRowWidth => RowWidth * ColumnSpread;
@@ -636,15 +632,26 @@ namespace MartProg.Modules
                 flowMarkers,
                 "MemoryHeaderRow");
 
-            AddTextLabel("ADDRESS", AddressX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers);
-            AddTextLabel("NAME", NameX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers);
-            AddTextLabel("TYPE", TypeX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers);
+            // Phase 47: headers grow at HALF the accessibility scale's
+            // rate, not the full rate the data rows below get (see
+            // AddMemoryRow()). Headers are five short, fixed, already-bold
+            // category labels a participant reads once and remembers —
+            // the DATA is what the accessibility setting exists to help
+            // with. Slowing header growth relieves the ADDRESS/NAME
+            // crowding Phase 45 Round 2 found, without needing to widen
+            // ColumnSpread again (see that property's comment for why
+            // widening it was reverted instead of tuned further).
+            float headerTextScale = 1f + (LandingPageController.CurrentTextScale - 1f) * 0.5f;
+
+            AddTextLabel("ADDRESS", AddressX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("NAME", NameX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("TYPE", TypeX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
 
             // Source colours the VALUE header green like the value cells,
             // unlike the other four headers. Preserved.
-            AddTextLabel("VALUE", ValueX, rowY, LabelZ, HeaderFontSize, valueColor, flowMarkers);
+            AddTextLabel("VALUE", ValueX, rowY, LabelZ, HeaderFontSize, valueColor, flowMarkers, headerTextScale);
 
-            AddTextLabel("SIZE", SizeX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers);
+            AddTextLabel("SIZE", SizeX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
         }
 
         // Godot: func add_memory_row(record, row_position, is_focus)
@@ -819,10 +826,16 @@ namespace MartProg.Modules
         }
 
         // Godot: func add_text_label(text_value, label_position, font_size, label_color, parent_node)
+        // Phase 47: textScaleOverride lets a caller (the header row) opt
+        // out of the full CurrentTextScale multiplier — see AddHeaderRow()'s
+        // headerTextScale for why. null (the default) preserves every
+        // existing caller's Phase 45 behaviour exactly, including every
+        // data row through AddMemoryRow().
         private TextMeshPro AddTextLabel(
-            string text, float x, float y, float z, int fontSize, Color color, Transform parent)
+            string text, float x, float y, float z, int fontSize, Color color, Transform parent,
+            float? textScaleOverride = null)
         {
-            return BuildLabel(text, x, y, z, fontSize, color, parent, labelPixelScale, labelOutlineWidth);
+            return BuildLabel(text, x, y, z, fontSize, color, parent, labelPixelScale, labelOutlineWidth, textScaleOverride);
         }
 
         /// Markers differ from labels only in pixel_size (0.0105 vs 0.010)
@@ -831,12 +844,12 @@ namespace MartProg.Modules
         {
             BuildLabel(
                 text, x, y, z, MarkerFontSize, markerColor, highlightLayer,
-                labelPixelScale * markerScaleMultiplier, markerOutlineWidth);
+                labelPixelScale * markerScaleMultiplier, markerOutlineWidth, null);
         }
 
         private TextMeshPro BuildLabel(
             string text, float x, float y, float z, int fontSize, Color color,
-            Transform parent, float pixelScale, float outlineWidth)
+            Transform parent, float pixelScale, float outlineWidth, float? textScaleOverride)
         {
             if (parent == null) return null;
 
@@ -848,9 +861,10 @@ namespace MartProg.Modules
 
             TextMeshPro tmp = labelObj.AddComponent<TextMeshPro>();
             tmp.text = text;
-            tmp.fontSize = fontSize * LandingPageController.CurrentTextScale; // Phase 45 — the one choke
-            // point both AddTextLabel() and AddMarkerLabel() route through, so
-            // every row (address, value, header, marker) in this table scales.
+            tmp.fontSize = fontSize * (textScaleOverride ?? LandingPageController.CurrentTextScale); // Phase 45/47 — the
+            // one choke point both AddTextLabel() and AddMarkerLabel() route
+            // through, so every row (address, value, header, marker) in this
+            // table scales, headers at their own reduced rate.
             tmp.color = color;
             tmp.outlineWidth = outlineWidth;
             tmp.outlineColor = Color.black;
