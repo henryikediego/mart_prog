@@ -18,6 +18,11 @@ namespace MartProg.Menu
     /// 34 made study-design mismatches catchable, but only at build time;
     /// this is the first on-device control for it.
     ///
+    /// Phase 43 adds a seventh: the Module Order Enforcement toggle, the
+    /// same runtime-adjustable shape as Student ID Mode but for
+    /// ChangeModuleController.EffectiveEnforceModuleOrder — see that class's
+    /// porting note 12 for why this exists and what it gates.
+    ///
     /// NOT A PORT. Godot has nothing resembling a gated researcher screen —
     /// research_logger.gd's Export/Clear were plain buttons on the same row
     /// as every module control, reachable by anyone holding the device. Same
@@ -92,6 +97,14 @@ namespace MartProg.Menu
         [SerializeField] private Color activeModeColor = Color.white;
         [SerializeField] private Color inactiveModeColor = new Color(1f, 1f, 1f, 0.4f);
 
+        [Header("Module Order Enforcement")]
+        [Tooltip("Two buttons, mirroring the Student ID Mode row above but for a " +
+                 "plain on/off (ChangeModuleController.EffectiveEnforceModuleOrder is a " +
+                 "bool, not a 3-way enum). Reuses activeModeColor/inactiveModeColor — " +
+                 "see RefreshEnforceOrderButtons().")]
+        [SerializeField] private Button enforceOrderOnButton;
+        [SerializeField] private Button enforceOrderOffButton;
+
         [Header("Status")]
         [Tooltip("Shared result label for every action on this screen — see the " +
                  "class comment for why this doesn't route through " +
@@ -141,6 +154,12 @@ namespace MartProg.Menu
             if (singleGroupButton != null)
                 singleGroupButton.onClick.AddListener(
                     () => OnModeClicked(ChangeModuleController.StudentIdMode.SingleGroup));
+
+            if (enforceOrderOnButton != null)
+                enforceOrderOnButton.onClick.AddListener(() => OnEnforceOrderClicked(true));
+
+            if (enforceOrderOffButton != null)
+                enforceOrderOffButton.onClick.AddListener(() => OnEnforceOrderClicked(false));
         }
 
         /// <summary>
@@ -164,6 +183,7 @@ namespace MartProg.Menu
 
             RefreshRegisteredIdLabel();
             RefreshModeButtons();
+            RefreshEnforceOrderButtons();
 
             if (researcherAreaPanel != null) researcherAreaPanel.SetActive(true);
         }
@@ -386,6 +406,40 @@ namespace MartProg.Menu
                 case ChangeModuleController.StudentIdMode.SingleGroup: return "Single Group";
                 default:                                               return "Accept Either";
             }
+        }
+
+        // ---------------------------------------------------------------
+        // Module Order Enforcement (Phase 43)
+        // ---------------------------------------------------------------
+
+        private void OnEnforceOrderClicked(bool enforce)
+        {
+            if (changeModuleController == null) return;
+
+            changeModuleController.SetEnforceModuleOrder(enforce);
+            RefreshEnforceOrderButtons();
+
+            string displayName = enforce ? "On" : "Off";
+            SetStatus("Module Order Enforcement set to " + displayName + ".");
+
+            ResearchLogger.Instance?.LogEvent(
+                "Module Order Enforcement Changed", displayName, "Success",
+                "Researcher changed whether modules must be attempted in order");
+        }
+
+        /// <summary>
+        /// Same idea as RefreshModeButtons() — the active choice reads
+        /// full-color, the other dims. Two buttons instead of three since
+        /// EffectiveEnforceModuleOrder is a bool, not a 3-way enum.
+        /// </summary>
+        private void RefreshEnforceOrderButtons()
+        {
+            if (changeModuleController == null) return;
+
+            bool current = changeModuleController.EffectiveEnforceModuleOrder;
+
+            SetModeButtonColor(enforceOrderOnButton, current);
+            SetModeButtonColor(enforceOrderOffButton, !current);
         }
 
         private void SetStatus(string message)

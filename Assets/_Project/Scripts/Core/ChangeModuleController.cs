@@ -192,6 +192,23 @@ namespace MartProg.Core
     ///    for testing all three shapes on one device, or correcting a
     ///    misconfigured device without reflashing it. The Inspector field is
     ///    unchanged and still the fallback for a device nothing has set yet.
+    ///
+    /// 12. **Phase 43 — module order enforcement. NOT A PORT.** Godot's
+    ///    module selector always offered free choice; there is no source
+    ///    behaviour being translated here, and nothing in ar_learning_screen.gd
+    ///    resembles it. Backlog_Landing_Page_And_Navigation.md §4.5/§6.4
+    ///    (this project's own forward-looking research/design notes, not
+    ///    Godot source) raise it as something the study might want: "If the
+    ///    study wants modules attempted in a set order, the landing page is
+    ///    where that could be enforced." Built as configuration, not code,
+    ///    exactly as §6.4 asks — moduleGroups' own Inspector order IS the
+    ///    required order, so reordering that one list changes both what the
+    ///    dropdown offers and what order it's gated in, with nothing else to
+    ///    keep in sync. Off by default; a researcher turns it on per protocol
+    ///    from the Researcher Area, mirroring Student ID Mode's runtime-
+    ///    toggle shape exactly. See EffectiveEnforceModuleOrder,
+    ///    SetEnforceModuleOrder(), MarkModuleQuizCompleted(), and
+    ///    IsUnlockedByModuleOrder() below.
     /// </summary>
     public class ChangeModuleController : MonoBehaviour
     {
@@ -563,6 +580,161 @@ namespace MartProg.Core
         [Header("Module Groups (order MUST match the dropdown — 8 entries; 5 may be unbuilt)")]
         [SerializeField] private List<ModuleGroupEntry> moduleGroups = new List<ModuleGroupEntry>();
 
+        [Header("Phase 43 — Module Order Enforcement")]
+        [Tooltip("When enabled, a module can only be started once every BUILT module " +
+                 "before it in the list above has had its quiz completed at least once " +
+                 "by the currently registered student. moduleGroups' own order is the " +
+                 "protocol order -- there is no second list to keep in sync. Off by " +
+                 "default, so the study can run with free module choice exactly as it " +
+                 "always has, until a researcher turns this on for a specific protocol.\n\n" +
+                 "Runtime-adjustable from the Researcher Area, mirroring Student ID Mode " +
+                 "-- this Inspector value is only the fallback for a device nothing has " +
+                 "set yet. See EffectiveEnforceModuleOrder / SetEnforceModuleOrder().")]
+        [SerializeField] private bool enforceModuleOrder = false;
+
+        // Phase 43: same PlayerPrefs-override-with-Inspector-fallback shape as
+        // studentIdMode / EffectiveStudentIdMode / SetStudentIdMode() above --
+        // see that block's comment. -1 (unset) falls back to the Inspector
+        // field; 0/1 (set, from a researcher's toggle) wins.
+        private const string EnforceModuleOrderPrefKey = "MARTPROG_EnforceModuleOrder";
+
+        /// <summary>
+        /// Whether module order is actually enforced on this device --
+        /// PlayerPrefs first, falling back to the Inspector-configured
+        /// <see cref="enforceModuleOrder"/> when nothing has been set
+        /// on-device yet. <see cref="OnConfirmClicked"/> reads this, never
+        /// the raw field, so a Researcher Area toggle takes effect
+        /// immediately without a rebuild.
+        /// </summary>
+        public bool EffectiveEnforceModuleOrder
+        {
+            get
+            {
+                int stored = PlayerPrefs.GetInt(EnforceModuleOrderPrefKey, -1);
+                return stored >= 0 ? stored == 1 : enforceModuleOrder;
+            }
+        }
+
+        /// <summary>
+        /// Phase 43: called from the Researcher Area's order-enforcement
+        /// toggle. Persists immediately, matching SetStudentIdMode().
+        /// </summary>
+        public void SetEnforceModuleOrder(bool enforce)
+        {
+            PlayerPrefs.SetInt(EnforceModuleOrderPrefKey, enforce ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        // =================================================================
+        // Phase 43 (continued) — which modules the CURRENT participant has
+        // already completed a quiz for, persisted per REGISTERED student ID
+        // (not the transient ResearchLogger.StudentId) so that releasing an
+        // ID from the Researcher Area and registering a new one on the same
+        // device starts that new participant with a clean slate, rather than
+        // inheriting whatever the previous participant had already unlocked.
+        //
+        // "Completed" is decided entirely by QuizController.ShowQuizResult()
+        // — MarkModuleQuizCompleted() below only records the fact and
+        // IsUnlockedByModuleOrder() only answers the gating question, the
+        // same split OnConfirmClicked() already has with EffectiveStudentIdMode
+        // (validated here; the researcher-facing toggle lives on
+        // ResearcherAreaController).
+        // =================================================================
+
+        private const string CompletedQuizzesPrefKeyPrefix = "MARTPROG_CompletedQuizzes_";
+
+        /// <summary>
+        /// PlayerPrefs key for the current participant's completed-quiz set,
+        /// or null if no student ID is registered yet — nothing to key it
+        /// to. See the block comment above for why this uses
+        /// <see cref="RegisteredStudentId"/> specifically.
+        /// </summary>
+        private static string CompletedQuizzesPrefKey
+        {
+            get
+            {
+                string id = RegisteredStudentId;
+                return string.IsNullOrEmpty(id) ? null : CompletedQuizzesPrefKeyPrefix + id;
+            }
+        }
+
+        /// <summary>
+        /// Comma-separated moduleKeys — PlayerPrefs' only native string
+        /// shape. Empty/unset PlayerPrefs value or no registered ID both
+        /// resolve to an empty set, never a set containing "".
+        /// </summary>
+        private static HashSet<string> LoadCompletedQuizModules()
+        {
+            var result = new HashSet<string>();
+
+            string key = CompletedQuizzesPrefKey;
+            if (key == null) return result;
+
+            string stored = PlayerPrefs.GetString(key, "");
+            if (string.IsNullOrEmpty(stored)) return result;
+
+            foreach (string moduleKey in stored.Split(','))
+            {
+                if (!string.IsNullOrEmpty(moduleKey)) result.Add(moduleKey);
+            }
+
+            return result;
+        }
+
+        private static void SaveCompletedQuizModules(HashSet<string> completed)
+        {
+            string key = CompletedQuizzesPrefKey;
+            if (key == null) return;
+
+            PlayerPrefs.SetString(key, string.Join(",", completed));
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>
+        /// Called from QuizController.ShowQuizResult() the moment a quiz
+        /// finishes — any score, including a timeout — for every module, not
+        /// just Memory (compare MemoryController.MarkQuizCompleted(), a
+        /// different, Memory-specific progress tracker this is not replacing).
+        /// Safe to call for a module already marked, and safe to call with no
+        /// student ID registered (a no-op — see CompletedQuizzesPrefKey).
+        /// </summary>
+        public void MarkModuleQuizCompleted(string moduleKey)
+        {
+            if (string.IsNullOrEmpty(moduleKey)) return;
+            if (CompletedQuizzesPrefKey == null) return;
+
+            HashSet<string> completed = LoadCompletedQuizModules();
+            if (completed.Contains(moduleKey)) return;
+
+            completed.Add(moduleKey);
+            SaveCompletedQuizModules(completed);
+        }
+
+        /// <summary>
+        /// True once every BUILT module ahead of <paramref name="entry"/> in
+        /// moduleGroups has a completed quiz for the current registered
+        /// student. Unbuilt modules are skipped when walking the list — they
+        /// can never be selected anyway (the IsBuilt gate in
+        /// OnConfirmClicked() already blocks that), so treating them as a
+        /// completed step keeps the study runnable while modules are still
+        /// being built out, the same partial-build tolerance every other
+        /// pass over moduleGroups in this file already has. A module at
+        /// index 0, or with nothing built before it, is always unlocked.
+        /// </summary>
+        private bool IsUnlockedByModuleOrder(ModuleGroupEntry entry)
+        {
+            HashSet<string> completed = LoadCompletedQuizModules();
+
+            foreach (ModuleGroupEntry candidate in moduleGroups)
+            {
+                if (candidate == entry) break;
+                if (!candidate.IsBuilt) continue;
+                if (!completed.Contains(candidate.moduleKey)) return false;
+            }
+
+            return true;
+        }
+
         // Phase 37's TEMPORARY About button on this panel is GONE as of Phase
         // 38 — the Landing Page owns that entry point now, which was always
         // the plan (Backlog §5/§7 item 3). The `aboutButton` / `aboutController`
@@ -851,6 +1023,21 @@ namespace MartProg.Core
                 if (messageLabel != null)
                 {
                     messageLabel.text = selected.displayName + " is not available yet.";
+                }
+
+                return;
+            }
+
+            // Phase 43: off by default — see EffectiveEnforceModuleOrder's
+            // comment. Checked after IsBuilt so an unbuilt module still gets
+            // its own "not available yet" message rather than a confusing
+            // order message about a module that can't be reached either way.
+            if (EffectiveEnforceModuleOrder && !IsUnlockedByModuleOrder(selected))
+            {
+                if (messageLabel != null)
+                {
+                    messageLabel.text = "Complete the earlier modules' quizzes before starting " +
+                                         selected.displayName + ".";
                 }
 
                 return;

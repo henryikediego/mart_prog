@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using MartProg.Core;
 using MartProg.Modules;
 using TMPro;
 using UnityEngine;
@@ -9,6 +10,8 @@ using UnityEngine.UI;
 // GLOBAL namespace (see ResearchLogger.cs / DashboardController.cs — neither
 // has a `namespace` wrapper), same as every other controller in this
 // project references them, so no `using` is needed to reach them from here.
+// ChangeModuleController (Phase 43) IS namespaced (MartProg.Core), hence the
+// `using MartProg.Core;` above — added specifically for it.
 
 namespace MartProg.Quiz
 {
@@ -679,6 +682,14 @@ namespace MartProg.Quiz
         // its fourteenth and final step. See ShowQuizResult().
         private MemoryController cachedMemoryController;
 
+        // Phase 43: module order enforcement needs to know, for EVERY
+        // module (not just Memory), that a quiz just completed. Same lazy
+        // FindFirstObjectByType + FindObjectsInactive.Include pattern as
+        // cachedSelectionController/cachedMemoryController above — there is
+        // no Inspector slot for this on QuizController, and the object it
+        // resolves to can be inactive at the moment ShowQuizResult() runs.
+        private ChangeModuleController cachedChangeModuleController;
+
         /// Generalised in Phase 26f. Selection and Memory are the project's
         /// two sub-mode modules, and both need their quiz keyed by the
         /// sub-mode the student is actually in — Selection by mode, Memory by
@@ -1054,6 +1065,23 @@ namespace MartProg.Quiz
 
                 cachedMemoryController?.MarkQuizCompleted(quizScore, quizQuestions.Count);
             }
+
+            // Phase 43: module order enforcement. Unconditional — every
+            // module's quiz completion counts toward unlocking whatever
+            // comes next in moduleGroups' order, not just Memory's. Distinct
+            // from the isMemory block above: that one drives Memory's own
+            // 14-step activity tracker; this one drives a completely
+            // different, module-order-agnostic gate on ChangeModuleController
+            // that exists regardless of which module just finished, and is a
+            // no-op (both here and inside MarkModuleQuizCompleted() itself)
+            // when enforcement is off or no student ID is registered.
+            if (cachedChangeModuleController == null)
+            {
+                cachedChangeModuleController =
+                    FindFirstObjectByType<ChangeModuleController>(FindObjectsInactive.Include);
+            }
+
+            cachedChangeModuleController?.MarkModuleQuizCompleted(CurrentModuleKey());
 
             StringBuilder resultMessage = new StringBuilder();
             resultMessage.Append("You scored ").Append(quizScore).Append(" out of ")
