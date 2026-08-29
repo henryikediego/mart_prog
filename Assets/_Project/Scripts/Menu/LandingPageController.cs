@@ -139,6 +139,59 @@ namespace MartProg.Menu
     /// case to design for — the only way to change it is to back out to this
     /// screen first, which is exactly the moment every AR label the
     /// participant next sees gets rebuilt anyway.
+    ///
+    /// **Phase 46: a sixth button, Exit — reopening a question Phase 38
+    /// closed the other way.** That phase recommended against building this
+    /// at all (see the paragraph above): an accidental exit mid-module loses
+    /// a session, and Android's own back gesture was assumed to cover the
+    /// same need. Reopened by direct instruction after on-device testing
+    /// found the back gesture does not close the app on that device — the
+    /// premise the original recommendation rested on doesn't hold
+    /// universally, and without Exit that participant has no way to close
+    /// the app at all. Backlog_Landing_Page_And_Navigation.md §3.5/§7 still
+    /// record the original reasoning and are corrected alongside this
+    /// change rather than silently overwritten — see that doc.
+    ///
+    /// **Arm-then-confirm, not the dialog the original mockup sketched.**
+    /// The mockup described Exit as "closes the app, with an 'Are you
+    /// sure?' confirmation" — but ResearcherAreaController's own class
+    /// comment records that a dialog-based confirmation was tried for
+    /// exactly this class of action (Clear Log, Phase 32) and replaced
+    /// after that phase's research export showed it "had never actually
+    /// appeared in practice" on real hardware. Exit is one more instance of
+    /// the same problem — a destructive, one-press-away action that needs a
+    /// second press before it fires — so it reuses that screen's proven
+    /// shape rather than reintroducing the mechanism the project already
+    /// found didn't work: press once to arm, press again within
+    /// ArmSeconds to confirm, do nothing and Show() clears the arm the next
+    /// time this page appears. Still a confirmation in the sense that
+    /// matters — nothing closes the app on a single press — just not a
+    /// modal dialog.
+    ///
+    /// **Logged, unlike Start Learning/About/Feedback/Help's own opening.**
+    /// Closing the app is not something every participant does identically
+    /// at a predictable point — an early exit can itself be a
+    /// research-relevant event (frustration, a technical problem, or just
+    /// the normal end of a session) — so OnExitClicked() writes an "App
+    /// Exit" row on confirm, the same "varies between participants, worth a
+    /// row" logic Help and Text Size Changed already use.
+    /// ResearchLogger.LogEvent() writes with File.AppendAllText(), which
+    /// completes synchronously, so the row is on disk before
+    /// QuitApplication() runs — no flush-then-quit race to worry about.
+    ///
+    /// **QuitApplication() branches on UNITY_EDITOR** because
+    /// Application.Quit() is a documented no-op in the Editor — without the
+    /// branch, confirming Exit during Play-mode testing would look
+    /// completely dead. The Editor branch sets
+    /// UnityEditor.EditorApplication.isPlaying = false instead, the
+    /// standard substitute, which exits Play mode the same way pressing the
+    /// Editor's own Stop button would.
+    ///
+    /// Styled at Feedback's quiet tier or quieter and placed last in the
+    /// button list, matching the original mockup's own ordering — see the
+    /// Stage 46 doc for the exact values. The one button on this screen
+    /// that should never be mistaken for an equally-weighted navigation
+    /// option.
     /// </summary>
     public class LandingPageController : MonoBehaviour
     {
@@ -184,6 +237,25 @@ namespace MartProg.Menu
                  "Refreshed on load from the saved PlayerPrefs value and " +
                  "every time textScaleButton is pressed.")]
         [SerializeField] private TMP_Text textScaleLabel;
+
+        [Header("Exit (Phase 46)")]
+        [Tooltip("Closes the app. Arm-then-confirm, not a dialog — same shape " +
+                 "as ResearcherAreaController's destructive actions (Clear Log, " +
+                 "Clear Feedback, Release Registered ID), reused here for the " +
+                 "same reason: a dialog-based confirmation was tried for that " +
+                 "exact class of action and found to never actually appear in " +
+                 "practice on device. Press once to arm, press again within " +
+                 "ArmSeconds to confirm; leaving without confirming un-arms it " +
+                 "automatically the next time this page shows. Style it at " +
+                 "Feedback's quiet tier or quieter and place it last in the " +
+                 "button list — see the class comment and Stage 46 doc.")]
+        [SerializeField] private Button exitButton;
+
+        [Tooltip("Shows the arm prompt (\"Exit — press again within N seconds " +
+                 "to close the app.\"). Optional, but without it the first " +
+                 "press does nothing visible and the confirmation window looks " +
+                 "like the button is broken.")]
+        [SerializeField] private TMP_Text exitStatusLabel;
 
         [Header("Wiring")]
         [SerializeField] private ChangeModuleController changeModuleController;
@@ -251,6 +323,16 @@ namespace MartProg.Menu
 
         private int currentTextScaleIndex = 0;
 
+        // Phase 46 — same arm-then-confirm window ResearcherAreaController
+        // uses for Clear Log / Clear Feedback / Release Registered ID.
+        // Duplicated rather than shared: the two classes have no common
+        // base and no obvious shared home for a single float constant, and
+        // FeedbackLogger.NotifyAndroidMediaStore() already set the
+        // precedent of copying a small piece of proven logic verbatim
+        // rather than introducing a shared utility class for one constant.
+        private const float ArmSeconds = 6f;
+        private float exitArmedUntil = -1f;
+
         private void Awake()
         {
             // Hidden by default, and specifically in Awake() rather than
@@ -290,6 +372,9 @@ namespace MartProg.Menu
             if (textScaleButton != null)
                 textScaleButton.onClick.AddListener(OnTextScaleClicked);
 
+            if (exitButton != null)
+                exitButton.onClick.AddListener(OnExitClicked);
+
             // Loaded here rather than Awake(): PlayerPrefs reads are cheap
             // and synchronous either way, but Start() is where every other
             // one-time setup in this class already lives, and there's no
@@ -311,6 +396,15 @@ namespace MartProg.Menu
         {
             RefreshSignedInLabel();
             RefreshContinueLearningButton();
+
+            // Phase 46 — same "never find a half-confirmed destructive
+            // action still waiting" lesson as ResearcherAreaController.Show():
+            // a participant who armed Exit and then changed their mind (or
+            // Start Learning/Continue Learning navigated away without ever
+            // resolving the arm) should not come back to this screen and
+            // have a stray second press close the app unexpectedly.
+            exitArmedUntil = -1f;
+            if (exitStatusLabel != null) exitStatusLabel.text = "";
 
             if (landingPanel != null) landingPanel.SetActive(true);
         }
@@ -471,6 +565,60 @@ namespace MartProg.Menu
             signedInLabel.text = string.IsNullOrEmpty(registered)
                 ? ""
                 : signedInFormat.Replace("{0}", registered);
+        }
+
+        /// <summary>
+        /// Phase 46 — arm-then-confirm, same shape as
+        /// ResearcherAreaController.OnClearLogClicked(): the first press
+        /// only arms a window and reports it; the second press, if it lands
+        /// within ArmSeconds, actually closes the app. See the class
+        /// comment for why this replaces the original mockup's dialog
+        /// sketch.
+        /// </summary>
+        public void OnExitClicked()
+        {
+            if (Time.time <= exitArmedUntil)
+            {
+                exitArmedUntil = -1f;
+
+                // Logged before quitting, not after — there is no "after"
+                // to log to once the process is gone. LogEvent() writes
+                // with File.AppendAllText(), which completes synchronously,
+                // so this row is on disk before QuitApplication() runs.
+                ResearchLogger.Instance?.LogEvent(
+                    "App Exit", "", "Confirmed",
+                    "Participant closed the app from the Landing Page.");
+
+                QuitApplication();
+                return;
+            }
+
+            exitArmedUntil = Time.time + ArmSeconds;
+            SetExitStatus("Exit — press again within " + ArmSeconds.ToString("0") +
+                          " seconds to close the app.");
+        }
+
+        /// <summary>
+        /// Application.Quit() is a documented no-op in the Editor, so
+        /// without this branch confirming Exit during Play-mode testing
+        /// would look completely dead. UnityEditor.EditorApplication
+        /// .isPlaying = false is the standard substitute — it exits Play
+        /// mode the same way pressing the Editor's own Stop button would.
+        /// Fully qualified rather than a top-of-file `using UnityEditor;`
+        /// so the Editor-only dependency stays contained to this one method.
+        /// </summary>
+        private void QuitApplication()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
+        private void SetExitStatus(string message)
+        {
+            if (exitStatusLabel != null) exitStatusLabel.text = message;
         }
     }
 }
