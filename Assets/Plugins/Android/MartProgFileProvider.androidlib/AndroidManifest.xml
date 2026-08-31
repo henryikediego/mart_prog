@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase 48, Round 6 — this module's own manifest fragment, not the app's.
+  Deliberately minimal: this library exists to contribute exactly one
+  resource file (res/xml/file_paths.xml) to the final merged build, nothing
+  else. The actual <provider> declaration that USES that resource lives in
+  the app's own Assets/Plugins/Android/AndroidManifest.xml (Stage 48 §2) —
+  it does not belong here, and does not need to, since Gradle's resource
+  merger combines every module's res/ into one set regardless of which
+  module a given <provider> entry happens to live in.
+
+  Shape (package attribute + empty <application/>) mirrors this exact
+  project's own real xrmanifest.androidlib/AndroidManifest.xml, inspected
+  directly rather than guessed — its <application> contains an <activity>
+  entry only because that module specifically needs to merge XR-related
+  activity metadata; ours has nothing to merge into <application>, so it
+  stays empty.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.martprog.fileprovider">
+    <application />
+</manifest>

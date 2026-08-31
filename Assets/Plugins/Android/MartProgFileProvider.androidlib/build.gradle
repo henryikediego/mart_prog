@@ -1,0 +1,43 @@
+// Phase 48, Round 6 — this module's own build.gradle. Structure copied
+// directly from this exact project's own real, working
+// unityLibrary/xrmanifest.androidlib/build.gradle (inspected on-disk after
+// a real Export Project, not written from memory of Unity's ".androidlib"
+// documentation a third time) — see "Round 6" in
+// docs/Stage48_Researcher_Share_Off_Device.md for the full comparison and
+// why this mechanism replaces Round 3/4's mainTemplate.gradle sourceSets
+// attempt.
+//
+// IMPORTANT, and the reason the values below are literal numbers and not
+// **APIVERSION**-style tokens: unlike mainTemplate.gradle / launcherTemplate.gradle
+// / baseProjectTemplate.gradle / settingsTemplate.gradle, this file is NOT
+// one of the specific filenames Unity performs template-token substitution
+// on. xrmanifest.androidlib's own real build.gradle confirms this — it
+// also has literal numbers, not tokens, because Unity's XR build scripts
+// write it fresh at build time by reading Player Settings directly. This
+// file is static (hand-authored, not regenerated per build), so if
+// compileSdk / targetSdk / minSdk ever change in Player Settings → Android,
+// update the three numbers below to match by hand — nothing updates them
+// automatically the way mainTemplate.gradle's **TOKEN**s do.
+apply plugin: 'com.android.library'
+
+android {
+    namespace "com.martprog.fileprovider"
+    compileSdk 36
+    buildToolsVersion "36.0.0"
+
+    defaultConfig {
+        minSdk 26
+        targetSdk 36
+    }
+
+    lint {
+        abortOnError false
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            res.srcDirs = ['res']
+        }
+    }
+}

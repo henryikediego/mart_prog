@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Phase 48 — declares which folders this app is allowed to hand to other
+  apps through androidx.core.content.FileProvider (see NativeShare.cs and
+  the <provider> block in the app's own AndroidManifest.xml, Stage 48 §2).
+
+  LOCATION (Round 6): this file lives inside
+  Assets/Plugins/Android/MartProgFileProvider.androidlib/, a real Android
+  Library module mirroring this project's own working xrmanifest.androidlib
+  (AR Foundation's). Three earlier locations/mechanisms failed first — see
+  "Round 6" in docs/Stage48_Researcher_Share_Off_Device.md.
+
+  CONTENT (Round 7) — corrected against a real device, and this is the part
+  every earlier round got wrong on paper:
+
+  Rounds 1-6 declared only <files-path>, on the assumption that
+  Application.persistentDataPath maps to Context.getFilesDir() (internal
+  storage, /data/user/0/<package>/files). A real device proved otherwise.
+  The actual export path, straight from the on-screen error:
+
+      /storage/emulated/0/Android/data/<package>/files/mart_prog_log_20260831_131253.csv
+
+  That is Context.getExternalFilesDir(null) — the app's private folder on
+  EXTERNAL storage, not internal. On Android, Unity's persistentDataPath
+  resolves to one or the other depending on Player Settings > Android >
+  Other Settings > Configuration > Write Permission ("Internal" vs
+  "External (SDCard)"); this project resolves to external.
+
+  FileProvider matches a file against path-type elements by their ROOT, and
+  each element type means one specific root:
+      <files-path>           -> Context.getFilesDir()            (internal)
+      <external-files-path>  -> Context.getExternalFilesDir(null) (external)
+  A file under the external root simply does not match <files-path> at any
+  depth, which is exactly the "Failed to find configured root that contains
+  <path>" the device reported.
+
+  Both are declared below deliberately, rather than swapping one for the
+  other: <external-files-path> is what this project actually uses today,
+  and <files-path> keeps sharing working unchanged if Write Permission is
+  ever set back to Internal, or if a device resolves persistentDataPath
+  differently. Both are scoped to app-private folders only — nothing here
+  exposes shared/user storage. path="." exposes each root itself, since
+  every export this project writes (mart_prog_log*.csv,
+  mart_prog_feedback*.csv, and any *_pre_migration_*.csv schema-change
+  archive) lives directly under it, not in a subfolder.
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-files-path name="research_data_external" path="." />
+    <files-path name="research_data_internal" path="." />
+</paths>

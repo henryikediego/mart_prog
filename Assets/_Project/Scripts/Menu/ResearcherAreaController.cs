@@ -73,10 +73,17 @@ namespace MartProg.Menu
         [Header("Research Log")]
         [SerializeField] private Button exportLogButton;
         [SerializeField] private Button clearLogButton;
+        [Tooltip("Phase 48 — exports, then hands the export to Android's " +
+                 "native Share Sheet via NativeShare.ShareFile(). See " +
+                 "OnShareLogClicked() and NativeShare's class comment.")]
+        [SerializeField] private Button shareLogButton;
 
         [Header("Feedback Log")]
         [SerializeField] private Button exportFeedbackButton;
         [SerializeField] private Button clearFeedbackButton;
+        [Tooltip("Phase 48 — same shape as Share Log, against " +
+                 "mart_prog_feedback.csv. See OnShareFeedbackClicked().")]
+        [SerializeField] private Button shareFeedbackButton;
 
         [Header("Registered ID")]
         [Tooltip("Optional. Shows the currently registered ID, or a plain " +
@@ -137,9 +144,11 @@ namespace MartProg.Menu
 
             if (exportLogButton != null) exportLogButton.onClick.AddListener(OnExportLogClicked);
             if (clearLogButton != null) clearLogButton.onClick.AddListener(OnClearLogClicked);
+            if (shareLogButton != null) shareLogButton.onClick.AddListener(OnShareLogClicked);
 
             if (exportFeedbackButton != null) exportFeedbackButton.onClick.AddListener(OnExportFeedbackClicked);
             if (clearFeedbackButton != null) clearFeedbackButton.onClick.AddListener(OnClearFeedbackClicked);
+            if (shareFeedbackButton != null) shareFeedbackButton.onClick.AddListener(OnShareFeedbackClicked);
 
             if (releaseIdButton != null) releaseIdButton.onClick.AddListener(OnReleaseIdClicked);
 
@@ -252,6 +261,54 @@ namespace MartProg.Menu
                       " seconds to confirm. This erases the whole research log and cannot be undone.");
         }
 
+        /// <summary>
+        /// Phase 48. Single press, same non-destructive tier as Export Log —
+        /// no arm-then-confirm needed, nothing here can lose data. Exports
+        /// first (reusing ExportLogToDownloads() exactly as Export Log
+        /// does) rather than sharing the live mart_prog_log.csv directly:
+        /// the export is a stable, named snapshot that can't be mutated by
+        /// a LogEvent() call landing mid-share, and reusing it means this
+        /// button needs zero new export logic of its own.
+        ///
+        /// "Opened", not "Success" — NativeShare.ShareFile() only confirms
+        /// Android's share chooser was launched, never that the researcher
+        /// actually finished sending the file (no completion callback
+        /// without startActivityForResult, deliberately not built — see
+        /// NativeShare's class comment). Logged as its own honest category
+        /// rather than reusing "Success", which would overclaim.
+        /// </summary>
+        private void OnShareLogClicked()
+        {
+            ResearchLogger.Instance?.LogEvent(
+                "Share Log", "", "Requested", "Researcher requested to share the research log");
+
+            string exportedPath = ResearchLogger.Instance != null
+                ? ResearchLogger.Instance.ExportLogToDownloads()
+                : "";
+
+            if (string.IsNullOrEmpty(exportedPath))
+            {
+                SetStatus("Share Log failed. The research log could not be exported.");
+                ResearchLogger.Instance?.LogEvent(
+                    "Share Log", "", "Failed", "Research log export (for sharing) failed");
+                return;
+            }
+
+            bool shared = NativeShare.ShareFile(exportedPath, "text/csv", "Share Research Log", out string shareError);
+
+            if (!shared)
+            {
+                SetStatus("Share Log could not open the Share Sheet: " + shareError);
+                ResearchLogger.Instance?.LogEvent(
+                    "Share Log", exportedPath, "Failed", "NativeShare could not open the Share Sheet: " + shareError);
+                return;
+            }
+
+            SetStatus("Research log ready — choose where to send it.");
+            ResearchLogger.Instance?.LogEvent(
+                "Share Log", exportedPath, "Opened", "Researcher opened the Share Sheet for the research log");
+        }
+
         // ---------------------------------------------------------------
         // Feedback Log
         // ---------------------------------------------------------------
@@ -301,6 +358,43 @@ namespace MartProg.Menu
             clearFeedbackArmedUntil = Time.time + ArmSeconds;
             SetStatus("Clear Feedback — press again within " + ArmSeconds.ToString("0") +
                       " seconds to confirm. This erases every submitted comment and cannot be undone.");
+        }
+
+        /// <summary>
+        /// Phase 48. Same shape as OnShareLogClicked() — see that method's
+        /// comment for why export-then-share, and why "Opened" rather than
+        /// "Success" — mirrored here against mart_prog_feedback.csv instead.
+        /// </summary>
+        private void OnShareFeedbackClicked()
+        {
+            ResearchLogger.Instance?.LogEvent(
+                "Share Feedback", "", "Requested", "Researcher requested to share the feedback log");
+
+            string exportedPath = FeedbackLogger.Instance != null
+                ? FeedbackLogger.Instance.ExportFeedbackToDownloads()
+                : "";
+
+            if (string.IsNullOrEmpty(exportedPath))
+            {
+                SetStatus("Share Feedback failed. The feedback log could not be exported.");
+                ResearchLogger.Instance?.LogEvent(
+                    "Share Feedback", "", "Failed", "Feedback log export (for sharing) failed");
+                return;
+            }
+
+            bool shared = NativeShare.ShareFile(exportedPath, "text/csv", "Share Feedback Log", out string shareError);
+
+            if (!shared)
+            {
+                SetStatus("Share Feedback could not open the Share Sheet: " + shareError);
+                ResearchLogger.Instance?.LogEvent(
+                    "Share Feedback", exportedPath, "Failed", "NativeShare could not open the Share Sheet: " + shareError);
+                return;
+            }
+
+            SetStatus("Feedback log ready — choose where to send it.");
+            ResearchLogger.Instance?.LogEvent(
+                "Share Feedback", exportedPath, "Opened", "Researcher opened the Share Sheet for the feedback log");
         }
 
         // ---------------------------------------------------------------

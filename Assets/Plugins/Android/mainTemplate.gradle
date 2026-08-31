@@ -1,0 +1,69 @@
+apply plugin: 'com.android.library'
+apply from: '../shared/keepUnitySymbols.gradle'
+apply from: '../shared/common.gradle'
+**APPLY_PLUGINS**
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    // Phase 48 — androidx.core.content.FileProvider (NativeShare.cs) needs
+    // this. Added here directly, against the real generated file, rather
+    // than left as a "fix it if Gradle complains" guess.
+    //
+    // Phase 48, Round 4: this line is what pulls in kotlin-stdlib:1.8.22,
+    // which conflicted with an older kotlin-stdlib-jdk7/jdk8:1.6.21 already
+    // in the project's dependency graph ("Duplicate class kotlin.*" from
+    // :launcher:checkReleaseDuplicateClasses). The fix for that lives in
+    // the ROOT build.gradle (baseProjectTemplate.gradle), not here — see
+    // its "Phase 48, Round 4" comment block for the full explanation.
+    implementation 'androidx.core:core:1.13.1'
+**DEPS**}
+
+android {
+    namespace "com.unity3d.player"
+    ndkPath "**NDKPATH**"
+    ndkVersion "**NDKVERSION**"
+    compileSdk **APIVERSION**
+    buildToolsVersion "**BUILDTOOLS**"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        minSdk **MINSDK**
+        targetSdk **TARGETSDK**
+        ndk {
+            abiFilters **ABIFILTERS**
+            debugSymbolLevel **DEBUGSYMBOLLEVEL**
+        }
+        consumerProguardFiles 'proguard-unity.txt'**USER_PROGUARD**
+**DEFAULT_CONFIG_SETUP**
+    }
+
+    lint {
+        abortOnError false
+    }
+
+    androidResources {
+        noCompress = **BUILTIN_NOCOMPRESS** + unityStreamingAssets.tokenize(', ')
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }**PACKAGING**
+
+    // Phase 48, Round 3/4 added a sourceSets.main.res.srcDirs entry here
+    // pointing at "MartProgFileProvider/res", on the assumption Unity
+    // copied that folder into this module's own generated folder the same
+    // way it copies this very file in as build.gradle. A real build proved
+    // that assumption wrong ("Resource 'xml/file_paths' not found") — see
+    // "Round 6" in docs/Stage48_Researcher_Share_Off_Device.md. Removed
+    // here; file_paths.xml now lives in its own Android Library module,
+    // Assets/Plugins/Android/MartProgFileProvider.androidlib/, mirroring
+    // this exact project's own real xrmanifest.androidlib module (AR
+    // Foundation's), inspected on-disk rather than guessed a third time.
+    // Nothing in this module needs to reference that resource directly —
+    // Gradle's resource merger combines every module's res/ into one set
+    // regardless of which module physically contains a given file.
+}
+**IL_CPP_BUILD_SETUP**
+**SOURCE_BUILD_SETUP**
+**EXTERNAL_SOURCES**
