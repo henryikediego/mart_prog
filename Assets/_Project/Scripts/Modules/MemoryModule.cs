@@ -344,16 +344,54 @@ namespace MartProg.Modules
         // Godot constants (MEMORY_VISUAL_Y deliberately absent — note 3)
         // -----------------------------------------------------------------
 
-        private const float RowHeight = 0.52f;
+        // PHASE 50 — two-line records. Godot's originals, kept for reference
+        // since every value below is derived from them:
+        //     RowHeight 0.52, RowWidth 6.80
+        //     AddressX -2.70, NameX -1.35, TypeX -0.15, ValueX 1.10, SizeX 2.55
+        //
+        // Those five columns on ONE line made this table 6.80 units wide, and
+        // Phase 49's measurements showed that was simply more than a phone's
+        // horizontal AR field of view can render legibly: 0.90 m of content
+        // against 0.81 m of visible width (110.7%), the only module of eight
+        // that genuinely overflowed. Phase 49 could only redistribute a fixed
+        // budget by scaling, which bought fit at the cost of legibility.
+        //
+        // This splits each record across two lines instead, which trades the
+        // axis that is scarce for the axis that is abundant — the same device
+        // measures 34.8 deg horizontally against 69.7 deg vertically in
+        // portrait, and this table was using almost none of the latter.
+        //
+        //     line 1:   ADDRESS      NAME      TYPE
+        //     line 2:   VALUE                  SIZE
+        //
+        // Column spacing is deliberately preserved at 1.30 units against the
+        // original's 1.35 — the point is to need less width, NOT to crowd
+        // columns closer, which is what Phase 45 Round 2 tried and Phase 47
+        // reverted. Width drops to 4.10 units (60% of 6.80) purely because
+        // there are three columns per line instead of five.
+        // RowHeight is 0.94, not the 1.04 that two 0.52 lines would suggest.
+        // Two-line records raise this table from 59% of the usable vertical
+        // band to 87%; at a full doubling it would have been 94%, which
+        // leaves nothing for an activity that shows more than five records.
+        // The lines sit 0.42 apart inside it, so each still has essentially
+        // the vertical room a single-line row had.
+        private const float RowHeight = 0.94f;   // two text lines
         private const float RowGap = 0.11f;
-        private const float RowWidth = 6.80f;
+        private const float RowWidth = 4.10f;
         private const float RowDepth = 0.16f;
 
-        private const float AddressX = -2.70f;
-        private const float NameX = -1.35f;
-        private const float TypeX = -0.15f;
-        private const float ValueX = 1.10f;
-        private const float SizeX = 2.55f;
+        /// Vertical offset of each line from its record block's centre.
+        private const float LineOneY = 0.21f;
+        private const float LineTwoY = -0.21f;
+
+        private const float AddressX = -1.30f;
+        private const float NameX = 0f;
+        private const float TypeX = 1.30f;
+        private const float ValueX = -1.30f;
+        private const float SizeX = 1.30f;
+
+        /// Header mirrors the record shape, so both lines stay labelled.
+        private const float HeaderHeight = 0.72f;
 
         // Z offsets, ported as-is and scaled with everything else (note 11).
         private const float LabelZ = 0.18f;
@@ -552,7 +590,7 @@ namespace MartProg.Modules
 
             ClearVisuals();
 
-            float rowStep = (RowHeight + RowGap) * rowSpacingMultiplier;
+            float rowStep = RowStep;
 
             AddTitle("MEMORY TABLE", 0f, 0.85f, MarkerZ, titleColor);
             AddHeaderRow(0.35f);
@@ -620,13 +658,20 @@ namespace MartProg.Modules
                 arDistance - z * s);
         }
 
+        /// Vertical distance between one record block and the next. Phase 50
+        /// centralises this: it was computed identically in DrawMemory() and
+        /// BelowTableY(), and two-line records change it, so a single
+        /// definition removes the chance of the marker and the table
+        /// disagreeing about where the bottom of the table is.
+        private float RowStep => (RowHeight + RowGap) * rowSpacingMultiplier;
+
         // Godot: func add_header_row(row_position: Vector3)
         private void AddHeaderRow(float rowY)
         {
             if (flowMarkers == null) return;
 
             CreateBox(
-                new Vector3(ScaledRowWidth, 0.36f, RowDepth),
+                new Vector3(ScaledRowWidth, HeaderHeight, RowDepth),
                 Place(0f, rowY, 0f),
                 headerRowColor,
                 flowMarkers,
@@ -643,15 +688,17 @@ namespace MartProg.Modules
             // widening it was reverted instead of tuned further).
             float headerTextScale = 1f + (LandingPageController.CurrentTextScale - 1f) * 0.5f;
 
-            AddTextLabel("ADDRESS", AddressX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
-            AddTextLabel("NAME", NameX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
-            AddTextLabel("TYPE", TypeX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            // Phase 50: laid out on two lines, mirroring the record blocks
+            // below exactly, so each field stays under its own label.
+            AddTextLabel("ADDRESS", AddressX, rowY + LineOneY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("NAME", NameX, rowY + LineOneY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("TYPE", TypeX, rowY + LineOneY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
 
             // Source colours the VALUE header green like the value cells,
             // unlike the other four headers. Preserved.
-            AddTextLabel("VALUE", ValueX, rowY, LabelZ, HeaderFontSize, valueColor, flowMarkers, headerTextScale);
+            AddTextLabel("VALUE", ValueX, rowY + LineTwoY, LabelZ, HeaderFontSize, valueColor, flowMarkers, headerTextScale);
 
-            AddTextLabel("SIZE", SizeX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("SIZE", SizeX, rowY + LineTwoY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
         }
 
         // Godot: func add_memory_row(record, row_position, is_focus)
@@ -668,11 +715,13 @@ namespace MartProg.Modules
                 memoryBlocks,
                 "MemoryRow_" + record.Name);
 
-            AddTextLabel(record.Address, AddressX, rowY, LabelZ, AddressFontSize, Color.white, memoryBlocks);
-            AddTextLabel(record.Name, NameX, rowY, LabelZ, NameFontSize, Color.white, memoryBlocks);
-            AddTextLabel(record.Type, TypeX, rowY, LabelZ, TypeFontSize, Color.white, memoryBlocks);
-            AddTextLabel(record.Value, ValueX, rowY, LabelZ, ValueFontSize, valueColor, memoryBlocks);
-            AddTextLabel(record.Size, SizeX, rowY, LabelZ, SizeFontSize, Color.white, memoryBlocks);
+            // Phase 50: two lines per record. Reading order is unchanged —
+            // address, name, type, then value and size — it simply wraps.
+            AddTextLabel(record.Address, AddressX, rowY + LineOneY, LabelZ, AddressFontSize, Color.white, memoryBlocks);
+            AddTextLabel(record.Name, NameX, rowY + LineOneY, LabelZ, NameFontSize, Color.white, memoryBlocks);
+            AddTextLabel(record.Type, TypeX, rowY + LineOneY, LabelZ, TypeFontSize, Color.white, memoryBlocks);
+            AddTextLabel(record.Value, ValueX, rowY + LineTwoY, LabelZ, ValueFontSize, valueColor, memoryBlocks);
+            AddTextLabel(record.Size, SizeX, rowY + LineTwoY, LabelZ, SizeFontSize, Color.white, memoryBlocks);
 
             if (isFocus)
             {
@@ -704,8 +753,7 @@ namespace MartProg.Modules
         /// however many records are on screen. Porting note 14.
         private float BelowTableY()
         {
-            float rowStep = (RowHeight + RowGap) * rowSpacingMultiplier;
-            return -0.25f - memoryRecords.Count * rowStep;
+            return -0.25f - memoryRecords.Count * RowStep;
         }
 
         /// Godot: the long if/elif chain inside add_focus_marker(). Split out
