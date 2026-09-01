@@ -321,6 +321,24 @@ namespace MartProg.Menu
             get { return PlayerPrefs.GetFloat(TextScaleFloatPrefsKey, 1.0f); }
         }
 
+        /// <summary>
+        /// Phase 50 Round 4 — the largest scale this control can reach, read
+        /// from TextScaleValues rather than restated as a literal, so adding
+        /// or changing a step above updates everything that depends on it.
+        ///
+        /// ARContentAnchor's fit-to-frustum needs this. That fit sizes
+        /// content to fill the visible frustum, which had the unintended
+        /// effect of CANCELLING this control: larger text made content
+        /// larger, so the fit shrank it by the same factor and the apparent
+        /// size never changed. Knowing the maximum lets the fit hold back
+        /// enough room at smaller settings for larger ones to actually grow
+        /// into — see that class's `Text Scale Headroom`.
+        /// </summary>
+        public static float MaxTextScale
+        {
+            get { return TextScaleValues[TextScaleValues.Length - 1]; }
+        }
+
         private int currentTextScaleIndex = 0;
 
         // Phase 46 — same arm-then-confirm window ResearcherAreaController

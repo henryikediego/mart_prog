@@ -369,29 +369,44 @@ namespace MartProg.Modules
         // columns closer, which is what Phase 45 Round 2 tried and Phase 47
         // reverted. Width drops to 4.10 units (60% of 6.80) purely because
         // there are three columns per line instead of five.
-        // RowHeight is 0.94, not the 1.04 that two 0.52 lines would suggest.
-        // Two-line records raise this table from 59% of the usable vertical
-        // band to 87%; at a full doubling it would have been 94%, which
-        // leaves nothing for an activity that shows more than five records.
-        // The lines sit 0.42 apart inside it, so each still has essentially
-        // the vertical room a single-line row had.
-        private const float RowHeight = 0.94f;   // two text lines
+        // SINGLE-LINE, as Godot had it. A two-line reflow was built and
+        // tested here (Phase 50) and then REVERTED on device evidence —
+        // keeping the account, because the reasoning was sound and the
+        // conclusion still surprised:
+        //
+        // The reflow worked exactly as designed. Splitting each record over
+        // two lines cut the table from 6.80 to 4.10 units wide, which let
+        // the fit scale rise from ~0.75 to 1.20-1.40, making the text
+        // roughly 60% larger on screen. Every number moved the right way.
+        //
+        // It was still worse to read. Five columns running across is the
+        // natural form for a table: the eye scans a row as one record, and
+        // columns align down the page. Breaking each record into two lines
+        // destroys both of those, and no amount of extra point size buys
+        // that back. Compared side by side on device, the single-line
+        // version was plainly clearer despite its smaller text.
+        //
+        // **The lesson worth keeping: text size and legibility are not the
+        // same quantity.** This phase optimised the one that was easy to
+        // measure. Memory's text really is small — that is a genuine
+        // consequence of a 35-degree horizontal field of view, and the fit
+        // already extracts everything available from it. The remaining
+        // lever is less horizontal content, not more scale and not reflow.
+        private const float RowHeight = 0.52f;
         private const float RowGap = 0.11f;
-        private const float RowWidth = 4.10f;
+        private const float RowWidth = 6.80f;
         private const float RowDepth = 0.16f;
 
-        /// Vertical offset of each line from its record block's centre.
-        private const float LineOneY = 0.21f;
-        private const float LineTwoY = -0.21f;
+        private const float TitleY = 0.85f;
+        private const float HeaderY = 0.35f;
+        private const float FirstRowY = -0.25f;
+        private const float HeaderHeight = 0.36f;
 
-        private const float AddressX = -1.30f;
-        private const float NameX = 0f;
-        private const float TypeX = 1.30f;
-        private const float ValueX = -1.30f;
-        private const float SizeX = 1.30f;
-
-        /// Header mirrors the record shape, so both lines stay labelled.
-        private const float HeaderHeight = 0.72f;
+        private const float AddressX = -2.70f;
+        private const float NameX = -1.35f;
+        private const float TypeX = -0.15f;
+        private const float ValueX = 1.10f;
+        private const float SizeX = 2.55f;
 
         // Z offsets, ported as-is and scaled with everything else (note 11).
         private const float LabelZ = 0.18f;
@@ -592,18 +607,18 @@ namespace MartProg.Modules
 
             float rowStep = RowStep;
 
-            AddTitle("MEMORY TABLE", 0f, 0.85f, MarkerZ, titleColor);
-            AddHeaderRow(0.35f);
+            AddTitle("MEMORY TABLE", 0f, TitleY, MarkerZ, titleColor);
+            AddHeaderRow(HeaderY);
 
             if (memoryRecords.Count == 0)
             {
-                AddEmptyMessage(-0.25f);
+                AddEmptyMessage(FirstRowY);
                 return;
             }
 
             for (int i = 0; i < memoryRecords.Count; i++)
             {
-                float rowY = -0.25f - i * rowStep;
+                float rowY = FirstRowY - i * rowStep;
                 MemoryRecord record = memoryRecords[i];
 
                 bool isFocus = currentFocusName != "" && record.Name == currentFocusName;
@@ -688,17 +703,15 @@ namespace MartProg.Modules
             // widening it was reverted instead of tuned further).
             float headerTextScale = 1f + (LandingPageController.CurrentTextScale - 1f) * 0.5f;
 
-            // Phase 50: laid out on two lines, mirroring the record blocks
-            // below exactly, so each field stays under its own label.
-            AddTextLabel("ADDRESS", AddressX, rowY + LineOneY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
-            AddTextLabel("NAME", NameX, rowY + LineOneY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
-            AddTextLabel("TYPE", TypeX, rowY + LineOneY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("ADDRESS", AddressX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("NAME", NameX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("TYPE", TypeX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
 
             // Source colours the VALUE header green like the value cells,
             // unlike the other four headers. Preserved.
-            AddTextLabel("VALUE", ValueX, rowY + LineTwoY, LabelZ, HeaderFontSize, valueColor, flowMarkers, headerTextScale);
+            AddTextLabel("VALUE", ValueX, rowY, LabelZ, HeaderFontSize, valueColor, flowMarkers, headerTextScale);
 
-            AddTextLabel("SIZE", SizeX, rowY + LineTwoY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
+            AddTextLabel("SIZE", SizeX, rowY, LabelZ, HeaderFontSize, headerLabelColor, flowMarkers, headerTextScale);
         }
 
         // Godot: func add_memory_row(record, row_position, is_focus)
@@ -715,13 +728,11 @@ namespace MartProg.Modules
                 memoryBlocks,
                 "MemoryRow_" + record.Name);
 
-            // Phase 50: two lines per record. Reading order is unchanged —
-            // address, name, type, then value and size — it simply wraps.
-            AddTextLabel(record.Address, AddressX, rowY + LineOneY, LabelZ, AddressFontSize, Color.white, memoryBlocks);
-            AddTextLabel(record.Name, NameX, rowY + LineOneY, LabelZ, NameFontSize, Color.white, memoryBlocks);
-            AddTextLabel(record.Type, TypeX, rowY + LineOneY, LabelZ, TypeFontSize, Color.white, memoryBlocks);
-            AddTextLabel(record.Value, ValueX, rowY + LineTwoY, LabelZ, ValueFontSize, valueColor, memoryBlocks);
-            AddTextLabel(record.Size, SizeX, rowY + LineTwoY, LabelZ, SizeFontSize, Color.white, memoryBlocks);
+            AddTextLabel(record.Address, AddressX, rowY, LabelZ, AddressFontSize, Color.white, memoryBlocks);
+            AddTextLabel(record.Name, NameX, rowY, LabelZ, NameFontSize, Color.white, memoryBlocks);
+            AddTextLabel(record.Type, TypeX, rowY, LabelZ, TypeFontSize, Color.white, memoryBlocks);
+            AddTextLabel(record.Value, ValueX, rowY, LabelZ, ValueFontSize, valueColor, memoryBlocks);
+            AddTextLabel(record.Size, SizeX, rowY, LabelZ, SizeFontSize, Color.white, memoryBlocks);
 
             if (isFocus)
             {
@@ -753,7 +764,7 @@ namespace MartProg.Modules
         /// however many records are on screen. Porting note 14.
         private float BelowTableY()
         {
-            return -0.25f - memoryRecords.Count * RowStep;
+            return FirstRowY - memoryRecords.Count * RowStep;
         }
 
         /// Godot: the long if/elif chain inside add_focus_marker(). Split out
@@ -810,7 +821,10 @@ namespace MartProg.Modules
                 return;
             }
 
-            AddMarkerLabel(text, markerXOffset, 0.35f, MarkerZ);
+            // Sits at header height, offset sideways by markerXOffset — the
+            // same 0.35 the header uses, now via the shared constant so the
+            // two cannot drift apart.
+            AddMarkerLabel(text, markerXOffset, HeaderY, MarkerZ);
         }
 
         // Godot: func add_empty_message(message_position: Vector3)
