@@ -218,13 +218,16 @@ namespace MartProg.AR
         [SerializeField] private float fitScaleSmoothSpeed = 4f;
         [Tooltip("Hard floor on the fit scale, so a bad or unusual measurement can never shrink content to something unreadable. If a module ever needs more correction than this, it should be fixed in that module's own layout rather than by scaling further.")]
         [SerializeField, Range(0.2f, 1f)] private float minimumFitScale = 0.5f;
-        [Tooltip("Ceiling on the fit scale. 1 = shrink-only: content never renders larger than the layout was authored for, which is how this started. Above 1 lets content GROW into space it isn't using, up to this multiple — worth it once a module has been narrowed enough to fit at 1.0 and is leaving screen width empty, which is exactly what happened to Memory after its columns were tightened. Applies to every module, so raising it also enlarges modules that already fit (Stack uses only ~27% of the width, for instance). 1.0 restores the original behaviour exactly.")]
-        [SerializeField, Range(1f, 2f)] private float maximumFitScale = 1f;
+        [Tooltip("Ceiling on the fit scale. 1 = shrink-only: content never renders larger than the layout was authored for, which is how this started. Above 1 lets content GROW into space it isn't using, up to this multiple — worth it once a module has been narrowed enough to fit at 1.0 and is leaving screen width empty, which is exactly what happened to Memory after its columns were tightened. Applies to every module, so raising it also enlarges modules that already fit (Stack uses only ~27% of the width, for instance). 1.0 restores the original behaviour exactly. RANGE WIDENED FROM 2 TO 6 AT PHASE 52: the old Range(1, 2) meant a value of 2 was the slider's maximum rather than a chosen number, and Memory sat pinned against it with a third of the frustum still empty — the ceiling was binding and could not be reported as such. Raising this has DIMINISHING returns, not unlimited ones: content sits a fixed depth in front of the anchor, so scaling it up pushes it away almost as fast as it grows. The share of frustum width a module can reach tends to halfWidth / (contentLocalZ * tan(hFOV/2)) as this value rises, however large it gets.")]
+        [SerializeField, Range(1f, 6f)] private float maximumFitScale = 1f;
         [Tooltip("Room held back at smaller text sizes so larger ones can grow into it. DEFAULTS TO 0, because measurement showed it was not needed and was doing harm. The concern was that the fit cancels the accessibility control — bigger text making content bigger, the fit shrinking it back. On the populated Memory table that never happened: its measured width barely moves between text settings (0.891 vs 0.894, because Phase 47 caps it), so the fit stays put and text growth passes straight through, giving a natural 1.27x ratio. The apparent cancellation was only in the EMPTY Overview state, where content is small enough that both settings pin to Maximum Fit Scale. Setting this above 0 inflates the extent at smaller text sizes, which for a module already at the frustum limit drives the fit into the Minimum Fit Scale floor: Memory rendered at 0.500 instead of 0.727 at Normal, a 31% loss, buying a ratio it already had. Left in place because a module whose width DOES grow with text scale would genuinely need it.")]
         [SerializeField, Range(0f, 1f)] private float textScaleHeadroom = 0f;
 
         [Tooltip("How much of the camera's VERTICAL field of view is actually usable for AR content, as a fraction. Not 1.0, because the dashboard's control panel and Summary/Instruction panels cover roughly the lower third of the screen — content behind them is rendered but hidden. Phase 50 added the vertical constraint because two-line Memory records roughly double that module's height, and a horizontal-only fit would have traded a sideways overflow for a downward one. Lower this if a tall module disappears under the panels; raise it toward 1 if there is obvious unused space above and below.")]
         [SerializeField, Range(0.3f, 1f)] private float usableVerticalFraction = 0.65f;
+
+        [Tooltip("How many consecutive smaller measurements (one every 0.5s) before the fit RELEASES its high-water mark and re-sizes to the content actually on screen. The high-water mark exists so a momentary narrow frame mid-animation cannot make content jump; without a release it also means the WIDEST thing a module ever shows governs everything it shows afterwards. Memory is the case that exposed this: its Overview state is 1.45x the table's own width (Overview Scale Multiplier), so entering the module sets the mark at 0.89 m and every activity chosen afterwards is fitted for a width that left the screen long ago, rendering roughly a third smaller than it needs to. 4 samples = 2 seconds, far longer than any animation transient and short enough to feel like part of the transition. 0 restores the old permanently-sticky behaviour.")]
+        [SerializeField, Range(0, 12)] private int lowerMeasurementSamplesBeforeRelease = 4;
 
         [Header("Phase 49a — field-of-view measurement (writes to the research log)")]
         [Tooltip("Records this device's actual camera field of view into the research log, one row per session (Action = \"AR Frustum\"), retrievable off-device via the Researcher Area's Share Log button. Leave ON: for a multi-device study this is a permanent record of what each participant's device could actually display, not temporary debug output, and it costs one row per session.")]
@@ -278,6 +281,10 @@ namespace MartProg.AR
         // module opens, while the log only wants a row when the measurement
         // says something new.
         private const float ContentSampleInterval = 0.5f;
+
+        // Consecutive samples measured meaningfully narrower than the
+        // current high-water mark. See lowerMeasurementSamplesBeforeRelease.
+        private int consecutiveSmallerSamples;
 
         private float contentSampleTimer;
         private float tanHalfHorizontalFov = -1f;
@@ -481,6 +488,7 @@ namespace MartProg.AR
                 widestContentThisModule = -1f;
                 tallestContentThisModule = -1f;
                 lastLoggedContentWidth = -1f;
+                consecutiveSmallerSamples = 0;
             }
 
             Renderer[] renderers = GetComponentsInChildren<Renderer>();
@@ -552,7 +560,57 @@ namespace MartProg.AR
             float halfHeight = (maxY - minY) * 0.5f;
 
             bool isNewWidest = width > widestContentThisModule;
-            if (isNewWidest) widestContentThisModule = width;
+
+            if (isNewWidest)
+            {
+                widestContentThisModule = width;
+                consecutiveSmallerSamples = 0;
+            }
+            else if (lowerMeasurementSamplesBeforeRelease > 0
+                     && width < widestContentThisModule - ContentWidthChangeThresholdMetres)
+            {
+                // Phase 52. Sustained-smaller release. The high-water mark
+                // protects against a narrow frame mid-animation; it was not
+                // meant to let the widest state a module ever shows govern
+                // every state after it. An animation transient lasts a frame
+                // or two, so requiring several consecutive smaller samples
+                // separates the two cases without needing any module to tell
+                // this component that its content changed.
+                consecutiveSmallerSamples++;
+
+                if (consecutiveSmallerSamples >= lowerMeasurementSamplesBeforeRelease)
+                {
+                    float releasedFrom = widestContentThisModule;
+
+                    // Both extents belong to the same content state, so they
+                    // are adopted together rather than leaving a stale height
+                    // paired with a fresh width.
+                    widestContentThisModule = width;
+                    tallestContentThisModule = halfHeight;
+                    consecutiveSmallerSamples = 0;
+
+                    // Re-arm the log gate so the newly-adopted width is
+                    // recorded — this is exactly the event worth having in
+                    // the record when a module later looks wrongly sized.
+                    lastLoggedContentWidth = -1f;
+
+                    ResearchLogger.Instance?.LogEvent(
+                        "AR Fit Released",
+                        width.ToString("F3") + " m",
+                        "Measured",
+                        "Fit released from a stale high-water mark of " +
+                        releasedFrom.ToString("F3") + " m to the content now on screen (" +
+                        width.ToString("F3") + " m) after " +
+                        lowerMeasurementSamplesBeforeRelease + " consecutive smaller samples | module " +
+                        (string.IsNullOrEmpty(moduleName) ? "unknown" : moduleName) +
+                        " | text scale " + textScale.ToString("F2"));
+                }
+            }
+            else
+            {
+                consecutiveSmallerSamples = 0;
+            }
+
             if (halfHeight > tallestContentThisModule) tallestContentThisModule = halfHeight;
 
             // Phase 50 Round 4 — reserve room for larger text settings.
