@@ -1030,6 +1030,21 @@ namespace MartProg.Core
             moduleDropdown.AddOptions(options);
             moduleDropdown.value = 0;
             moduleDropdown.RefreshShownValue();
+
+            // Phase 51. The module list is the first control a participant
+            // ever touches, and it carried the same factory-default option
+            // rows as Selection's and Memory's dropdowns. There is no
+            // deferred coroutine on this screen, so MatchListToControl()
+            // forces the layout pass itself before reading the height.
+            //
+            // Round 2: ask for every module to be visible at once rather
+            // than the default five. This screen is a dedicated panel with
+            // room to spare, and with a scrolling list the selected module
+            // sat half-cut at the bottom edge — reported from device on
+            // "Memory Management". Passing the count rather than a literal
+            // means adding a ninth module needs no change here, and
+            // MatchListToControl clamps to what the canvas can show.
+            DropdownStyler.MatchListToControl(moduleDropdown, options.Count);
         }
 
         /// <summary>

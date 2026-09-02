@@ -484,6 +484,12 @@ namespace MartProg.Modules
             yield return null;
 
             EnterModule();
+
+            // Phase 51. After a frame, the control strip has laid out, so
+            // the dropdown knows its own height and the option rows can be
+            // matched to it. Memory has seven activities, so this is the
+            // dropdown that scrolls; see DropdownStyler.DefaultVisibleRows.
+            DropdownStyler.MatchListToControl(activityDropdown);
         }
 
         public void EnterModule()

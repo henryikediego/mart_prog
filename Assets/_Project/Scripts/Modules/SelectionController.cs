@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using MartProg.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -466,6 +467,11 @@ namespace MartProg.Modules
             EnterModule();
 
             ApplyResponsiveButtonLayout();
+
+            // Phase 51. After a frame, the control strip has laid out, so
+            // the dropdown knows its own height and the option rows can be
+            // matched to it. See DropdownStyler for why nothing is passed.
+            DropdownStyler.MatchListToControl(modeDropdown);
         }
 
         public void EnterModule()
