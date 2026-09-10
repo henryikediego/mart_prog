@@ -269,7 +269,18 @@ namespace MartProg.AR
         private const int MaxContentWidthRows = 16;
         private const float ContentWidthChangeThresholdMetres = 0.02f;
 
+        // Phase 52a. The release row below is capped the same way the
+        // content-width row is. Memory has fourteen activities, and a
+        // participant moving among them releases the mark on each change —
+        // uncapped, one session can bury the rows a researcher actually came
+        // to read, in the file the Pilot Test Manual tells them to analyse.
+        // Eight is enough to show the pattern and small enough to stay out
+        // of the way. Session-wide rather than per-module, matching
+        // MaxContentWidthRows.
+        private const int MaxFitReleaseRows = 8;
+
         private int contentWidthRowsLogged;
+        private int fitReleaseRowsLogged;
         private string lastMeasuredModule = "";
         private float widestContentThisModule = -1f;
         private float tallestContentThisModule = -1f;
@@ -594,16 +605,27 @@ namespace MartProg.AR
                     // the record when a module later looks wrongly sized.
                     lastLoggedContentWidth = -1f;
 
-                    ResearchLogger.Instance?.LogEvent(
-                        "AR Fit Released",
-                        width.ToString("F3") + " m",
-                        "Measured",
-                        "Fit released from a stale high-water mark of " +
-                        releasedFrom.ToString("F3") + " m to the content now on screen (" +
-                        width.ToString("F3") + " m) after " +
-                        lowerMeasurementSamplesBeforeRelease + " consecutive smaller samples | module " +
-                        (string.IsNullOrEmpty(moduleName) ? "unknown" : moduleName) +
-                        " | text scale " + textScale.ToString("F2"));
+                    // The release itself always happens; only the reporting
+                    // of it is capped. Silently dropping the row is the right
+                    // trade — the fit is corrected either way, and the row
+                    // exists to explain a sizing surprise, which the first
+                    // few occurrences already do.
+                    if (fitReleaseRowsLogged < MaxFitReleaseRows)
+                    {
+                        fitReleaseRowsLogged++;
+
+                        ResearchLogger.Instance?.LogEvent(
+                            "AR Fit Released",
+                            width.ToString("F3") + " m",
+                            "Measured",
+                            "Fit released from a stale high-water mark of " +
+                            releasedFrom.ToString("F3") + " m to the content now on screen (" +
+                            width.ToString("F3") + " m) after " +
+                            lowerMeasurementSamplesBeforeRelease + " consecutive smaller samples | module " +
+                            (string.IsNullOrEmpty(moduleName) ? "unknown" : moduleName) +
+                            " | text scale " + textScale.ToString("F2") +
+                            " | release row " + fitReleaseRowsLogged + " of " + MaxFitReleaseRows);
+                    }
                 }
             }
             else
