@@ -4,7 +4,7 @@ This document records the v1 decisions shared by the React Native shell and the 
 
 ## Ownership and lifecycle
 
-- The shell owns app chrome and the AR-flow screens: camera primer/permission, scanning and placement instructions, tracking-loss guidance, and user-facing error screens. Unity owns the AR session, anchored 3D scene, and topic controls rendered in AR.
+- The shell owns all 2D interface, including app chrome, AR-flow screens, and topic controls such as the top bar, operation/explanation/status panels, input, and action buttons. Unity owns the AR session, anchored 3D scene, and topic-specific 3D content. Before topic actions are wired, the shell-to-Unity action-command message must be agreed and added to the schema; Unity reports completed learner actions through `topic.event`.
 - The shell sends `session.start` only after camera permission is granted and the learner opens the AR module. It sends `session.stop` when leaving the AR flow.
 - The shell owns module order, quizzes, and progress stored per Study ID. Unity's prior quiz and module-order implementation is retired in the redesigned flow.
 - Unity sends `unity.ready` with `arAvailability: "supported"` when the device's ARCore availability check reports support.
