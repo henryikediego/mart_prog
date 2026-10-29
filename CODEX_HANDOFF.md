@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** The Android build/install succeeded: `BUILD SUCCESSFUL in 21m 22s` (141 actionable tasks: 52 executed, 89 up-to-date). Android started `com.locispikeapp/.MainActivity` on the phone. The next check is to start AR and confirm placement, then open Array/List.
+**Current action:** Android build/install succeeded (`BUILD SUCCESSFUL in 21m 22s`) and the app launched. Oly confirmed AR placement. The next check is to open Array/List and confirm the initial 3D values appear over the live camera view.
 
 ## User and collaboration requirements
 
@@ -100,7 +100,7 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 
 ## Exact next sequence
 
-1. Have Oly start AR, scan a real textured surface in a well-lit area, and press **Place here** when the shell reports a candidate. Confirm the camera feed, `surface found`, and `placement.confirmed` before moving on.
+1. Oly confirmed AR placement on the phone.
 2. Tap **Open Array/List** and report what appears. Expected: live room/camera background with 3D values `10`, `20`, `30`; Unity sends `topic.loaded`.
 3. Tap **Insert 40**. Expected: a fourth 3D value appears and Unity sends a `topic.event` for the Array/List insert. Ask Oly to paste the message/output before proceeding.
 4. Commit/push any subsequent stage. Keep product 2D UI on React and all learning objects in the physical AR scene.
