@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** Oly is running `npm run android` in `apps/loci-mobile`. The Gradle build/install result is pending. Wait for Oly's terminal output before giving further instructions.
+**Current action:** The Android build/install succeeded: `BUILD SUCCESSFUL in 21m 22s` (141 actionable tasks: 52 executed, 89 up-to-date). Android started `com.locispikeapp/.MainActivity` on the phone. The next check is to start AR and confirm placement, then open Array/List.
 
 ## User and collaboration requirements
 
@@ -100,8 +100,8 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 
 ## Exact next sequence
 
-1. Wait for the current Gradle build/install output. If successful, have Oly confirm the app opened on the phone. If it fails, address the exact error; a missing local debug keystore was fixed previously by reusing the ignored existing keystore. Do not create or commit a keystore.
-2. On phone, start the AR session, scan a real textured surface in a well-lit area, press **Place here**, tap **Open Array/List**, and report what appears. Expected: live room/camera background, with 3D values `10`, `20`, `30`; Unity sends `topic.loaded`.
+1. Have Oly start AR, scan a real textured surface in a well-lit area, and press **Place here** when the shell reports a candidate. Confirm the camera feed, `surface found`, and `placement.confirmed` before moving on.
+2. Tap **Open Array/List** and report what appears. Expected: live room/camera background with 3D values `10`, `20`, `30`; Unity sends `topic.loaded`.
 3. Tap **Insert 40**. Expected: a fourth 3D value appears and Unity sends a `topic.event` for the Array/List insert. Ask Oly to paste the message/output before proceeding.
 4. Commit/push any subsequent stage. Keep product 2D UI on React and all learning objects in the physical AR scene.
 
@@ -110,6 +110,7 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 - The phone was previously detected as `RZ8T315SEQF` (Samsung Galaxy A32).
 - `npm ci` succeeded in `apps/loci-mobile`; deprecation and low-severity audit notices were observed, not blockers.
 - Android build previously succeeded after installing GitHub CLI/auth and supplying the existing ignored `debug.keystore`. Metro showed `Dev server ready`.
-- The current export/sync has succeeded; this export came from the current redesign Unity project. It is now synced into the host app, pending Gradle build/install.
+- Latest Android build/install completed successfully in 21m 22s, and `com.locispikeapp/.MainActivity` started on the device.
+- The current export/sync came from the redesign Unity project and completed successfully.
 - `adb` from the agent's tool environment was unavailable due sandbox restrictions; rely on Oly's terminal/device output.
 - Do not run tests or lengthy builds without a user request; Oly will provide Unity/phone outputs at each requested checkpoint.
