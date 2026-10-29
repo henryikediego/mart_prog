@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "note": "Order is the required study order from the Unity project (moduleGroups, Stage 43). logName is the value written to the Module column of the research log, unchanged from earlier versions so old and new data stay comparable.",
+  "topics": [
+    { "id": "array_list",  "order": 1, "title": "Array/List",        "logName": "ArrayList"  },
+    { "id": "stack",       "order": 2, "title": "Stack",             "logName": "Stack"      },
+    { "id": "queue",       "order": 3, "title": "Queue",             "logName": "Queue"      },
+    { "id": "linked_list", "order": 4, "title": "Linked List",       "logName": "LinkedList" },
+    { "id": "functions",   "order": 5, "title": "Functions",         "logName": "Functions"  },
+    { "id": "loops",       "order": 6, "title": "Loops",             "logName": "Loops"      },
+    { "id": "selection",   "order": 7, "title": "Selection",         "logName": "Selection"  },
+    { "id": "memory",      "order": 8, "title": "Memory Management", "logName": "Memory"     }
+  ]
+}

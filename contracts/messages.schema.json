@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:loci:contract:messages:v1",
+  "title": "Loci shell-unity message (contract v1)",
+  "description": "Every message sent between the React Native shell and the Unity AR part, in either direction. Direction is noted in each definition's description: S>U = shell to Unity, U>S = Unity to shell.",
+  "oneOf": [
+    { "$ref": "#/$defs/session.start" },
+    { "$ref": "#/$defs/session.stop" },
+    { "$ref": "#/$defs/placement.confirm" },
+    { "$ref": "#/$defs/placement.reset" },
+    { "$ref": "#/$defs/topic.open" },
+    { "$ref": "#/$defs/topic.close" },
+    { "$ref": "#/$defs/settings.update" },
+    { "$ref": "#/$defs/diag.ping" },
+    { "$ref": "#/$defs/unity.ready" },
+    { "$ref": "#/$defs/session.state" },
+    { "$ref": "#/$defs/placement.candidate" },
+    { "$ref": "#/$defs/placement.confirmed" },
+    { "$ref": "#/$defs/topic.loaded" },
+    { "$ref": "#/$defs/topic.event" },
+    { "$ref": "#/$defs/quiz.requested" },
+    { "$ref": "#/$defs/exit.requested" },
+    { "$ref": "#/$defs/error" },
+    { "$ref": "#/$defs/diag.pong" }
+  ],
+  "$defs": {
+    "topicId": {
+      "description": "Stable id of a topic module. Order and titles live in topics.json.",
+      "enum": ["array_list", "stack", "queue", "linked_list", "functions", "loops", "selection", "memory"]
+    },
+    "envelope": {
+      "type": "object",
+      "required": ["v", "id", "type", "payload"],
+      "properties": {
+        "v": { "const": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "replyTo": { "type": "string", "minLength": 1 }
+      }
+    },
+    "emptyPayload": { "type": "object", "additionalProperties": false, "maxProperties": 0 },
+
+    "session.start": {
+      "description": "S>U. Start the AR session. The shell sends this only after camera permission is granted.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "session.start" }, "payload": { "$ref": "#/$defs/emptyPayload" } },
+      "unevaluatedProperties": false
+    },
+    "session.stop": {
+      "description": "S>U. Stop the AR session and release the camera. The anchor and any open topic are discarded.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "session.stop" }, "payload": { "$ref": "#/$defs/emptyPayload" } },
+      "unevaluatedProperties": false
+    },
+    "placement.confirm": {
+      "description": "S>U. The student pressed Place here. Unity anchors the content at the current candidate surface point.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "placement.confirm" }, "payload": { "$ref": "#/$defs/emptyPayload" } },
+      "unevaluatedProperties": false
+    },
+    "placement.reset": {
+      "description": "S>U. Remove the anchor and any open topic, and go back to scanning for a surface.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "placement.reset" }, "payload": { "$ref": "#/$defs/emptyPayload" } },
+      "unevaluatedProperties": false
+    },
+    "topic.open": {
+      "description": "S>U. Show a topic module at the anchor. If no anchor exists yet, Unity replies with error E-106.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "topic.open" },
+        "payload": {
+          "type": "object",
+          "required": ["topicId"],
+          "additionalProperties": false,
+          "properties": {
+            "topicId": { "$ref": "#/$defs/topicId" },
+            "activityId": { "type": "string", "minLength": 1, "description": "Optional sub-activity inside a topic (for example a Memory activity). Ids are listed per topic in topics.json once agreed." }
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "topic.close": {
+      "description": "S>U. Hide the open topic. The session and anchor stay.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "topic.close" }, "payload": { "$ref": "#/$defs/emptyPayload" } },
+      "unevaluatedProperties": false
+    },
+    "settings.update": {
+      "description": "S>U. Display settings owned by the shell. textScale 1.0 is the default size. The shell maps its own size labels to a number.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "settings.update" },
+        "payload": {
+          "type": "object",
+          "required": ["textScale"],
+          "additionalProperties": false,
+          "properties": {
+            "textScale": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "diag.ping": {
+      "description": "S>U. Health check. Unity answers with diag.pong carrying the same nonce.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "diag.ping" },
+        "payload": {
+          "type": "object",
+          "required": ["nonce"],
+          "additionalProperties": false,
+          "properties": { "nonce": { "type": "string" } }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+
+    "unity.ready": {
+      "description": "U>S. Unity has loaded and finished the ARCore availability check. No AR session is running yet. Sent once per app launch.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "unity.ready" },
+        "payload": {
+          "type": "object",
+          "required": ["contractVersion", "unityVersion", "arAvailability"],
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": { "type": "integer", "minimum": 1 },
+            "unityVersion": { "type": "string" },
+            "arAvailability": { "enum": ["supported", "unsupported", "needs_install", "needs_update"] }
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "session.state": {
+      "description": "U>S. The AR session changed state. Sent on every change, never per frame. reason is only meaningful with tracking_lost.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "session.state" },
+        "payload": {
+          "type": "object",
+          "required": ["state"],
+          "additionalProperties": false,
+          "properties": {
+            "state": { "enum": ["idle", "starting", "scanning", "surface_found", "placed", "tracking_lost"] },
+            "reason": { "enum": ["initializing", "relocalizing", "insufficient_light", "insufficient_features", "excessive_motion", "unsupported", "unknown"] }
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "placement.candidate": {
+      "description": "U>S. Whether a valid surface point is under the placement reticle. The shell uses it to enable or disable Place here. Sent on change only.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "placement.candidate" },
+        "payload": {
+          "type": "object",
+          "required": ["valid"],
+          "additionalProperties": false,
+          "properties": { "valid": { "type": "boolean" } }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "placement.confirmed": {
+      "description": "U>S. The anchor is set. Sent after placement.confirm succeeds.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "placement.confirmed" }, "payload": { "$ref": "#/$defs/emptyPayload" } },
+      "unevaluatedProperties": false
+    },
+    "topic.loaded": {
+      "description": "U>S. The topic requested by topic.open is visible and ready. Ends the Setting up a topic screen.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "topic.loaded" },
+        "payload": {
+          "type": "object",
+          "required": ["topicId"],
+          "additionalProperties": false,
+          "properties": { "topicId": { "$ref": "#/$defs/topicId" } }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "topic.event": {
+      "description": "U>S. Something the student did inside a topic. Fields mirror the Action, Value, Result and Details columns of the research log. The shell adds the other columns.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "topic.event" },
+        "payload": {
+          "type": "object",
+          "required": ["topicId", "action"],
+          "additionalProperties": false,
+          "properties": {
+            "topicId": { "$ref": "#/$defs/topicId" },
+            "action": { "type": "string", "minLength": 1 },
+            "value": { "type": "string" },
+            "result": { "type": "string" },
+            "details": { "type": "string" }
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "quiz.requested": {
+      "description": "U>S. The student pressed Quiz inside a topic. The shell shows the quiz over the AR view and pauses Unity.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "quiz.requested" },
+        "payload": {
+          "type": "object",
+          "required": ["topicId"],
+          "additionalProperties": false,
+          "properties": { "topicId": { "$ref": "#/$defs/topicId" } }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "exit.requested": {
+      "description": "U>S. The student pressed Exit inside the AR view. The shell decides what happens next (normally back to Home).",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": { "type": { "const": "exit.requested" }, "payload": { "$ref": "#/$defs/emptyPayload" } },
+      "unevaluatedProperties": false
+    },
+    "error": {
+      "description": "U>S. Something failed. code is E- followed by three digits (see the Errors section of the contract document).",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "error" },
+        "payload": {
+          "type": "object",
+          "required": ["code", "message", "recoverable"],
+          "additionalProperties": false,
+          "properties": {
+            "code": { "type": "string", "pattern": "^E-[0-9]{3}$" },
+            "message": { "type": "string", "minLength": 1 },
+            "recoverable": { "type": "boolean" },
+            "topicId": { "$ref": "#/$defs/topicId" }
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "diag.pong": {
+      "description": "U>S. Answer to diag.ping. replyTo carries the ping's id.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "required": ["replyTo"],
+      "properties": {
+        "type": { "const": "diag.pong" },
+        "payload": {
+          "type": "object",
+          "required": ["nonce"],
+          "additionalProperties": false,
+          "properties": { "nonce": { "type": "string" } }
+        }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}
