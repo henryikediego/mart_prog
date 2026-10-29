@@ -4,13 +4,11 @@ Updated: 2026-10-29
 
 ## Immediate status
 
-Oly's last confirmed result: the temporary AR test controls, including **Open Array/List** and **Insert 40**, are visible in the React Native app.
+Oly confirmed the temporary AR test controls are visible. The updated Unity Android export is complete at `/home/usr/Documents/LociSpikeExport_Current` and contains `unityLibrary/`, `shared/`, and `gradle.properties`.
 
-The next step already given to Oly is to export the updated Unity Android project from the redesign Unity project to a fresh folder:
+The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-`/home/usr/Documents/LociSpikeExport_Current`
-
-The export is **not yet confirmed complete**. Wait for Oly's output before moving to sync/build instructions. Success means the export folder directly contains `unityLibrary/`, `shared/`, and `gradle.properties`.
+**Current action:** Oly is running `npm run android` in `apps/loci-mobile`. The Gradle build/install result is pending. Wait for Oly's terminal output before giving further instructions.
 
 ## User and collaboration requirements
 
@@ -81,6 +79,7 @@ The controls appeared after Metro refresh; Oly confirmed this. They are not the 
 All are on `codex/loci-ar-modular`:
 
 - `9a48c55 Add temporary Array List test controls`
+- `80ef13c Add comprehensive project handoff`
 - `41c1be2 Add modular Array List 3D topic`
 - `0532b83 Record approval of topic action contract`
 - `b63abec Propose shell to Unity topic action message`
@@ -97,28 +96,20 @@ At handoff time, `git status` has one unrelated user/editor change:
 
 ` M unity-ar/ProjectSettings/ProjectSettings.asset`
 
-It contains an auto-generated PS4 passcode value. Do not display, copy, commit, or revert it. Leave the user's change untouched. All intended work through `9a48c55` is committed and pushed.
+It contains an auto-generated PS4 passcode value. Do not display, copy, commit, or revert it. Leave the user's change untouched. All intended work through the handoff update is committed and pushed.
 
 ## Exact next sequence
 
-1. Wait for Oly to confirm Unity export completion. They were asked to export the redesign project to `/home/usr/Documents/LociSpikeExport_Current`. Do not presume the export is complete.
-2. If successful, give Oly the fish-shell sync command:
-
-   ```fish
-   python /home/usr/Documents/henry/HandoffFiles/LociMonorepo/scripts/sync_unity_export.py --export-root /home/usr/Documents/LociSpikeExport_Current --app-root /home/usr/Documents/henry/HandoffFiles/LociMonorepo/apps/loci-mobile
-   ```
-
-   The script expects `unityLibrary`, `shared`, and `gradle.properties` directly in the export root. It copies Unity Android output into the ignored app path `apps/loci-mobile/unity/builds/android` and updates host Gradle properties.
-3. Wait for Oly's sync output. Then direct them through the Android build/install, reusing the already-installed debug keystore if Gradle again reports the ignored local `debug.keystore` missing. Do not create or commit a keystore.
-4. On phone, start the AR session, scan a real textured surface in a well-lit area, press **Place here**, tap **Open Array/List**, and report what appears. Expected: live room/camera background, with the 3D values `10`, `20`, `30`; Unity sends `topic.loaded`.
-5. Tap **Insert 40**. Expected: a fourth 3D value appears and Unity sends a `topic.event` for the Array/List insert. Ask Oly to paste the message/output before proceeding.
-6. Commit/push any subsequent stage. Keep product 2D UI on React and all learning objects in the physical AR scene.
+1. Wait for the current Gradle build/install output. If successful, have Oly confirm the app opened on the phone. If it fails, address the exact error; a missing local debug keystore was fixed previously by reusing the ignored existing keystore. Do not create or commit a keystore.
+2. On phone, start the AR session, scan a real textured surface in a well-lit area, press **Place here**, tap **Open Array/List**, and report what appears. Expected: live room/camera background, with 3D values `10`, `20`, `30`; Unity sends `topic.loaded`.
+3. Tap **Insert 40**. Expected: a fourth 3D value appears and Unity sends a `topic.event` for the Array/List insert. Ask Oly to paste the message/output before proceeding.
+4. Commit/push any subsequent stage. Keep product 2D UI on React and all learning objects in the physical AR scene.
 
 ## Build and environment notes
 
 - The phone was previously detected as `RZ8T315SEQF` (Samsung Galaxy A32).
 - `npm ci` succeeded in `apps/loci-mobile`; deprecation and low-severity audit notices were observed, not blockers.
 - Android build previously succeeded after installing GitHub CLI/auth and supplying the existing ignored `debug.keystore`. Metro showed `Dev server ready`.
-- Unity export/sync previously succeeded with `unityLibrary` and `shared`. Do not trust a stale export; export the current `unity-ar` project before testing this slice.
+- The current export/sync has succeeded; this export came from the current redesign Unity project. It is now synced into the host app, pending Gradle build/install.
 - `adb` from the agent's tool environment was unavailable due sandbox restrictions; rely on Oly's terminal/device output.
 - Do not run tests or lengthy builds without a user request; Oly will provide Unity/phone outputs at each requested checkpoint.
