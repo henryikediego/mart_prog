@@ -78,6 +78,22 @@ export default function App() {
         <Pressable onPress={() => sendToUnity('placement.reset')} style={btn}>
           <Text style={btnText}>placement.reset</Text>
         </Pressable>
+        <Pressable
+          onPress={() => sendToUnity('topic.open', {topicId: 'array_list'})}
+          style={btn}>
+          <Text style={btnText}>Open Array/List</Text>
+        </Pressable>
+        <Pressable
+          onPress={() =>
+            sendToUnity('topic.action', {
+              topicId: 'array_list',
+              action: 'Insert',
+              value: '40',
+            })
+          }
+          style={btn}>
+          <Text style={btnText}>Insert 40</Text>
+        </Pressable>
         <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
           <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
         </Pressable>
