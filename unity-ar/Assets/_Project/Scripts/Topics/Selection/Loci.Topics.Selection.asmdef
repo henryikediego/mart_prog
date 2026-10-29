@@ -1,0 +1,19 @@
+{
+  "name": "Loci.Topics.Selection",
+  "rootNamespace": "Loci.Topics.Selection",
+  "references": [
+    "Loci.Core",
+    "Loci.Bridge",
+    "Loci.AR",
+    "Loci.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

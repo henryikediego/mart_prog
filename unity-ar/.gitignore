@@ -24,3 +24,6 @@ ProjectSettings/Packages/com.unity.ai.assistant/Settings.json
 *.VC.VC.opendb
 .DS_Store
 
+
+# Local editor configuration
+.vscode/

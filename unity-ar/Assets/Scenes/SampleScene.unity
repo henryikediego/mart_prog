@@ -717,7 +717,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 527a8c6af7e8bf578804f8bfb1cc64c7, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SpikeBridge
+  m_EditorClassIdentifier: Loci.Bridge::SpikeBridge
 --- !u!4 &1933106739
 Transform:
   m_ObjectHideFlags: 0

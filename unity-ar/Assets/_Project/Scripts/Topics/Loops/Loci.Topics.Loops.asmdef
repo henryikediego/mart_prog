@@ -1,0 +1,19 @@
+{
+  "name": "Loci.Topics.Loops",
+  "rootNamespace": "Loci.Topics.Loops",
+  "references": [
+    "Loci.Core",
+    "Loci.Bridge",
+    "Loci.AR",
+    "Loci.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

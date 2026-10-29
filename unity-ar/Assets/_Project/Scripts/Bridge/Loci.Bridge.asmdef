@@ -1,0 +1,16 @@
+{
+  "name": "Loci.Bridge",
+  "rootNamespace": "Loci.Bridge",
+  "references": [
+    "Loci.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
