@@ -4,7 +4,7 @@ This document records the v1 decisions shared by the React Native shell and the 
 
 ## Ownership and lifecycle
 
-- The shell owns all 2D interface, including app chrome, AR-flow screens, and topic controls such as the top bar, operation/explanation/status panels, input, and action buttons. Unity owns the AR session, anchored 3D scene, and topic-specific 3D content. Before topic actions are wired, the shell-to-Unity action-command message must be agreed and added to the schema; Unity reports completed learner actions through `topic.event`.
+- The shell owns all 2D interface, including app chrome, AR-flow screens, and topic controls such as the top bar, operation/explanation/status panels, input, and action buttons. Unity owns the AR session, anchored 3D scene, and topic-specific 3D content. The proposed shell-to-Unity action command is `topic.action`; both developers must review it before either side wires it. Unity reports completed learner actions through `topic.event`.
 - The shell sends `session.start` only after camera permission is granted and the learner opens the AR module. It sends `session.stop` when leaving the AR flow.
 - The shell owns module order, quizzes, and progress stored per Study ID. Unity's prior quiz and module-order implementation is retired in the redesigned flow.
 - Unity sends `unity.ready` with `arAvailability: "supported"` when the device's ARCore availability check reports support.
@@ -21,6 +21,8 @@ A session begins when the learner opens an AR module. The shell obtains camera p
 
 - **Selection:** `basic_if` (Basic If), `else_if_ladder` (Else-if Ladder), `nested_if` (Nested If).
 - **Memory:** `overview`, `variables`, `data_types`, `address_layout`, `memory_access`, `loop_memory`, `arrays`, `functions`, `selection`, `scope`, `remove_variable`, `trace_exercise`, `debug_exercise`, `final_assessment`.
+
+The proposal adds a shell-to-Unity learner-operation command named `topic.action`, carrying the topic ID, action name, and optional input value. Unity would update the topic's 3D state and report the completed action with `topic.event` once both developers approve the proposal.
 
 The study order retains Linked List as topic 4.
 

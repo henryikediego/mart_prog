@@ -15,6 +15,7 @@ namespace Loci.Bridge
         public const string PlacementConfirm = "placement.confirm";
         public const string PlacementReset = "placement.reset";
         public const string TopicOpen = "topic.open";
+        public const string TopicAction = "topic.action";
         public const string TopicClose = "topic.close";
         public const string SettingsUpdate = "settings.update";
         public const string DiagPing = "diag.ping";
@@ -38,6 +39,7 @@ namespace Loci.Bridge
                 case PlacementConfirm: return true;
                 case PlacementReset: return true;
                 case TopicOpen: return true;
+                case TopicAction: return true;
                 case TopicClose: return true;
                 case SettingsUpdate: return true;
                 case DiagPing: return true;
@@ -261,6 +263,26 @@ namespace Loci.Bridge
     }
 
     [JsonObject(MemberSerialization.OptIn)]
+    public sealed class TopicActionPayload : ILociMessagePayload
+    {
+        [JsonProperty("topicId", Required = Required.Always)]
+        public LociTopicId TopicId { get; set; }
+
+        [JsonProperty("action", Required = Required.Always)]
+        public string Action { get; set; }
+
+        [JsonProperty("value", Required = Required.DisallowNull)]
+        public string Value { get; set; }
+
+        public bool IsValid(out string error)
+        {
+            if (Action == null || Action.Length < 1) { error = "action must contain at least 1 character(s)."; return false; }
+            error = null;
+            return true;
+        }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
     public sealed class TopicClosePayload : ILociMessagePayload
     {
         public bool IsValid(out string error)
@@ -465,6 +487,7 @@ namespace Loci.Bridge
                 case LociMessageTypes.PlacementConfirm: return typeof(PlacementConfirmPayload);
                 case LociMessageTypes.PlacementReset: return typeof(PlacementResetPayload);
                 case LociMessageTypes.TopicOpen: return typeof(TopicOpenPayload);
+                case LociMessageTypes.TopicAction: return typeof(TopicActionPayload);
                 case LociMessageTypes.TopicClose: return typeof(TopicClosePayload);
                 case LociMessageTypes.SettingsUpdate: return typeof(SettingsUpdatePayload);
                 case LociMessageTypes.DiagPing: return typeof(DiagPingPayload);

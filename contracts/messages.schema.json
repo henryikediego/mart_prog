@@ -9,6 +9,7 @@
     { "$ref": "#/$defs/placement.confirm" },
     { "$ref": "#/$defs/placement.reset" },
     { "$ref": "#/$defs/topic.open" },
+    { "$ref": "#/$defs/topic.action" },
     { "$ref": "#/$defs/topic.close" },
     { "$ref": "#/$defs/settings.update" },
     { "$ref": "#/$defs/diag.ping" },
@@ -75,6 +76,24 @@
           "properties": {
             "topicId": { "$ref": "#/$defs/topicId" },
             "activityId": { "type": "string", "minLength": 1, "description": "Optional sub-activity inside a topic. Allowed IDs are listed under that topic in topics.json." }
+          }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "topic.action": {
+      "description": "S>U. Request a learner action on the currently open topic. Unity updates the 3D topic model and reports the completed action through topic.event.",
+      "allOf": [{ "$ref": "#/$defs/envelope" }],
+      "properties": {
+        "type": { "const": "topic.action" },
+        "payload": {
+          "type": "object",
+          "required": ["topicId", "action"],
+          "additionalProperties": false,
+          "properties": {
+            "topicId": { "$ref": "#/$defs/topicId" },
+            "action": { "type": "string", "minLength": 1, "description": "Action identifier selected by the shell's topic UI." },
+            "value": { "type": "string", "description": "Optional user-entered value for the action." }
           }
         }
       },
