@@ -1,0 +1,13 @@
+diff --git a/node_modules/@azesmway/react-native-unity/android/build.gradle b/node_modules/@azesmway/react-native-unity/android/build.gradle
+index a10543a..943b8bc 100644
+--- a/node_modules/@azesmway/react-native-unity/android/build.gradle
++++ b/node_modules/@azesmway/react-native-unity/android/build.gradle
+@@ -98,7 +98,7 @@ repositories {
+   }
+   google()
+   mavenCentral()
+-  jcenter()
++  mavenCentral()
+ }
+ 
+ 
