@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6c8f5e77f6c4a98a9e523d6902db6c4, type: 3}
+  m_Name: LociTheme
+  m_EditorClassIdentifier: Loci.Core::Loci.Core.LociTheme
+  primary:
+    serializedVersion: 2
+    rgba: 4294921051
+  pageBackground:
+    serializedVersion: 2
+    rgba: 4294571508
+  primaryText:
+    serializedVersion: 2
+    rgba: 4281013266
+  secondaryText:
+    serializedVersion: 2
+    rgba: 4286210139
+  buttonBorder:
+    serializedVersion: 2
+    rgba: 4293187283
+  cardBorder:
+    serializedVersion: 2
+    rgba: 4293846499
+  disabledFill:
+    serializedVersion: 2
+    rgba: 4293187283
+  disabledText:
+    serializedVersion: 2
+    rgba: 4289236874
+  errorTextAndBorder:
+    serializedVersion: 2
+    rgba: 4280166067
+  errorIconBackground:
+    serializedVersion: 2
+    rgba: 4293323004
+  success:
+    serializedVersion: 2
+    rgba: 4286235171
+  studyModeAndNoteSurface:
+    serializedVersion: 2
+    rgba: 4292277503
+  bodyFontFamily: Inter
+  bodyFontMinimumWeight: 400
+  bodyFontMaximumWeight: 700
+  codeFontFamily: JetBrains Mono
+  codeFontMinimumWeight: 500
+  codeFontMaximumWeight: 600
+  buttonHeightDesignPixels: 56
+  buttonCornerRadiusDesignPixels: 16
+  canvasReferenceResolution: {x: 810, y: 1800}
