@@ -4,8 +4,25 @@ import UnityView from '@azesmway/react-native-unity';
 
 export default function App() {
   const unityRef = useRef<UnityView>(null);
+  const messageCounter = useRef(0);
   const [last, setLast] = useState('nothing yet');
   const [showAR, setShowAR] = useState(true);
+
+  // Temporary contract controls for testing the modular AR session on-device.
+  const sendToUnity = (type: string, payload: object = {}) => {
+    messageCounter.current += 1;
+    const message = {
+      v: 1,
+      id: `s-${Date.now()}-${messageCounter.current}`,
+      type,
+      payload,
+    };
+    unityRef.current?.postMessage(
+      'LociBridge',
+      'OnShellMessage',
+      JSON.stringify(message),
+    );
+  };
 
   // Pause Unity when its screen is covered, resume when it comes back.
   useEffect(() => {
@@ -41,10 +58,25 @@ export default function App() {
         <Text style={{color: '#fff', backgroundColor: '#000a', padding: 8}}>
           From Unity: {last}
         </Text>
+        <Text style={{color: '#fff', backgroundColor: '#000a', padding: 8, marginTop: 8}}>
+          Temporary AR test controls
+        </Text>
         <Pressable
-          onPress={() => unityRef.current?.postMessage('LociBridge', 'OnShellMessage', 'ping')}
+          onPress={() => sendToUnity('diag.ping', {nonce: `android-${Date.now()}`})}
           style={btn}>
-          <Text style={btnText}>Send ping to Unity</Text>
+          <Text style={btnText}>Send diag.ping</Text>
+        </Pressable>
+        <Pressable onPress={() => sendToUnity('session.start')} style={btn}>
+          <Text style={btnText}>session.start</Text>
+        </Pressable>
+        <Pressable onPress={() => sendToUnity('session.stop')} style={btn}>
+          <Text style={btnText}>session.stop</Text>
+        </Pressable>
+        <Pressable onPress={() => sendToUnity('placement.confirm')} style={btn}>
+          <Text style={btnText}>placement.confirm (Place here)</Text>
+        </Pressable>
+        <Pressable onPress={() => sendToUnity('placement.reset')} style={btn}>
+          <Text style={btnText}>placement.reset</Text>
         </Pressable>
         <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
           <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
