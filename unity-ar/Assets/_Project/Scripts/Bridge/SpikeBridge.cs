@@ -1,25 +1,27 @@
 // Loci contract v1 bridge. The class name is kept so the existing scene
-// component keeps its serialized reference while the spike protocol is replaced.
+// component keeps its serialized reference while the protocol is typed.
 using System;
 using System.Collections.Generic;
+using Loci.Bridge;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using UnityEngine;
 
 public sealed class SpikeBridge : MonoBehaviour
 {
-    private static readonly HashSet<string> ShellMessageTypes = new HashSet<string>
+    private static readonly JsonSerializerSettings IncomingSerializerSettings = new JsonSerializerSettings
     {
-        "session.start", "session.stop", "placement.confirm", "placement.reset",
-        "topic.open", "topic.close", "settings.update", "diag.ping"
+        MissingMemberHandling = MissingMemberHandling.Ignore
     };
 
-    private static readonly HashSet<string> TopicIds = new HashSet<string>
+    private static readonly JsonSerializerSettings OutgoingSerializerSettings = new JsonSerializerSettings
     {
-        "array_list", "stack", "queue", "linked_list", "functions", "loops",
-        "selection", "memory"
+        MissingMemberHandling = MissingMemberHandling.Ignore,
+        NullValueHandling = NullValueHandling.Ignore
     };
 
-    public static event Action<JObject> ShellCommandReceived;
+    public static event Action<LociMessageEnvelope, ILociMessagePayload> ShellCommandReceived;
     public static event Action<string> MessageSentToShell;
 
     // Called by React Native: postMessage("LociBridge", "OnShellMessage", json).
@@ -37,10 +39,10 @@ public sealed class SpikeBridge : MonoBehaviour
             return;
         }
 
-        JObject message;
+        JObject rawMessage;
         try
         {
-            message = JObject.Parse(json);
+            rawMessage = JObject.Parse(json);
         }
         catch (Exception e)
         {
@@ -48,68 +50,124 @@ public sealed class SpikeBridge : MonoBehaviour
             return;
         }
 
-        var version = (int?)message["v"];
-        var id = (string)message["id"];
-        var type = (string)message["type"];
-        var payload = message["payload"] as JObject;
+        LogUnknownFields(rawMessage, typeof(LociMessageEnvelope), "envelope");
 
-        if (version != 1 || string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(type) || payload == null)
+        LociMessageEnvelope message;
+        try
         {
-            Debug.LogWarning("[LociBridge] Ignored a message with an invalid v1 envelope.");
+            message = rawMessage.ToObject<LociMessageEnvelope>(JsonSerializer.Create(IncomingSerializerSettings));
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("[LociBridge] Ignored an invalid message envelope: " + e.Message);
             return;
         }
 
-        if (!ShellMessageTypes.Contains(type))
+        if (message == null)
         {
-            Debug.LogWarning("[LociBridge] Ignored unknown shell message type: " + type);
+            Debug.LogWarning("[LociBridge] Ignored an empty deserialized envelope.");
+            return;
+        }
+        if (!message.IsValid(out var envelopeError))
+        {
+            Debug.LogWarning("[LociBridge] Ignored an invalid v1 envelope: " + envelopeError);
             return;
         }
 
-        if (!HasValidRequiredFields(type, payload))
+        if (!LociMessageTypes.IsShellToUnity(message.Type))
         {
-            Debug.LogWarning("[LociBridge] Ignored invalid payload for " + type + ".");
+            if (LociMessageModelRegistry.PayloadTypeFor(message.Type) == null)
+                Debug.LogWarning("[LociBridge] Ignored unknown shell message type: " + message.Type);
+            else
+                Debug.LogWarning("[LociBridge] Ignored message sent in the wrong direction: " + message.Type);
             return;
         }
 
-        Debug.Log("[LociBridge] Shell -> Unity " + type + " (" + id + ")");
-        ShellCommandReceived?.Invoke(message);
-
-        if (type == "diag.ping")
+        var payloadType = LociMessageModelRegistry.PayloadTypeFor(message.Type);
+        ILociMessagePayload payload;
+        try
         {
-            SendMessageToShell("diag.pong", new JObject { ["nonce"] = payload["nonce"] }, id);
+            LogUnknownFields((JObject)message.Payload, payloadType, message.Type + " payload");
+            payload = message.Payload.ToObject(payloadType, JsonSerializer.Create(IncomingSerializerSettings)) as ILociMessagePayload;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("[LociBridge] Ignored invalid payload for " + message.Type + ": " + e.Message);
+            return;
+        }
+
+        if (payload == null)
+        {
+            Debug.LogWarning("[LociBridge] Ignored invalid payload for " + message.Type + ": no matching payload model.");
+            return;
+        }
+        if (!payload.IsValid(out var payloadError))
+        {
+            Debug.LogWarning("[LociBridge] Ignored invalid payload for " + message.Type + ": " + payloadError);
+            return;
+        }
+
+        var topicOpen = payload as TopicOpenPayload;
+        if (topicOpen != null && topicOpen.ActivityId != null &&
+            !LociTopicCatalog.IsActivityIdAllowed(topicOpen.TopicId, topicOpen.ActivityId))
+        {
+            Debug.LogWarning("[LociBridge] Ignored unknown activity ID '" + topicOpen.ActivityId + "' for topic " + topicOpen.TopicId + ".");
+            return;
+        }
+
+        Debug.Log("[LociBridge] Shell -> Unity " + message.Type + " (" + message.Id + ")");
+        ShellCommandReceived?.Invoke(message, payload);
+
+        var ping = payload as DiagPingPayload;
+        if (ping != null)
+        {
+            SendMessageToShell(LociMessageTypes.DiagPong, new DiagPongPayload { Nonce = ping.Nonce }, message.Id);
         }
     }
 
-    private static bool HasValidRequiredFields(string type, JObject payload)
+    public static void SendMessageToShell(string type, ILociMessagePayload payload, string replyTo = null)
     {
-        switch (type)
+        if (!LociMessageTypes.IsUnityToShell(type))
         {
-            case "topic.open":
-                var topicId = (string)payload["topicId"];
-                return !string.IsNullOrWhiteSpace(topicId) && TopicIds.Contains(topicId);
-            case "settings.update":
-                var scale = (double?)payload["textScale"];
-                return scale.HasValue && scale.Value > 0d;
-            case "diag.ping":
-                return payload["nonce"] != null && payload["nonce"].Type == JTokenType.String;
-            default:
-                return true;
+            Debug.LogWarning("[LociBridge] Refused to send an unknown or shell-to-Unity message type: " + type);
+            return;
         }
-    }
 
-    public static void SendMessageToShell(string type, JObject payload, string replyTo = null)
-    {
+        var expectedPayloadType = LociMessageModelRegistry.PayloadTypeFor(type);
+        if (payload == null || expectedPayloadType == null || payload.GetType() != expectedPayloadType)
+        {
+            Debug.LogWarning("[LociBridge] Refused a payload type that does not match " + type + ".");
+            return;
+        }
+
+        if (!payload.IsValid(out var payloadError))
+        {
+            Debug.LogWarning("[LociBridge] Refused invalid payload for " + type + ": " + payloadError);
+            return;
+        }
+
+        if (LociMessageTypes.RequiresReplyTo(type) && string.IsNullOrEmpty(replyTo))
+        {
+            Debug.LogWarning("[LociBridge] Refused " + type + " because replyTo is required.");
+            return;
+        }
+        if (replyTo != null && replyTo.Length < 1)
+        {
+            Debug.LogWarning("[LociBridge] Refused an empty replyTo value.");
+            return;
+        }
+
         var message = new JObject
         {
             ["v"] = 1,
             ["id"] = "u-" + Guid.NewGuid().ToString("N"),
             ["type"] = type,
-            ["payload"] = payload ?? new JObject()
+            ["payload"] = JToken.FromObject(payload, JsonSerializer.Create(OutgoingSerializerSettings))
         };
-        if (!string.IsNullOrWhiteSpace(replyTo))
+        if (replyTo != null)
             message["replyTo"] = replyTo;
 
-        var json = message.ToString(Newtonsoft.Json.Formatting.None);
+        var json = message.ToString(Formatting.None);
         MessageSentToShell?.Invoke(json);
 #if UNITY_ANDROID && !UNITY_EDITOR
         try
@@ -124,5 +182,25 @@ public sealed class SpikeBridge : MonoBehaviour
 #else
         Debug.Log("[LociBridge] Unity -> Shell " + json);
 #endif
+    }
+
+    private static void LogUnknownFields(JObject value, Type modelType, string context)
+    {
+        var contract = JsonSerializer.Create(IncomingSerializerSettings).ContractResolver.ResolveContract(modelType) as JsonObjectContract;
+        if (contract == null)
+            return;
+
+        var knownNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var property in contract.Properties)
+        {
+            if (!property.Ignored && property.PropertyName != null)
+                knownNames.Add(property.PropertyName);
+        }
+
+        foreach (var property in value.Properties())
+        {
+            if (!knownNames.Contains(property.Name))
+                Debug.LogWarning("[LociBridge] Ignored unknown field '" + property.Name + "' in " + context + ".");
+        }
     }
 }
