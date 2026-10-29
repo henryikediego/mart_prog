@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Order is the required study order from the Unity project (moduleGroups, Stage 43). logName is the value written to the Module column of the research log, unchanged from earlier versions so old and new data stay comparable.",
+  "note": "Order is the required study order from the Unity project (moduleGroups, Stage 43). logName is the value written to the Module column of the research log, unchanged from earlier versions so old and new data stay comparable. activityId values are stable lowercase identifiers derived from the existing module activity and mode labels.",
   "topics": [
     { "id": "array_list",  "order": 1, "title": "Array/List",        "logName": "ArrayList"  },
     { "id": "stack",       "order": 2, "title": "Stack",             "logName": "Stack"      },
@@ -8,7 +8,32 @@
     { "id": "linked_list", "order": 4, "title": "Linked List",       "logName": "LinkedList" },
     { "id": "functions",   "order": 5, "title": "Functions",         "logName": "Functions"  },
     { "id": "loops",       "order": 6, "title": "Loops",             "logName": "Loops"      },
-    { "id": "selection",   "order": 7, "title": "Selection",         "logName": "Selection"  },
-    { "id": "memory",      "order": 8, "title": "Memory Management", "logName": "Memory"     }
+    {
+      "id": "selection", "order": 7, "title": "Selection", "logName": "Selection",
+      "activities": [
+        { "id": "basic_if", "title": "Basic If" },
+        { "id": "else_if_ladder", "title": "Else-if Ladder" },
+        { "id": "nested_if", "title": "Nested If" }
+      ]
+    },
+    {
+      "id": "memory", "order": 8, "title": "Memory Management", "logName": "Memory",
+      "activities": [
+        { "id": "overview", "title": "Overview" },
+        { "id": "variables", "title": "Variables" },
+        { "id": "data_types", "title": "Data Types" },
+        { "id": "address_layout", "title": "Address Layout" },
+        { "id": "memory_access", "title": "Memory Access" },
+        { "id": "loop_memory", "title": "Loop Memory" },
+        { "id": "arrays", "title": "Arrays" },
+        { "id": "functions", "title": "Functions" },
+        { "id": "selection", "title": "Selection" },
+        { "id": "scope", "title": "Scope" },
+        { "id": "remove_variable", "title": "Remove Variable" },
+        { "id": "trace_exercise", "title": "Trace Exercise" },
+        { "id": "debug_exercise", "title": "Debug Exercise" },
+        { "id": "final_assessment", "title": "Final Assessment" }
+      ]
+    }
   ]
 }

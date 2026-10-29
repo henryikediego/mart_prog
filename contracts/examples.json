@@ -1,5 +1,5 @@
 {
-  "note": "Sample messages for both sides' tests. Every entry in valid must pass messages.schema.json. Every entry in invalid must fail it, and the reason says why.",
+  "note": "Sample messages for both sides' checks. Every entry in valid must pass messages.schema.json and validate.py cross-file checks. Every entry in invalid must fail one of those checks, and the reason says why.",
   "valid": [
     { "v": 1, "id": "s-1", "type": "session.start", "payload": {} },
     { "v": 1, "id": "s-2", "type": "session.stop", "payload": {} },
@@ -7,6 +7,7 @@
     { "v": 1, "id": "s-4", "type": "placement.reset", "payload": {} },
     { "v": 1, "id": "s-5", "type": "topic.open", "payload": { "topicId": "stack" } },
     { "v": 1, "id": "s-6", "type": "topic.open", "payload": { "topicId": "memory", "activityId": "overview" } },
+    { "v": 1, "id": "s-10", "type": "topic.open", "payload": { "topicId": "selection", "activityId": "basic_if" } },
     { "v": 1, "id": "s-7", "type": "topic.close", "payload": {} },
     { "v": 1, "id": "s-8", "type": "settings.update", "payload": { "textScale": 1.25 } },
     { "v": 1, "id": "s-9", "type": "diag.ping", "payload": { "nonce": "ping" } },
@@ -29,6 +30,7 @@
     { "reason": "missing payload", "message": { "v": 1, "id": "x-2", "type": "session.start" } },
     { "reason": "unknown message type", "message": { "v": 1, "id": "x-3", "type": "session.begin", "payload": {} } },
     { "reason": "unknown topic id", "message": { "v": 1, "id": "x-4", "type": "topic.open", "payload": { "topicId": "trees" } } },
+    { "reason": "unknown activity id for topic", "message": { "v": 1, "id": "x-16", "type": "topic.open", "payload": { "topicId": "memory", "activityId": "not_a_memory_activity" } } },
     { "reason": "topicId missing", "message": { "v": 1, "id": "x-5", "type": "topic.open", "payload": {} } },
     { "reason": "textScale must be above zero", "message": { "v": 1, "id": "x-6", "type": "settings.update", "payload": { "textScale": 0 } } },
     { "reason": "textScale must be a number", "message": { "v": 1, "id": "x-7", "type": "settings.update", "payload": { "textScale": "big" } } },
@@ -37,6 +39,7 @@
     { "reason": "bad AR availability value", "message": { "v": 1, "id": "x-10", "type": "unity.ready", "payload": { "contractVersion": 1, "unityVersion": "6", "arAvailability": "maybe" } } },
     { "reason": "bad session state", "message": { "v": 1, "id": "x-11", "type": "session.state", "payload": { "state": "paused" } } },
     { "reason": "error code format", "message": { "v": 1, "id": "x-12", "type": "error", "payload": { "code": "104", "message": "x", "recoverable": true } } },
+    { "reason": "unknown error code", "message": { "v": 1, "id": "x-17", "type": "error", "payload": { "code": "E-999", "message": "Unknown error", "recoverable": false } } },
     { "reason": "topic.event needs an action", "message": { "v": 1, "id": "x-13", "type": "topic.event", "payload": { "topicId": "stack" } } },
     { "reason": "quiz.requested needs a topicId", "message": { "v": 1, "id": "x-15", "type": "quiz.requested", "payload": {} } },
     { "reason": "pong needs replyTo", "message": { "v": 1, "id": "x-14", "type": "diag.pong", "payload": { "nonce": "ping" } } }

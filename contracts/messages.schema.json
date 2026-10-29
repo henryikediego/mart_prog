@@ -74,7 +74,7 @@
           "additionalProperties": false,
           "properties": {
             "topicId": { "$ref": "#/$defs/topicId" },
-            "activityId": { "type": "string", "minLength": 1, "description": "Optional sub-activity inside a topic (for example a Memory activity). Ids are listed per topic in topics.json once agreed." }
+            "activityId": { "type": "string", "minLength": 1, "description": "Optional sub-activity inside a topic. Allowed IDs are listed under that topic in topics.json." }
           }
         }
       },
@@ -236,7 +236,7 @@
           "required": ["code", "message", "recoverable"],
           "additionalProperties": false,
           "properties": {
-            "code": { "type": "string", "pattern": "^E-[0-9]{3}$" },
+            "code": { "type": "string", "pattern": "^E-[0-9]{3}$", "enum": ["E-101", "E-102", "E-103", "E-104", "E-105", "E-106"] },
             "message": { "type": "string", "minLength": 1 },
             "recoverable": { "type": "boolean" },
             "topicId": { "$ref": "#/$defs/topicId" }
