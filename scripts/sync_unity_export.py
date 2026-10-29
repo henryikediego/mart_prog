@@ -117,9 +117,7 @@ def write_host_properties(path: Path, export_properties: dict[str, str]) -> None
     for line in original.splitlines():
         stripped = line.strip()
         key = stripped.split("=", 1)[0].strip() if "=" in stripped and not stripped.startswith(("#", "!")) else ""
-        if key.startswith("unity"):
-            continue
-        if key == "unityStreamingAssets":
+        if key.startswith("unity") or key == "react.newArchEnabled":
             continue
         kept.append(line)
 
