@@ -5,6 +5,7 @@
     "Loci.Core",
     "Loci.Bridge",
     "Unity.XR.ARFoundation",
+    "Unity.XR.ARSubsystems",
     "Unity.XR.CoreUtils"
   ],
   "includePlatforms": [],
