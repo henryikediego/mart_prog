@@ -1,4 +1,4 @@
-Font: JetBrains Mono  Style: Medium
+Font: JetBrains Mono  Style: SemiBold
 Point Size: 77   Padding: 3   SP/PD Ratio: 3.9%
 
 Characters included: 97/97
