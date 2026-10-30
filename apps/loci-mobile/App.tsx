@@ -133,6 +133,16 @@ export default function App() {
               style={btn}>
               <Text style={btnText}>Search 20</Text>
             </Pressable>
+            <Pressable
+              onPress={() =>
+                sendToUnity('topic.action', {
+                  topicId: 'array_list',
+                  action: 'Traverse',
+                })
+              }
+              style={btn}>
+              <Text style={btnText}>Traverse list</Text>
+            </Pressable>
             <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
               <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
             </Pressable>
