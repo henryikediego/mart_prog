@@ -239,6 +239,7 @@ namespace Loci.AR
 
             raycastManager.enabled = true;
             planeManager.enabled = true;
+            SetPlaneVisualsEnabled(true);
             cameraManager.enabled = true;
             cameraBackground.enabled = true;
             arSession.enabled = true;
@@ -254,6 +255,7 @@ namespace Loci.AR
             placed = false;
 
             SetCandidate(false);
+            SetPlaneVisualsEnabled(false);
             if (contentRoot != null)
                 contentRoot.SetActive(false);
             if (raycastManager != null)
@@ -305,6 +307,7 @@ namespace Loci.AR
             placed = true;
             // Plane visuals help during scanning, but obscure the camera view once
             // placement is confirmed. The session remains active for camera follow.
+            SetPlaneVisualsEnabled(false);
             if (planeManager != null)
                 planeManager.enabled = false;
             if (contentRoot != null)
@@ -327,6 +330,7 @@ namespace Loci.AR
             placed = false;
             if (planeManager != null)
                 planeManager.enabled = true;
+            SetPlaneVisualsEnabled(true);
             if (contentRoot != null)
                 contentRoot.SetActive(false);
             followVelocity = Vector3.zero;
@@ -410,6 +414,22 @@ namespace Loci.AR
             SpikeBridge.SendMessageToShell(
                 LociMessageTypes.PlacementCandidate,
                 new PlacementCandidatePayload { Valid = valid });
+        }
+
+        private void SetPlaneVisualsEnabled(bool enabled)
+        {
+            if (planeManager == null)
+                return;
+
+            foreach (ARPlane plane in planeManager.trackables)
+            {
+                if (plane == null)
+                    continue;
+
+                Renderer[] renderers = plane.GetComponentsInChildren<Renderer>(true);
+                foreach (Renderer planeRenderer in renderers)
+                    planeRenderer.enabled = enabled;
+            }
         }
 
         private void SetState(LociSessionState state, LociTrackingReason? reason = null)
