@@ -19,7 +19,7 @@ namespace Loci.Topics.ArrayList
         [Header("3D display")]
         [SerializeField, Min(0.04f)] private float cellSize = 0.12f;
         [SerializeField, Min(0.08f)] private float cellSpacing = 0.14f;
-        [SerializeField, Min(0.01f)] private float labelScale = 0.05f;
+        [SerializeField, Min(0.001f)] private float labelScale = 0.001f;
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
 
         private readonly ArrayListState state = new ArrayListState();

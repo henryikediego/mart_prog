@@ -791,7 +791,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Loci.Topics.ArrayList::Loci.Topics.ArrayList.ArrayListTopicController
   cellSize: 0.12
   cellSpacing: 0.14
-  labelScale: 0.05
+  labelScale: 0.001
   spawnDuration: 0.18
 --- !u!4 &1383106409
 Transform:

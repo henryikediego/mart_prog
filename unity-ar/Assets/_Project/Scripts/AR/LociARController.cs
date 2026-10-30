@@ -303,6 +303,10 @@ namespace Loci.AR
                 return;
 
             placed = true;
+            // Plane visuals help during scanning, but obscure the camera view once
+            // placement is confirmed. The session remains active for camera follow.
+            if (planeManager != null)
+                planeManager.enabled = false;
             if (contentRoot != null)
             {
                 contentRoot.transform.SetPositionAndRotation(candidatePose.position, candidatePose.rotation);
@@ -321,6 +325,8 @@ namespace Loci.AR
                 return;
 
             placed = false;
+            if (planeManager != null)
+                planeManager.enabled = true;
             if (contentRoot != null)
                 contentRoot.SetActive(false);
             followVelocity = Vector3.zero;
