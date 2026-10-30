@@ -65,6 +65,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - On `topic.open` for `array_list`, it spawns the 3D cells and sends `topic.loaded`. On `topic.action`, it updates the model/visuals and emits `topic.event`.
 - On-device validation confirms Insert 40 displays a fourth cell at index 3 and emits `topic.event`; Delete removes it, restores values 10, 20, 30 at indexes 0, 1, 2, and emits `topic.event`.
 - Search 20 was verified on-device: the `20` cell highlighted and Unity sent `topic.event`.
+- Traverse was verified on-device: Unity sent `topic.event` with order `10, 20, 30`, and the search highlight cleared. Reset was verified after inserting `40`: values returned to `10, 20, 30` at indexes `0, 1, 2`, and Unity sent `topic.event`.
 - Oly's last Unity check after this code was added: `refreshed, no red errors`. The on-device 3D topic path sent `topic.loaded`; the visual was not yet acceptable, leading to the display fixes above.
 
 ### Temporary phone test controls
@@ -76,6 +77,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - **Delete last value** → `topic.action` with `topicId: "array_list"`, `action: "Delete"`
 - **Search 20** → `topic.action` with `topicId: "array_list"`, `action: "Search"`, `value: "20"`
 - **Traverse list** → `topic.action` with `topicId: "array_list"`, `action: "Traverse"`
+- **Reset list** → `topic.action` with `topicId: "array_list"`, `action: "Reset"`
 
 The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened Array/List, Unity sent `topic.loaded` with `topicId: "array_list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the Array/List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
 
@@ -107,8 +109,8 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 
 1. Oly confirmed AR placement on the phone.
 2. Refresh the Unity project and confirm no compile errors; export the Android project, sync it into the host app, rebuild/install, then start AR, confirm placement, and open Array/List. Check that plane visualization is gone after placement and values `10`, `20`, `30` fit legibly on their cells. `topic.loaded` was already confirmed.
-3. Next, test **Delete** using the temporary controls only if available; expect the last value (`40`) to be removed and a `topic.event` returned. Record the observed message and view before proceeding to Search.
-4. Commit/push any subsequent stage. Keep product 2D UI on React and all learning objects in the physical AR scene.
+3. Array/List Insert, Delete, Search, Traverse, and Reset have now been verified on-device. Ask Oly which contracted topic or next deliverable to implement; keep product 2D UI on React and all learning objects in the physical AR scene.
+4. Commit/push each subsequent stage.
 
 ## Build and environment notes
 
