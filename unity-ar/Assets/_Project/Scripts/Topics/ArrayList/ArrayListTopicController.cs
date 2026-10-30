@@ -193,8 +193,8 @@ namespace Loci.Topics.ArrayList
                 MeshRenderer renderer = cell.GetComponent<MeshRenderer>();
                 renderer.sharedMaterial = i == highlightedIndex ? foundMaterial : cellMaterial;
 
-                CreateLabel(topicRoot, state.Values[i].ToString(), new Vector3(x, 0f, cellSize * 0.12f), 64f, LabelColor);
-                CreateLabel(topicRoot, i.ToString(), new Vector3(x, -cellSize * 0.72f, cellSize * 0.1f), 38f, LabelColor);
+                CreateLabel(topicRoot, state.Values[i].ToString(), new Vector3(x, 0f, -cellSize * 0.12f), 64f, LabelColor);
+                CreateLabel(topicRoot, i.ToString(), new Vector3(x, -cellSize * 0.72f, -cellSize * 0.1f), 38f, LabelColor);
 
                 if (animate)
                 {
@@ -210,6 +210,9 @@ namespace Loci.Topics.ArrayList
             GameObject labelObject = new GameObject("Array Label");
             labelObject.transform.SetParent(parent, false);
             labelObject.transform.localPosition = localPosition;
+            // Content faces the camera's forward direction; text must face back
+            // toward the camera so it is visible from the learner's viewpoint.
+            labelObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             labelObject.transform.localScale = Vector3.one * labelScale;
 
             TextMeshPro label = labelObject.AddComponent<TextMeshPro>();
