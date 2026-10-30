@@ -19,7 +19,7 @@ namespace Loci.Topics.ArrayList
         [Header("3D display")]
         [SerializeField, Min(0.04f)] private float cellSize = 0.12f;
         [SerializeField, Min(0.08f)] private float cellSpacing = 0.14f;
-        [SerializeField, Min(0.001f)] private float labelScale = 0.001f;
+        [SerializeField, Min(0.001f)] private float labelScale = 0.006f;
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
 
         private readonly ArrayListState state = new ArrayListState();
@@ -212,7 +212,7 @@ namespace Loci.Topics.ArrayList
             labelObject.transform.localPosition = localPosition;
             // Content faces the camera's forward direction; text must face back
             // toward the camera so it is visible from the learner's viewpoint.
-            labelObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            labelObject.transform.localRotation = Quaternion.Euler(0f, 180f, 180f);
             labelObject.transform.localScale = Vector3.one * labelScale;
 
             TextMeshPro label = labelObject.AddComponent<TextMeshPro>();
