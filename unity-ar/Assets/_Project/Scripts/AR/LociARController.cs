@@ -426,6 +426,7 @@ namespace Loci.AR
                 if (plane == null)
                     continue;
 
+                plane.gameObject.SetActive(enabled);
                 Renderer[] renderers = plane.GetComponentsInChildren<Renderer>(true);
                 foreach (Renderer planeRenderer in renderers)
                     planeRenderer.enabled = enabled;
