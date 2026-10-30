@@ -195,6 +195,24 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'queue', action: 'Reset'})} style={btn}>
               <Text style={btnText}>Reset Queue</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'linked_list'})} style={btn}>
+              <Text style={btnText}>Open Linked List</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'linked_list', action: 'Insert', value: '40'})} style={btn}>
+              <Text style={btnText}>Insert 40 at tail</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'linked_list', action: 'Delete Head'})} style={btn}>
+              <Text style={btnText}>Delete Head</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'linked_list', action: 'Search', value: '20'})} style={btn}>
+              <Text style={btnText}>Search 20 in Linked List</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'linked_list', action: 'Traverse'})} style={btn}>
+              <Text style={btnText}>Traverse Linked List</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'linked_list', action: 'Reset'})} style={btn}>
+              <Text style={btnText}>Reset Linked List</Text>
+            </Pressable>
             <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
               <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
             </Pressable>

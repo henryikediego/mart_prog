@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** Android build/install succeeded (`BUILD SUCCESSFUL in 21m 22s`) and the app launched. Oly confirmed AR placement. The next check is to open List and confirm the initial 3D values appear over the live camera view.
+**Current action:** List, Stack, and Queue first slices are implemented and verified on the phone. A modular Linked List slice is now implemented locally, including linked-node state, head/tail/null visuals, actions, and temporary phone controls. Next, Oly should refresh Unity and report whether compilation completes without red errors.
 
 ## User and collaboration requirements
 
@@ -17,7 +17,7 @@ The export sync script completed successfully. It copied the Unity folders into 
 - Preserve existing work and do not invent project facts. Use the source files and approved contract as evidence. Ask Oly if an important product or protocol detail is unclear.
 - Each project stage must be committed and pushed to GitHub so Oly's friend can track the work. The shared branch is `codex/loci-ar-modular`.
 - Oly explicitly approved the temporary React Native AR test controls. They are only a test harness, not the product UI.
-- Do not add or run tests unless Oly asks. List behavior has been checked on-device; Stack code is now added and awaits Unity refresh confirmation.
+- Do not add or run tests unless Oly asks. List, Stack, and Queue behavior has been checked on-device; the Linked List slice is awaiting Unity refresh and phone verification.
 
 ## Product boundary — current approved decision
 
@@ -77,6 +77,13 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Added temporary phone controls for opening Stack and exercising those operations. Oly refreshed Unity without errors and verified on-device: `topic.loaded` with `topicId: "stack"`; Push 40 adds it above 30; Pop removes it; Peek highlights 30 without changing state; Search 20 highlights it; Traverse clears the highlight and returns `30, 20, 10`; Reset restores `10, 20, 30` with 30 on top. Each action returned `topic.event`.
 - Updated Stack Search and Traverse to animate one highlight every 0.45 seconds from the top toward the bottom. Search retains the matching highlight and sends `topic.event` when it finds the value; Traverse clears the highlights and then sends the top-to-bottom order. Oly refreshed Unity, exported/synced, built successfully, and verified on-device: Traverse highlighted `30`, `20`, `10` in order, cleared them, and sent order `30, 20, 10`; Search 20 highlighted `30`, then `20`, remained on 20, and sent `topic.event`.
 
+### Linked List first modular slice
+
+- The approved contract contains topic ID `linked_list`. The older Unity project documents Linked List behavior in `Assets/_Project/Scripts/Modules/LinkedListModule.cs` and `LinkedListController.cs`; this modular slice follows those references for a five-node limit, starting chain `10 → 20 → 30 → NULL`, Insert at tail, Delete Head, Search head-to-tail, Traverse head-to-tail, and Reset.
+- Added a real singly linked-node data model in `unity-ar/Assets/_Project/Scripts/Topics/LinkedList/LinkedListState.cs`; it tracks Head, Tail, Next references, and Count, rather than representing the concept as an indexed array/list.
+- Added `LinkedListTopicController` in the dedicated `Loci.Topics.LinkedList` assembly and attached it to `AR Session`. It renders horizontal nodes, arrows, HEAD/TAIL labels, and the terminal NULL marker. Delete Head animates the head node out; Search visits head-to-tail and keeps the matching node highlighted; Traverse visits each node head-to-tail, clears highlights, then sends the traversal order in `topic.event`.
+- Added temporary React test controls using `topicId: "linked_list"` for Open, Insert 40 at tail, Delete Head, Search 20, Traverse, and Reset. Unity refresh and phone verification are pending.
+
 ### Queue first modular slice
 
 - Added `QueueState` and `QueueTopicController` under `unity-ar/Assets/_Project/Scripts/Topics/Queue/`, attached the controller to `AR Session`, and added the `Unity.TextMeshPro` assembly reference.
@@ -96,6 +103,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - **Traverse list** → `topic.action` with `topicId: "list"`, `action: "Traverse"`
 - **Reset list** → `topic.action` with `topicId: "list"`, `action: "Reset"`
 - Stack controls send `topic.open` / `topic.action` using `topicId: "stack"` for Push, Pop, Peek, Search, Traverse, and Reset.
+- Linked List controls send `topic.open` / `topic.action` using `topicId: "linked_list"` for Insert, Delete Head, Search, Traverse, and Reset.
 
 The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened List, Unity sent `topic.loaded` with `topicId: "list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
 

@@ -723,6 +723,7 @@ GameObject:
   - component: {fileID: 1383106411}
   - component: {fileID: 1383106412}
   - component: {fileID: 1383106413}
+  - component: {fileID: 1383106414}
   m_Layer: 0
   m_Name: AR Session
   m_TagString: Untagged
@@ -828,6 +829,24 @@ MonoBehaviour:
   labelScale: 0.006
   spawnDuration: 0.18
   actionStepDuration: 0.45
+--- !u!114 &1383106414
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1383106406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 21693ddff87e4814a0ba6f291c85d351, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Loci.Topics.LinkedList::Loci.Topics.LinkedList.LinkedListTopicController
+  nodeSize: 0.12
+  nodeSpacing: 0.14
+  labelScale: 0.006
+  actionStepDuration: 0.45
+  deleteHeadDuration: 0.35
+  deleteHeadExitDistance: 0.16
 --- !u!4 &1383106409
 Transform:
   m_ObjectHideFlags: 0
