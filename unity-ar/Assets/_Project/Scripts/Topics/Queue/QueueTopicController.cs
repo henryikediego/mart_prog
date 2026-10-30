@@ -120,11 +120,11 @@ namespace Loci.Topics.Queue
                 CreateLabel(state.Values[i].ToString(), new Vector3(x, 0f, -cellSize * 0.12f), 64f, Color.white);
                 if (animate) { Vector3 finalScale = cell.transform.localScale; cell.transform.localScale = Vector3.zero; StartCoroutine(AnimateIn(cell.transform, finalScale)); }
             }
-            float markerY = cellSize * 0.8f;
+            float markerY = cellSize * 0.5f + 0.09f;
             float frontX = state.Count == 0 ? -cellSpacing : startX;
             float rearX = state.Count == 0 ? cellSpacing : startX + (state.Count - 1) * spacing;
-            CreateLabel("FRONT", new Vector3(frontX, markerY, -cellSize * 0.2f), 24f, FrontColor);
-            CreateLabel("REAR", new Vector3(rearX, markerY, -cellSize * 0.2f), 24f, RearColor);
+            CreateLabel("FRONT", new Vector3(frontX, markerY, -cellSize * 0.2f), 38f, FrontColor);
+            CreateLabel("REAR", new Vector3(rearX, markerY, -cellSize * 0.2f), 38f, RearColor);
         }
         private void CreateLabel(string text, Vector3 position, float fontSize, Color color)
         {
@@ -134,6 +134,8 @@ namespace Loci.Topics.Queue
             TextMeshPro label = go.AddComponent<TextMeshPro>(); label.text = text; label.fontSize = fontSize;
             label.color = color; label.alignment = TextAlignmentOptions.Center; label.enableAutoSizing = true;
             label.fontSizeMin = fontSize * 0.75f; label.fontSizeMax = fontSize;
+            label.outlineWidth = 0.18f;
+            label.outlineColor = new Color32(20, 24, 45, 255);
             label.rectTransform.sizeDelta = new Vector2(100f, 45f);
             if (TMP_Settings.defaultFontAsset != null) label.font = TMP_Settings.defaultFontAsset;
         }
