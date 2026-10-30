@@ -21,10 +21,12 @@ namespace Loci.Topics.List
         [SerializeField, Min(0.08f)] private float cellSpacing = 0.14f;
         [SerializeField, Min(0.001f)] private float labelScale = 0.006f;
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
+        [SerializeField, Min(0.1f)] private float actionStepDuration = 0.45f;
 
         private readonly ListState state = new ListState();
         private Transform topicRoot;
         private bool isOpen;
+        private bool isSequenceRunning;
         private int highlightedIndex = -1;
         private Material cellMaterial;
         private Material foundMaterial;
@@ -94,6 +96,21 @@ namespace Loci.Topics.List
             if (!isOpen || payload == null || payload.TopicId != LociTopicId.List)
                 return;
 
+            if (isSequenceRunning)
+                return;
+
+            if (payload.Action == "Search")
+            {
+                StartCoroutine(AnimateSearch(payload.Value));
+                return;
+            }
+
+            if (payload.Action == "Traverse")
+            {
+                StartCoroutine(AnimateTraverse());
+                return;
+            }
+
             ListActionResult result = PerformAction(payload.Action, payload.Value);
             if (result == null)
                 return;
@@ -109,6 +126,75 @@ namespace Loci.Topics.List
                     Result = result.Result,
                     Details = result.Details
                 });
+        }
+
+        private IEnumerator AnimateSearch(string input)
+        {
+            string value = input == null ? string.Empty : input.Trim();
+            if (!int.TryParse(value, out int target))
+            {
+                SendTopicEvent(Result("Search", value, "Failed", "Enter a valid number to search for."));
+                yield break;
+            }
+            if (state.Values.Count == 0)
+            {
+                SendTopicEvent(Result("Search", value, "Failed", "List is empty."));
+                yield break;
+            }
+
+            isSequenceRunning = true;
+            for (int i = 0; i < state.Values.Count; i++)
+            {
+                highlightedIndex = i;
+                RenderValues(false);
+                yield return new WaitForSeconds(actionStepDuration);
+                if (state.Values[i] == target)
+                {
+                    SendTopicEvent(Result("Search", value, "Success", $"Value {target} was found at index {i}."));
+                    isSequenceRunning = false;
+                    yield break;
+                }
+            }
+
+            highlightedIndex = -1;
+            RenderValues(false);
+            SendTopicEvent(Result("Search", value, "Failed", "Value was not found in List."));
+            isSequenceRunning = false;
+        }
+
+        private IEnumerator AnimateTraverse()
+        {
+            if (state.Values.Count == 0)
+            {
+                SendTopicEvent(Result("Traverse", string.Empty, "Failed", "List is empty."));
+                yield break;
+            }
+
+            isSequenceRunning = true;
+            for (int i = 0; i < state.Values.Count; i++)
+            {
+                highlightedIndex = i;
+                RenderValues(false);
+                yield return new WaitForSeconds(actionStepDuration);
+            }
+
+            string order = state.GetTraversalOrder();
+            highlightedIndex = -1;
+            RenderValues(false);
+            SendTopicEvent(Result("Traverse", order, "Success", "List values were traversed from index 0 to the last index."));
+            isSequenceRunning = false;
+        }
+
+        private void SendTopicEvent(ListActionResult result)
+        {
+            SpikeBridge.SendMessageToShell(LociMessageTypes.TopicEvent, new TopicEventPayload
+            {
+                TopicId = LociTopicId.List,
+                Action = result.Action,
+                Value = result.Value,
+                Result = result.Result,
+                Details = result.Details
+            });
         }
 
         private ListActionResult PerformAction(string action, string input)
@@ -264,7 +350,9 @@ namespace Loci.Topics.List
 
         private void CloseTopic()
         {
+            StopAllCoroutines();
             isOpen = false;
+            isSequenceRunning = false;
             highlightedIndex = -1;
             if (topicRoot != null)
             {

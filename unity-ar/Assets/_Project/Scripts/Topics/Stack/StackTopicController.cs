@@ -18,10 +18,12 @@ namespace Loci.Topics.Stack
         [SerializeField, Min(0.08f)] private float cellSpacing = 0.14f;
         [SerializeField, Min(0.001f)] private float labelScale = 0.006f;
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
+        [SerializeField, Min(0.1f)] private float actionStepDuration = 0.45f;
 
         private readonly StackState state = new StackState();
         private Transform topicRoot;
         private bool isOpen;
+        private bool isSequenceRunning;
         private int highlightedDepth = -1;
         private Material cellMaterial;
         private Material foundMaterial;
@@ -69,6 +71,17 @@ namespace Loci.Topics.Stack
         private void HandleTopicAction(TopicActionPayload payload)
         {
             if (!isOpen || payload == null || payload.TopicId != LociTopicId.Stack) return;
+            if (isSequenceRunning) return;
+            if (payload.Action == "Search")
+            {
+                StartCoroutine(AnimateSearch(payload.Value));
+                return;
+            }
+            if (payload.Action == "Traverse")
+            {
+                StartCoroutine(AnimateTraverse());
+                return;
+            }
             StackActionResult result = PerformAction(payload.Action, payload.Value);
             if (result == null) return;
             RenderStack(true);
@@ -76,6 +89,76 @@ namespace Loci.Topics.Stack
             {
                 TopicId = LociTopicId.Stack, Action = result.Action, Value = result.Value,
                 Result = result.Result, Details = result.Details
+            });
+        }
+
+        private IEnumerator AnimateSearch(string input)
+        {
+            string value = input == null ? string.Empty : input.Trim();
+            if (!int.TryParse(value, out int target))
+            {
+                SendTopicEvent(Result("Search", value, "Failed", "Enter a valid number to search for."));
+                yield break;
+            }
+            if (state.IsEmpty)
+            {
+                SendTopicEvent(Result("Search", value, "Failed", "Stack is empty."));
+                yield break;
+            }
+
+            isSequenceRunning = true;
+            for (int depth = 0; depth < state.Count; depth++)
+            {
+                highlightedDepth = depth;
+                RenderStack(false);
+                yield return new WaitForSeconds(actionStepDuration);
+                int valueIndex = state.Count - 1 - depth;
+                if (state.Values[valueIndex] == target)
+                {
+                    SendTopicEvent(Result("Search", value, "Success", $"Found {target} at depth {depth} from the top."));
+                    isSequenceRunning = false;
+                    yield break;
+                }
+            }
+
+            highlightedDepth = -1;
+            RenderStack(false);
+            SendTopicEvent(Result("Search", value, "Failed", $"{target} was not found in the Stack."));
+            isSequenceRunning = false;
+        }
+
+        private IEnumerator AnimateTraverse()
+        {
+            if (state.IsEmpty)
+            {
+                SendTopicEvent(Result("Traverse", string.Empty, "Failed", "Stack is empty."));
+                yield break;
+            }
+
+            isSequenceRunning = true;
+            for (int depth = 0; depth < state.Count; depth++)
+            {
+                highlightedDepth = depth;
+                RenderStack(false);
+                yield return new WaitForSeconds(actionStepDuration);
+            }
+
+            string order = state.GetTopToBottomOrder();
+            highlightedDepth = -1;
+            RenderStack(false);
+            SendTopicEvent(Result("Traverse", order, "Success", "Traversed Stack values from top to bottom."));
+            isSequenceRunning = false;
+        }
+
+        private void SendTopicEvent(StackActionResult result)
+        {
+            SpikeBridge.SendMessageToShell(LociMessageTypes.TopicEvent, new TopicEventPayload
+            {
+                TopicId = LociTopicId.Stack,
+                Action = result.Action,
+                Value = result.Value,
+                Result = result.Result,
+                Details = result.Details
             });
         }
 
@@ -194,7 +277,9 @@ namespace Loci.Topics.Stack
 
         private void CloseTopic()
         {
+            StopAllCoroutines();
             isOpen = false;
+            isSequenceRunning = false;
             highlightedDepth = -1;
             if (topicRoot != null) { Destroy(topicRoot.gameObject); topicRoot = null; }
         }
