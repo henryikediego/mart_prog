@@ -174,6 +174,27 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'stack', action: 'Reset'})} style={btn}>
               <Text style={btnText}>Reset Stack</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'queue'})} style={btn}>
+              <Text style={btnText}>Open Queue</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'queue', action: 'Enqueue', value: '40'})} style={btn}>
+              <Text style={btnText}>Enqueue 40</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'queue', action: 'Dequeue'})} style={btn}>
+              <Text style={btnText}>Dequeue</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'queue', action: 'Peek'})} style={btn}>
+              <Text style={btnText}>Peek Queue</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'queue', action: 'Search', value: '20'})} style={btn}>
+              <Text style={btnText}>Search 20 in Queue</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'queue', action: 'Traverse'})} style={btn}>
+              <Text style={btnText}>Traverse Queue</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'queue', action: 'Reset'})} style={btn}>
+              <Text style={btnText}>Reset Queue</Text>
+            </Pressable>
             <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
               <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
             </Pressable>

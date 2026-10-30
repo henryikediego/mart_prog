@@ -5,7 +5,8 @@
     "Loci.Core",
     "Loci.Bridge",
     "Loci.AR",
-    "Loci.UI"
+    "Loci.UI",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

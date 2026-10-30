@@ -75,6 +75,12 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Stack defaults to `10, 20, 30`, capacity five, vertical bottom-to-top cells, and TOP/BOTTOM labels. `topic.action` supports Push, Pop, Peek, Search, Traverse (top-to-bottom), and Reset, replying with `topic.event`.
 - Added temporary phone controls for opening Stack and exercising those operations. Oly refreshed Unity without errors and verified on-device: `topic.loaded` with `topicId: "stack"`; Push 40 adds it above 30; Pop removes it; Peek highlights 30 without changing state; Search 20 highlights it; Traverse clears the highlight and returns `30, 20, 10`; Reset restores `10, 20, 30` with 30 on top. Each action returned `topic.event`.
 
+### Queue first modular slice
+
+- Added `QueueState` and `QueueTopicController` under `unity-ar/Assets/_Project/Scripts/Topics/Queue/`, attached the controller to `AR Session`, and added the `Unity.TextMeshPro` assembly reference.
+- Queue starts at `10, 20, 30`, capacity five, horizontal front-to-rear cells, with FRONT (blue) and REAR (amber) labels above the ends. Enqueue appends at rear; Dequeue removes front; Peek highlights front; Search and Traverse proceed front-to-rear; Reset restores defaults. Actions emit `topic.event`.
+- Added temporary phone controls for Open Queue and Enqueue, Dequeue, Peek, Search, Traverse, and Reset. Awaiting Unity refresh and on-device verification.
+
 ### Temporary phone test controls
 
 `apps/loci-mobile/App.tsx` contains temporary test controls. They are collapsed by default behind a small **Test controls** button so the camera feed and AR objects remain visible. Expand the panel to send session and placement messages plus:
