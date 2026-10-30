@@ -212,7 +212,7 @@ namespace Loci.Topics.ArrayList
             labelObject.transform.localPosition = localPosition;
             // Content faces the camera's forward direction; text must face back
             // toward the camera so it is visible from the learner's viewpoint.
-            labelObject.transform.localRotation = Quaternion.Euler(0f, 180f, 180f);
+            labelObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             labelObject.transform.localScale = Vector3.one * labelScale;
 
             TextMeshPro label = labelObject.AddComponent<TextMeshPro>();
