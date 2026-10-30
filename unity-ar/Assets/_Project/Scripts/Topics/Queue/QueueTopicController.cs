@@ -18,9 +18,11 @@ namespace Loci.Topics.Queue
         [SerializeField, Min(0.08f)] private float cellSpacing = 0.14f;
         [SerializeField, Min(0.001f)] private float labelScale = 0.006f;
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
+        [SerializeField, Min(0.1f)] private float actionStepDuration = 0.45f;
         private readonly QueueState state = new QueueState();
         private Transform topicRoot;
         private bool isOpen;
+        private bool isSequenceRunning;
         private int highlightedIndex = -1;
         private Material cellMaterial;
         private Material foundMaterial;
@@ -59,9 +61,83 @@ namespace Loci.Topics.Queue
         private void Act(TopicActionPayload payload)
         {
             if (!isOpen || payload == null || payload.TopicId != LociTopicId.Queue) return;
+            if (isSequenceRunning) return;
+            if (payload.Action == "Search")
+            {
+                StartCoroutine(AnimateSearch(payload.Value));
+                return;
+            }
+            if (payload.Action == "Traverse")
+            {
+                StartCoroutine(AnimateTraverse());
+                return;
+            }
             QueueActionResult result = PerformAction(payload.Action, payload.Value);
             if (result == null) return;
             RenderQueue(true);
+            SendTopicEvent(result);
+        }
+
+        private IEnumerator AnimateSearch(string input)
+        {
+            string value = input == null ? string.Empty : input.Trim();
+            if (!int.TryParse(value, out int target))
+            {
+                SendTopicEvent(Result("Search", value, "Failed", "Enter a valid number to search for."));
+                yield break;
+            }
+            if (state.IsEmpty)
+            {
+                SendTopicEvent(Result("Search", value, "Failed", "Queue is empty."));
+                yield break;
+            }
+
+            isSequenceRunning = true;
+            for (int i = 0; i < state.Count; i++)
+            {
+                highlightedIndex = i;
+                RenderQueue(false);
+                yield return new WaitForSeconds(actionStepDuration);
+                if (state.Values[i] == target)
+                {
+                    // Keep the matching cell highlighted after the visual search completes.
+                    SendTopicEvent(Result("Search", value, "Success", $"Found {target} at index {i} from the front."));
+                    isSequenceRunning = false;
+                    yield break;
+                }
+            }
+
+            highlightedIndex = -1;
+            RenderQueue(false);
+            SendTopicEvent(Result("Search", value, "Failed", $"{target} was not found in the Queue."));
+            isSequenceRunning = false;
+        }
+
+        private IEnumerator AnimateTraverse()
+        {
+            if (state.IsEmpty)
+            {
+                SendTopicEvent(Result("Traverse", string.Empty, "Failed", "Queue is empty."));
+                yield break;
+            }
+
+            isSequenceRunning = true;
+            for (int i = 0; i < state.Count; i++)
+            {
+                highlightedIndex = i;
+                RenderQueue(false);
+                yield return new WaitForSeconds(actionStepDuration);
+            }
+
+            string order = state.GetFrontToRearOrder();
+            highlightedIndex = -1;
+            RenderQueue(false);
+            SendTopicEvent(Result("Traverse", order, "Success", "Traversed Queue values from front to rear."));
+            isSequenceRunning = false;
+        }
+
+        private void SendTopicEvent(QueueActionResult result)
+        {
             SpikeBridge.SendMessageToShell(LociMessageTypes.TopicEvent, new TopicEventPayload
             {
                 TopicId = LociTopicId.Queue, Action = result.Action, Value = result.Value,
@@ -158,6 +234,8 @@ namespace Loci.Topics.Queue
         }
         private void CloseTopic()
         {
+            StopAllCoroutines();
+            isSequenceRunning = false;
             isOpen = false; highlightedIndex = -1;
             if (topicRoot != null) { Destroy(topicRoot.gameObject); topicRoot = null; }
         }

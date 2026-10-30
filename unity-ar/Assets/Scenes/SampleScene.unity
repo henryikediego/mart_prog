@@ -827,6 +827,7 @@ MonoBehaviour:
   cellSpacing: 0.14
   labelScale: 0.006
   spawnDuration: 0.18
+  actionStepDuration: 0.45
 --- !u!4 &1383106409
 Transform:
   m_ObjectHideFlags: 0

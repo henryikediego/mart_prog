@@ -79,7 +79,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 
 - Added `QueueState` and `QueueTopicController` under `unity-ar/Assets/_Project/Scripts/Topics/Queue/`, attached the controller to `AR Session`, and added the `Unity.TextMeshPro` assembly reference.
 - Queue starts at `10, 20, 30`, capacity five, horizontal front-to-rear cells, with FRONT (blue) and REAR (amber) labels above the ends. Enqueue appends at rear; Dequeue removes front; Peek highlights front; Search and Traverse proceed front-to-rear; Reset restores defaults. Actions emit `topic.event`.
-- Added temporary phone controls for Open Queue and Enqueue, Dequeue, Peek, Search, Traverse, and Reset. Oly refreshed Unity, exported/synced, built on Android, and confirmed `topic.loaded` with `topicId: "queue"` plus horizontal `10, 20, 30` cells and FRONT/REAR labels. The screenshot showed the endpoint labels are too small and too close to the cells, so a readability adjustment is pending Unity refresh/export and device check.
+- Added temporary phone controls for Open Queue and Enqueue, Dequeue, Peek, Search, Traverse, and Reset. Oly refreshed Unity, exported/synced, built on Android, and confirmed `topic.loaded` with `topicId: "queue"` plus horizontal `10, 20, 30` cells and FRONT/REAR labels. Endpoint labels were enlarged and moved higher for legibility. Before refreshing, Oly requested animated Queue Traverse and Search: each cell will highlight front-to-rear with a 0.45-second step; Search keeps the match highlighted, Traverse clears highlights when complete, and `topic.event` is sent after the animation. These changes await Unity refresh and phone verification.
 
 ### Temporary phone test controls
 
