@@ -1,6 +1,6 @@
 {
-  "name": "Loci.Topics.ArrayList",
-  "rootNamespace": "Loci.Topics.ArrayList",
+  "name": "Loci.Topics.List",
+  "rootNamespace": "Loci.Topics.List",
   "references": [
     "Loci.Core",
     "Loci.Bridge",

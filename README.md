@@ -24,7 +24,7 @@ functional specification is the source of truth, not a place to redesign.
 
 ## The eight modules
 
-1. Array/List — indexed storage
+1. List — indexed storage
 2. Stack — LIFO
 3. Queue — FIFO
 4. Linked List — nodes linked head-to-tail, ending in NULL
@@ -44,7 +44,7 @@ never identical, never blank.
 1. Project + AR Foundation; live camera feed with a placeholder object on a plane
 2. Dashboard UI prefab + DashboardController
 3. ResearchLogger service (CSV)
-4. Array/List module end-to-end (establishes the per-module pattern) + its quiz
+4. List module end-to-end (establishes the per-module pattern) + its quiz
 5. Stack, Queue, Linked List
 6. Functions, Loops
 7. Selection (single authoritative state — no text-content label lookups)

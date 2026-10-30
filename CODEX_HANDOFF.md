@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** Android build/install succeeded (`BUILD SUCCESSFUL in 21m 22s`) and the app launched. Oly confirmed AR placement. The next check is to open Array/List and confirm the initial 3D values appear over the live camera view.
+**Current action:** Android build/install succeeded (`BUILD SUCCESSFUL in 21m 22s`) and the app launched. Oly confirmed AR placement. The next check is to open List and confirm the initial 3D values appear over the live camera view.
 
 ## User and collaboration requirements
 
@@ -17,7 +17,7 @@ The export sync script completed successfully. It copied the Unity folders into 
 - Preserve existing work and do not invent project facts. Use the source files and approved contract as evidence. Ask Oly if an important product or protocol detail is unclear.
 - Each project stage must be committed and pushed to GitHub so Oly's friend can track the work. The shared branch is `codex/loci-ar-modular`.
 - Oly explicitly approved the temporary React Native AR test controls. They are only a test harness, not the product UI.
-- Do not add or run tests unless Oly asks. No test suite has been run for the current Array/List implementation. The Unity compile refresh was confirmed by Oly with “refreshed, no red errors”.
+- Do not add or run tests unless Oly asks. No test suite has been run for the current List implementation. The Unity compile refresh was confirmed by Oly with “refreshed, no red errors”.
 
 ## Product boundary — current approved decision
 
@@ -56,13 +56,13 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Oly tested on a Samsung Galaxy A32: Unity reported `arAvailability: supported`; camera feed started; surface found; placement confirmation worked; reset returned to surface found; `session.stop` stopped the feed.
 - Oly confirmed the earlier AR bridge compile-reference errors disappeared after Unity refreshed.
 
-### Array/List first 3D slice
+### List first 3D slice
 
-- Pure C# state: `unity-ar/Assets/_Project/Scripts/Topics/ArrayList/ArrayListState.cs`.
-- 3D renderer and message handler: `unity-ar/Assets/_Project/Scripts/Topics/ArrayList/ArrayListTopicController.cs`.
-- A dedicated `Loci.Topics.ArrayList` assembly exists. The controller is attached to `AR Session` in `SampleScene.unity`.
-- The starting values are `10, 20, 30`, and the five-value learner-facing capacity follows the legacy Array/List controller. Supported requests are `Insert`, `Delete`, `Search`, `Traverse`, and `Reset`. On-device validation: `topic.loaded` arrived; after placement, the yellow plane overlay disappeared while the camera remained visible; the values and indexes now appear upright and readable. Oly inserted `40`; the screenshot shows values `10, 20, 30, 40` at indexes `0, 1, 2, 3`, and Unity returned a `topic.event` for `array_list`, action `Array Insert`, value `40`.
-- On `topic.open` for `array_list`, it spawns the 3D cells and sends `topic.loaded`. On `topic.action`, it updates the model/visuals and emits `topic.event`.
+- Pure C# state: `unity-ar/Assets/_Project/Scripts/Topics/List/ListState.cs`.
+- 3D renderer and message handler: `unity-ar/Assets/_Project/Scripts/Topics/List/ListTopicController.cs`.
+- A dedicated `Loci.Topics.List` assembly exists. The controller is attached to `AR Session` in `SampleScene.unity`.
+- The starting values are `10, 20, 30`, and the five-value learner-facing capacity follows the legacy List controller. Supported requests are `Insert`, `Delete`, `Search`, `Traverse`, and `Reset`. On-device validation: `topic.loaded` arrived; after placement, the yellow plane overlay disappeared while the camera remained visible; the values and indexes now appear upright and readable. Oly inserted `40`; the screenshot shows values `10, 20, 30, 40` at indexes `0, 1, 2, 3`, and Unity returned a `topic.event` for `list`, action `Array Insert`, value `40`.
+- On `topic.open` for `list`, it spawns the 3D cells and sends `topic.loaded`. On `topic.action`, it updates the model/visuals and emits `topic.event`.
 - On-device validation confirms Insert 40 displays a fourth cell at index 3 and emits `topic.event`; Delete removes it, restores values 10, 20, 30 at indexes 0, 1, 2, and emits `topic.event`.
 - Search 20 was verified on-device: the `20` cell highlighted and Unity sent `topic.event`.
 - Traverse was verified on-device: Unity sent `topic.event` with order `10, 20, 30`, and the search highlight cleared. Reset was verified after inserting `40`: values returned to `10, 20, 30` at indexes `0, 1, 2`, and Unity sent `topic.event`.
@@ -72,22 +72,22 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 
 `apps/loci-mobile/App.tsx` contains temporary test controls. They are collapsed by default behind a small **Test controls** button so the camera feed and AR objects remain visible. Expand the panel to send session and placement messages plus:
 
-- **Open Array/List** → `topic.open` with `topicId: "array_list"`
-- **Insert 40** → `topic.action` with `topicId: "array_list"`, `action: "Insert"`, `value: "40"`
-- **Delete last value** → `topic.action` with `topicId: "array_list"`, `action: "Delete"`
-- **Search 20** → `topic.action` with `topicId: "array_list"`, `action: "Search"`, `value: "20"`
-- **Traverse list** → `topic.action` with `topicId: "array_list"`, `action: "Traverse"`
-- **Reset list** → `topic.action` with `topicId: "array_list"`, `action: "Reset"`
+- **Open List** → `topic.open` with `topicId: "list"`
+- **Insert 40** → `topic.action` with `topicId: "list"`, `action: "Insert"`, `value: "40"`
+- **Delete last value** → `topic.action` with `topicId: "list"`, `action: "Delete"`
+- **Search 20** → `topic.action` with `topicId: "list"`, `action: "Search"`, `value: "20"`
+- **Traverse list** → `topic.action` with `topicId: "list"`, `action: "Traverse"`
+- **Reset list** → `topic.action` with `topicId: "list"`, `action: "Reset"`
 
-The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened Array/List, Unity sent `topic.loaded` with `topicId: "array_list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the Array/List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
+The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened List, Unity sent `topic.loaded` with `topicId: "list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
 
 ## Recent pushed commits
 
 All are on `codex/loci-ar-modular`:
 
-- `9a48c55 Add temporary Array List test controls`
+- `9a48c55 Add temporary List test controls`
 - `80ef13c Add comprehensive project handoff`
-- `41c1be2 Add modular Array List 3D topic`
+- `41c1be2 Add modular List 3D topic`
 - `0532b83 Record approval of topic action contract`
 - `b63abec Propose shell to Unity topic action message`
 - `48c2787 Update shell and Unity UI ownership`
@@ -108,8 +108,8 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 ## Exact next sequence
 
 1. Oly confirmed AR placement on the phone.
-2. Refresh the Unity project and confirm no compile errors; export the Android project, sync it into the host app, rebuild/install, then start AR, confirm placement, and open Array/List. Check that plane visualization is gone after placement and values `10`, `20`, `30` fit legibly on their cells. `topic.loaded` was already confirmed.
-3. Array/List Insert, Delete, Search, Traverse, and Reset have now been verified on-device. Ask Oly which contracted topic or next deliverable to implement; keep product 2D UI on React and all learning objects in the physical AR scene.
+2. Refresh the Unity project and confirm no compile errors; export the Android project, sync it into the host app, rebuild/install, then start AR, confirm placement, and open List. Check that plane visualization is gone after placement and values `10`, `20`, `30` fit legibly on their cells. `topic.loaded` was already confirmed.
+3. List Insert, Delete, Search, Traverse, and Reset have now been verified on-device. Ask Oly which contracted topic or next deliverable to implement; keep product 2D UI on React and all learning objects in the physical AR scene.
 4. Commit/push each subsequent stage.
 
 ## Build and environment notes

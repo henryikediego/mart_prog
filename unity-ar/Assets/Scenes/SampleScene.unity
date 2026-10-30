@@ -788,7 +788,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2c5d80fa17994c3d9dccd803fbc710ac, type: 3}
   m_Name:
-  m_EditorClassIdentifier: Loci.Topics.ArrayList::Loci.Topics.ArrayList.ArrayListTopicController
+  m_EditorClassIdentifier: Loci.Topics.List::Loci.Topics.List.ListTopicController
   cellSize: 0.12
   cellSpacing: 0.14
   labelScale: 0.006

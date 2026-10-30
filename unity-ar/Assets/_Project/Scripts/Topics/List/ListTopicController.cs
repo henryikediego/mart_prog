@@ -4,13 +4,13 @@ using Loci.Bridge;
 using TMPro;
 using UnityEngine;
 
-namespace Loci.Topics.ArrayList
+namespace Loci.Topics.List
 {
     /// <summary>
-    /// Renders the Array/List as 3D objects and receives operations from the
+    /// Renders the List as 3D objects and receives operations from the
     /// shell. All 2D controls and explanatory panels belong to the shell.
     /// </summary>
-    public sealed class ArrayListTopicController : MonoBehaviour
+    public sealed class ListTopicController : MonoBehaviour
     {
         private static readonly Color32 CellColor = new Color32(91, 75, 255, 255);
         private static readonly Color32 FoundColor = new Color32(245, 207, 80, 255);
@@ -22,7 +22,7 @@ namespace Loci.Topics.ArrayList
         [SerializeField, Min(0.001f)] private float labelScale = 0.006f;
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
 
-        private readonly ArrayListState state = new ArrayListState();
+        private readonly ListState state = new ListState();
         private Transform topicRoot;
         private bool isOpen;
         private int highlightedIndex = -1;
@@ -64,7 +64,7 @@ namespace Loci.Topics.ArrayList
             if (payload == null)
                 return;
 
-            if (payload.TopicId != LociTopicId.ArrayList)
+            if (payload.TopicId != LociTopicId.List)
             {
                 CloseTopic();
                 return;
@@ -78,7 +78,7 @@ namespace Loci.Topics.ArrayList
             state.Reset();
             highlightedIndex = -1;
 
-            GameObject rootObject = new GameObject("Array List 3D Content");
+            GameObject rootObject = new GameObject("List 3D Content");
             topicRoot = rootObject.transform;
             topicRoot.SetParent(arController.ContentRoot, false);
             isOpen = true;
@@ -86,15 +86,15 @@ namespace Loci.Topics.ArrayList
 
             SpikeBridge.SendMessageToShell(
                 LociMessageTypes.TopicLoaded,
-                new TopicLoadedPayload { TopicId = LociTopicId.ArrayList });
+                new TopicLoadedPayload { TopicId = LociTopicId.List });
         }
 
         private void HandleTopicAction(TopicActionPayload payload)
         {
-            if (!isOpen || payload == null || payload.TopicId != LociTopicId.ArrayList)
+            if (!isOpen || payload == null || payload.TopicId != LociTopicId.List)
                 return;
 
-            ArrayListActionResult result = PerformAction(payload.Action, payload.Value);
+            ListActionResult result = PerformAction(payload.Action, payload.Value);
             if (result == null)
                 return;
 
@@ -103,7 +103,7 @@ namespace Loci.Topics.ArrayList
                 LociMessageTypes.TopicEvent,
                 new TopicEventPayload
                 {
-                    TopicId = LociTopicId.ArrayList,
+                    TopicId = LociTopicId.List,
                     Action = result.Action,
                     Value = result.Value,
                     Result = result.Result,
@@ -111,7 +111,7 @@ namespace Loci.Topics.ArrayList
                 });
         }
 
-        private ArrayListActionResult PerformAction(string action, string input)
+        private ListActionResult PerformAction(string action, string input)
         {
             string value = input == null ? string.Empty : input.Trim();
             highlightedIndex = -1;
@@ -120,48 +120,48 @@ namespace Loci.Topics.ArrayList
             {
                 case "Insert":
                     if (value.Length == 0)
-                        return Result("Insert", value, "Failed", "No value was entered for Array/List insert.");
+                        return Result("Insert", value, "Failed", "No value was entered for List insert.");
                     if (!int.TryParse(value, out int insertValue))
                         return Result("Insert", value, "Failed", "The entered value is not a valid number.");
                     if (!state.TryInsert(insertValue, out int insertedIndex))
-                        return Result("Insert", value, "Failed", "Array/List reached its five-value capacity.");
+                        return Result("Insert", value, "Failed", "List reached its five-value capacity.");
                     return Result("Array Insert", insertValue.ToString(), "Success", $"Inserted value {insertValue} at index {insertedIndex}.");
 
                 case "Delete":
                     if (!state.TryDeleteLast(out int deletedValue))
-                        return Result("Delete", string.Empty, "Failed", "Array/List was empty.");
-                    return Result("Delete", deletedValue.ToString(), "Success", "Value removed from the end of Array/List.");
+                        return Result("Delete", string.Empty, "Failed", "List was empty.");
+                    return Result("Delete", deletedValue.ToString(), "Success", "Value removed from the end of List.");
 
                 case "Search":
                     if (value.Length == 0)
-                        return Result("Search", value, "Failed", "No value was entered for Array/List search.");
+                        return Result("Search", value, "Failed", "No value was entered for List search.");
                     if (!int.TryParse(value, out int searchValue))
                         return Result("Search", value, "Failed", "The entered value is not a valid number.");
                     if (state.Values.Count == 0)
-                        return Result("Search", value, "Failed", "Array/List is empty.");
+                        return Result("Search", value, "Failed", "List is empty.");
                     highlightedIndex = state.FindIndex(searchValue);
                     return highlightedIndex >= 0
                         ? Result("Search", value, "Success", $"Value {searchValue} was found at index {highlightedIndex}.")
-                        : Result("Search", value, "Failed", "Value was not found in Array/List.");
+                        : Result("Search", value, "Failed", "Value was not found in List.");
 
                 case "Traverse":
                     if (state.Values.Count == 0)
-                        return Result("Traverse", string.Empty, "Failed", "Array/List is empty.");
-                    return Result("Traverse", state.GetTraversalOrder(), "Success", "Array/List values were traversed from index 0 to the last index.");
+                        return Result("Traverse", string.Empty, "Failed", "List is empty.");
+                    return Result("Traverse", state.GetTraversalOrder(), "Success", "List values were traversed from index 0 to the last index.");
 
                 case "Reset":
                     state.Reset();
-                    return Result("Reset", string.Empty, "Success", "Array/List reset to its default values.");
+                    return Result("Reset", string.Empty, "Success", "List reset to its default values.");
 
                 default:
-                    Debug.LogWarning("ArrayListTopicController ignored an unsupported action: " + action);
+                    Debug.LogWarning("ListTopicController ignored an unsupported action: " + action);
                     return null;
             }
         }
 
-        private static ArrayListActionResult Result(string action, string value, string result, string details)
+        private static ListActionResult Result(string action, string value, string result, string details)
         {
-            return new ArrayListActionResult(action, value, result, details);
+            return new ListActionResult(action, value, result, details);
         }
 
         private void RenderValues(bool animate)
@@ -283,14 +283,14 @@ namespace Loci.Topics.ArrayList
             foundMaterial = null;
         }
 
-        private sealed class ArrayListActionResult
+        private sealed class ListActionResult
         {
             public string Action { get; }
             public string Value { get; }
             public string Result { get; }
             public string Details { get; }
 
-            public ArrayListActionResult(string action, string value, string result, string details)
+            public ListActionResult(string action, string value, string result, string details)
             {
                 Action = action;
                 Value = value;

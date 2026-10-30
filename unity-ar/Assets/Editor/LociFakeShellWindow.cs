@@ -5,7 +5,7 @@ using UnityEngine;
 
 public sealed class LociFakeShellWindow : EditorWindow
 {
-    private string topicId = "array_list";
+    private string topicId = "list";
     private string nonce = "editor-ping";
     private float textScale = 1f;
     private Vector2 scroll;

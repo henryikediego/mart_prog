@@ -97,14 +97,14 @@ export default function App() {
               <Text style={btnText}>placement.reset</Text>
             </Pressable>
             <Pressable
-              onPress={() => sendToUnity('topic.open', {topicId: 'array_list'})}
+              onPress={() => sendToUnity('topic.open', {topicId: 'list'})}
               style={btn}>
-              <Text style={btnText}>Open Array/List</Text>
+              <Text style={btnText}>Open List</Text>
             </Pressable>
             <Pressable
               onPress={() =>
                 sendToUnity('topic.action', {
-                  topicId: 'array_list',
+                  topicId: 'list',
                   action: 'Insert',
                   value: '40',
                 })
@@ -115,7 +115,7 @@ export default function App() {
             <Pressable
               onPress={() =>
                 sendToUnity('topic.action', {
-                  topicId: 'array_list',
+                  topicId: 'list',
                   action: 'Delete',
                 })
               }
@@ -125,7 +125,7 @@ export default function App() {
             <Pressable
               onPress={() =>
                 sendToUnity('topic.action', {
-                  topicId: 'array_list',
+                  topicId: 'list',
                   action: 'Search',
                   value: '20',
                 })
@@ -136,7 +136,7 @@ export default function App() {
             <Pressable
               onPress={() =>
                 sendToUnity('topic.action', {
-                  topicId: 'array_list',
+                  topicId: 'list',
                   action: 'Traverse',
                 })
               }
@@ -146,7 +146,7 @@ export default function App() {
             <Pressable
               onPress={() =>
                 sendToUnity('topic.action', {
-                  topicId: 'array_list',
+                  topicId: 'list',
                   action: 'Reset',
                 })
               }

@@ -121,8 +121,8 @@ namespace Loci.Bridge
     [JsonConverter(typeof(LociStringEnumConverter))]
     public enum LociTopicId
     {
-        [EnumMember(Value = "array_list")]
-        ArrayList,
+        [EnumMember(Value = "list")]
+        List,
         [EnumMember(Value = "stack")]
         Stack,
         [EnumMember(Value = "queue")]

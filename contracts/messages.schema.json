@@ -27,7 +27,7 @@
   "$defs": {
     "topicId": {
       "description": "Stable id of a topic module. Order and titles live in topics.json.",
-      "enum": ["array_list", "stack", "queue", "linked_list", "functions", "loops", "selection", "memory"]
+      "enum": ["list", "stack", "queue", "linked_list", "functions", "loops", "selection", "memory"]
     },
     "envelope": {
       "type": "object",

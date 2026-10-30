@@ -2,7 +2,7 @@
   "version": 1,
   "note": "Order is the required study order from the Unity project (moduleGroups, Stage 43). logName is the value written to the Module column of the research log, unchanged from earlier versions so old and new data stay comparable. activityId values are stable lowercase identifiers derived from the existing module activity and mode labels.",
   "topics": [
-    { "id": "array_list",  "order": 1, "title": "Array/List",        "logName": "ArrayList"  },
+    { "id": "list",  "order": 1, "title": "List",        "logName": "List"  },
     { "id": "stack",       "order": 2, "title": "Stack",             "logName": "Stack"      },
     { "id": "queue",       "order": 3, "title": "Queue",             "logName": "Queue"      },
     { "id": "linked_list", "order": 4, "title": "Linked List",       "logName": "LinkedList" },

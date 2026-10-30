@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 
-namespace Loci.Topics.ArrayList
+namespace Loci.Topics.List
 {
     /// <summary>
-    /// The Array/List data state, independent of Unity objects, AR, and UI.
+    /// The List data state, independent of Unity objects, AR, and UI.
     /// The five-item learner-facing capacity and starting values match the
-    /// validated legacy Array/List controller.
+    /// validated legacy List controller.
     /// </summary>
-    public sealed class ArrayListState
+    public sealed class ListState
     {
         public const int Capacity = 5;
 
