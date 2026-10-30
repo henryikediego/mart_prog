@@ -153,6 +153,27 @@ export default function App() {
               style={btn}>
               <Text style={btnText}>Reset list</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'stack'})} style={btn}>
+              <Text style={btnText}>Open Stack</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'stack', action: 'Push', value: '40'})} style={btn}>
+              <Text style={btnText}>Push 40</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'stack', action: 'Pop'})} style={btn}>
+              <Text style={btnText}>Pop</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'stack', action: 'Peek'})} style={btn}>
+              <Text style={btnText}>Peek</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'stack', action: 'Search', value: '20'})} style={btn}>
+              <Text style={btnText}>Search 20 in Stack</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'stack', action: 'Traverse'})} style={btn}>
+              <Text style={btnText}>Traverse Stack</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'stack', action: 'Reset'})} style={btn}>
+              <Text style={btnText}>Reset Stack</Text>
+            </Pressable>
             <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
               <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
             </Pressable>

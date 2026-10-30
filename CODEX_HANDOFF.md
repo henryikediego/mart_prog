@@ -17,7 +17,7 @@ The export sync script completed successfully. It copied the Unity folders into 
 - Preserve existing work and do not invent project facts. Use the source files and approved contract as evidence. Ask Oly if an important product or protocol detail is unclear.
 - Each project stage must be committed and pushed to GitHub so Oly's friend can track the work. The shared branch is `codex/loci-ar-modular`.
 - Oly explicitly approved the temporary React Native AR test controls. They are only a test harness, not the product UI.
-- Do not add or run tests unless Oly asks. No test suite has been run for the current List implementation. The Unity compile refresh was confirmed by Oly with “refreshed, no red errors”.
+- Do not add or run tests unless Oly asks. List behavior has been checked on-device; Stack code is now added and awaits Unity refresh confirmation.
 
 ## Product boundary — current approved decision
 
@@ -69,6 +69,12 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - After renaming the topic ID to `list`, Oly rebuilt the Android app and confirmed Unity sends `topic.loaded` with `topicId: "list"` and displays the three values `10`, `20`, `30`.
 - Oly's last Unity check after this code was added: `refreshed, no red errors`. The on-device 3D topic path sent `topic.loaded`; the visual was not yet acceptable, leading to the display fixes above.
 
+### Stack first modular slice
+
+- Added `StackState` and `StackTopicController` under `unity-ar/Assets/_Project/Scripts/Topics/Stack/`, attached the controller to `AR Session`, and added the `Unity.TextMeshPro` assembly reference.
+- Stack defaults to `10, 20, 30`, capacity five, vertical bottom-to-top cells, and TOP/BOTTOM labels. `topic.action` supports Push, Pop, Peek, Search, Traverse (top-to-bottom), and Reset, replying with `topic.event`.
+- Added temporary phone controls for opening Stack and exercising those operations. Not yet compiled or device-verified; ask Oly to refresh Unity first.
+
 ### Temporary phone test controls
 
 `apps/loci-mobile/App.tsx` contains temporary test controls. They are collapsed by default behind a small **Test controls** button so the camera feed and AR objects remain visible. Expand the panel to send session and placement messages plus:
@@ -79,6 +85,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - **Search 20** → `topic.action` with `topicId: "list"`, `action: "Search"`, `value: "20"`
 - **Traverse list** → `topic.action` with `topicId: "list"`, `action: "Traverse"`
 - **Reset list** → `topic.action` with `topicId: "list"`, `action: "Reset"`
+- Stack controls send `topic.open` / `topic.action` using `topicId: "stack"` for Push, Pop, Peek, Search, Traverse, and Reset.
 
 The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened List, Unity sent `topic.loaded` with `topicId: "list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
 
@@ -110,7 +117,7 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 
 1. Oly confirmed AR placement on the phone.
 2. Refresh the Unity project and confirm no compile errors; export the Android project, sync it into the host app, rebuild/install, then start AR, confirm placement, and open List. Check that plane visualization is gone after placement and values `10`, `20`, `30` fit legibly on their cells. `topic.loaded` was already confirmed.
-3. List Insert, Delete, Search, Traverse, and Reset have now been verified on-device. Ask Oly which contracted topic or next deliverable to implement; keep product 2D UI on React and all learning objects in the physical AR scene.
+3. List Insert, Delete, Search, Traverse, and Reset have now been verified on-device. Stack is implemented but awaits Unity refresh and device verification.
 4. Commit/push each subsequent stage.
 
 ## Build and environment notes

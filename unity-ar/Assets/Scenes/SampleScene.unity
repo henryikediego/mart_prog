@@ -721,6 +721,7 @@ GameObject:
   - component: {fileID: 1383106407}
   - component: {fileID: 1383106410}
   - component: {fileID: 1383106411}
+  - component: {fileID: 1383106412}
   m_Layer: 0
   m_Name: AR Session
   m_TagString: Untagged
@@ -789,6 +790,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c5d80fa17994c3d9dccd803fbc710ac, type: 3}
   m_Name:
   m_EditorClassIdentifier: Loci.Topics.List::Loci.Topics.List.ListTopicController
+  cellSize: 0.12
+  cellSpacing: 0.14
+  labelScale: 0.006
+  spawnDuration: 0.18
+--- !u!114 &1383106412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1383106406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78cecb8719224b50a91e837aa8b274ce, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Loci.Topics.Stack::Loci.Topics.Stack.StackTopicController
   cellSize: 0.12
   cellSpacing: 0.14
   labelScale: 0.006
