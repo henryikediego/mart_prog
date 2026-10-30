@@ -112,6 +112,16 @@ export default function App() {
               style={btn}>
               <Text style={btnText}>Insert 40</Text>
             </Pressable>
+            <Pressable
+              onPress={() =>
+                sendToUnity('topic.action', {
+                  topicId: 'array_list',
+                  action: 'Delete',
+                })
+              }
+              style={btn}>
+              <Text style={btnText}>Delete last value</Text>
+            </Pressable>
             <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
               <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
             </Pressable>

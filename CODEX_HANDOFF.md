@@ -61,7 +61,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Pure C# state: `unity-ar/Assets/_Project/Scripts/Topics/ArrayList/ArrayListState.cs`.
 - 3D renderer and message handler: `unity-ar/Assets/_Project/Scripts/Topics/ArrayList/ArrayListTopicController.cs`.
 - A dedicated `Loci.Topics.ArrayList` assembly exists. The controller is attached to `AR Session` in `SampleScene.unity`.
-- The starting values are `10, 20, 30`, and the five-value learner-facing capacity follows the legacy Array/List controller. Supported requests are `Insert`, `Delete`, `Search`, `Traverse`, and `Reset`. Initial on-device view confirmed `topic.loaded`, but exposed oversized labels and the plane-detection visualization covering much of the camera image. The controller now deactivates each plane object after placement and reactivates it when scanning resumes; Oly confirmed the overlay disappeared while camera feed remained visible. Labels are now large enough, but Oly's latest phone screenshot showed them mirrored left-to-right after facing the camera. Their local X scale now counter-flips the glyphs; this needs another Unity refresh/export and on-device check.
+- The starting values are `10, 20, 30`, and the five-value learner-facing capacity follows the legacy Array/List controller. Supported requests are `Insert`, `Delete`, `Search`, `Traverse`, and `Reset`. On-device validation: `topic.loaded` arrived; after placement, the yellow plane overlay disappeared while the camera remained visible; the values and indexes now appear upright and readable. Oly inserted `40`; the screenshot shows values `10, 20, 30, 40` at indexes `0, 1, 2, 3`, and Unity returned a `topic.event` for `array_list`, action `Array Insert`, value `40`.
 - On `topic.open` for `array_list`, it spawns the 3D cells and sends `topic.loaded`. On `topic.action`, it updates the model/visuals and emits `topic.event`.
 - Oly's last Unity check after this code was added: `refreshed, no red errors`. The on-device 3D topic path sent `topic.loaded`; the visual was not yet acceptable, leading to the display fixes above.
 
@@ -102,7 +102,7 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 
 1. Oly confirmed AR placement on the phone.
 2. Refresh the Unity project and confirm no compile errors; export the Android project, sync it into the host app, rebuild/install, then start AR, confirm placement, and open Array/List. Check that plane visualization is gone after placement and values `10`, `20`, `30` fit legibly on their cells. `topic.loaded` was already confirmed.
-3. Only after the view is readable, tap **Insert 40**. Expected: a fourth 3D value appears and Unity sends a `topic.event` for the Array/List insert. Ask Oly to paste the message/output before proceeding.
+3. Next, test **Delete** using the temporary controls only if available; expect the last value (`40`) to be removed and a `topic.event` returned. Record the observed message and view before proceeding to Search.
 4. Commit/push any subsequent stage. Keep product 2D UI on React and all learning objects in the physical AR scene.
 
 ## Build and environment notes
