@@ -66,6 +66,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - On-device validation confirms Insert 40 displays a fourth cell at index 3 and emits `topic.event`; Delete removes it, restores values 10, 20, 30 at indexes 0, 1, 2, and emits `topic.event`.
 - Search 20 was verified on-device: the `20` cell highlighted and Unity sent `topic.event`.
 - Traverse was verified on-device: Unity sent `topic.event` with order `10, 20, 30`, and the search highlight cleared. Reset was verified after inserting `40`: values returned to `10, 20, 30` at indexes `0, 1, 2`, and Unity sent `topic.event`.
+- After renaming the topic ID to `list`, Oly rebuilt the Android app and confirmed Unity sends `topic.loaded` with `topicId: "list"` and displays the three values `10`, `20`, `30`.
 - Oly's last Unity check after this code was added: `refreshed, no red errors`. The on-device 3D topic path sent `topic.loaded`; the visual was not yet acceptable, leading to the display fixes above.
 
 ### Temporary phone test controls
