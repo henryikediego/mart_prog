@@ -73,7 +73,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 
 - Added `StackState` and `StackTopicController` under `unity-ar/Assets/_Project/Scripts/Topics/Stack/`, attached the controller to `AR Session`, and added the `Unity.TextMeshPro` assembly reference.
 - Stack defaults to `10, 20, 30`, capacity five, vertical bottom-to-top cells, and TOP/BOTTOM labels. `topic.action` supports Push, Pop, Peek, Search, Traverse (top-to-bottom), and Reset, replying with `topic.event`.
-- Added temporary phone controls for opening Stack and exercising those operations. Not yet compiled or device-verified; ask Oly to refresh Unity first.
+- Added temporary phone controls for opening Stack and exercising those operations. Oly refreshed Unity without errors and verified on-device: `topic.loaded` with `topicId: "stack"`; Push 40 adds it above 30; Pop removes it; Peek highlights 30 without changing state; Search 20 highlights it; Traverse clears the highlight and returns `30, 20, 10`; Reset restores `10, 20, 30` with 30 on top. Each action returned `topic.event`.
 
 ### Temporary phone test controls
 
@@ -117,7 +117,7 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 
 1. Oly confirmed AR placement on the phone.
 2. Refresh the Unity project and confirm no compile errors; export the Android project, sync it into the host app, rebuild/install, then start AR, confirm placement, and open List. Check that plane visualization is gone after placement and values `10`, `20`, `30` fit legibly on their cells. `topic.loaded` was already confirmed.
-3. List Insert, Delete, Search, Traverse, and Reset have now been verified on-device. Stack is implemented but awaits Unity refresh and device verification.
+3. List and Stack first AR slices and their supported operations have now been verified on-device. Ask Oly which contracted topic or deliverable to implement next; keep product 2D UI on React and all learning objects in the physical AR scene.
 4. Commit/push each subsequent stage.
 
 ## Build and environment notes
