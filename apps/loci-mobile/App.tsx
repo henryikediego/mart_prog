@@ -122,6 +122,17 @@ export default function App() {
               style={btn}>
               <Text style={btnText}>Delete last value</Text>
             </Pressable>
+            <Pressable
+              onPress={() =>
+                sendToUnity('topic.action', {
+                  topicId: 'array_list',
+                  action: 'Search',
+                  value: '20',
+                })
+              }
+              style={btn}>
+              <Text style={btnText}>Search 20</Text>
+            </Pressable>
             <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
               <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
             </Pressable>

@@ -63,6 +63,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - A dedicated `Loci.Topics.ArrayList` assembly exists. The controller is attached to `AR Session` in `SampleScene.unity`.
 - The starting values are `10, 20, 30`, and the five-value learner-facing capacity follows the legacy Array/List controller. Supported requests are `Insert`, `Delete`, `Search`, `Traverse`, and `Reset`. On-device validation: `topic.loaded` arrived; after placement, the yellow plane overlay disappeared while the camera remained visible; the values and indexes now appear upright and readable. Oly inserted `40`; the screenshot shows values `10, 20, 30, 40` at indexes `0, 1, 2, 3`, and Unity returned a `topic.event` for `array_list`, action `Array Insert`, value `40`.
 - On `topic.open` for `array_list`, it spawns the 3D cells and sends `topic.loaded`. On `topic.action`, it updates the model/visuals and emits `topic.event`.
+- On-device validation confirms Insert 40 displays a fourth cell at index 3 and emits `topic.event`; Delete removes it, restores values 10, 20, 30 at indexes 0, 1, 2, and emits `topic.event`.
 - Oly's last Unity check after this code was added: `refreshed, no red errors`. The on-device 3D topic path sent `topic.loaded`; the visual was not yet acceptable, leading to the display fixes above.
 
 ### Temporary phone test controls
@@ -71,6 +72,8 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 
 - **Open Array/List** → `topic.open` with `topicId: "array_list"`
 - **Insert 40** → `topic.action` with `topicId: "array_list"`, `action: "Insert"`, `value: "40"`
+- **Delete last value** → `topic.action` with `topicId: "array_list"`, `action: "Delete"`
+- **Search 20** → `topic.action` with `topicId: "array_list"`, `action: "Search"`, `value: "20"`
 
 The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened Array/List, Unity sent `topic.loaded` with `topicId: "array_list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the Array/List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
 
