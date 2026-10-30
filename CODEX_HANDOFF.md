@@ -67,12 +67,12 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 
 ### Temporary phone test controls
 
-`apps/loci-mobile/App.tsx` contains a temporary test screen. It sends session and placement messages plus:
+`apps/loci-mobile/App.tsx` contains temporary test controls. They are collapsed by default behind a small **Test controls** button so the camera feed and AR objects remain visible. Expand the panel to send session and placement messages plus:
 
 - **Open Array/List** → `topic.open` with `topicId: "array_list"`
 - **Insert 40** → `topic.action` with `topicId: "array_list"`, `action: "Insert"`, `value: "40"`
 
-The controls appeared after Metro refresh; Oly confirmed this. They are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
+The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened Array/List, Unity sent `topic.loaded` with `topicId: "array_list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the Array/List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
 
 ## Recent pushed commits
 
@@ -101,7 +101,7 @@ It contains an auto-generated PS4 passcode value. Do not display, copy, commit, 
 ## Exact next sequence
 
 1. Oly confirmed AR placement on the phone.
-2. Tap **Open Array/List** and report what appears. Expected: live room/camera background with 3D values `10`, `20`, `30`; Unity sends `topic.loaded`.
+2. After Metro refresh, check that the compact **Test controls** button leaves the camera and AR content visible. Open it, tap **Open Array/List**, then collapse it. Unity's `topic.loaded` response has already been confirmed; report whether the 3D values `10`, `20`, `30` are visible.
 3. Tap **Insert 40**. Expected: a fourth 3D value appears and Unity sends a `topic.event` for the Array/List insert. Ask Oly to paste the message/output before proceeding.
 4. Commit/push any subsequent stage. Keep product 2D UI on React and all learning objects in the physical AR scene.
 

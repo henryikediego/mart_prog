@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {View, Text, Pressable} from 'react-native';
+import {View, Text, Pressable, ScrollView} from 'react-native';
 import UnityView from '@azesmway/react-native-unity';
 
 export default function App() {
@@ -7,6 +7,7 @@ export default function App() {
   const messageCounter = useRef(0);
   const [last, setLast] = useState('nothing yet');
   const [showAR, setShowAR] = useState(true);
+  const [showControls, setShowControls] = useState(false);
 
   // Temporary contract controls for testing the modular AR session on-device.
   const sendToUnity = (type: string, payload: object = {}) => {
@@ -54,50 +55,69 @@ export default function App() {
           <Text style={{fontSize: 22}}>Another screen (AR paused)</Text>
         </View>
       )}
-      <View style={{position: 'absolute', top: 48, left: 16, right: 16}}>
-        <Text style={{color: '#fff', backgroundColor: '#000a', padding: 8}}>
-          From Unity: {last}
+      <Pressable
+        onPress={() => setShowControls(visible => !visible)}
+        style={{
+          position: 'absolute', top: 48, right: 16, zIndex: 2,
+          paddingHorizontal: 14, paddingVertical: 10,
+          borderRadius: 16, backgroundColor: 'rgba(18,20,43,0.82)',
+        }}>
+        <Text style={{color: '#fff', fontWeight: '600'}}>
+          {showControls ? 'Hide test controls' : 'Test controls'}
         </Text>
-        <Text style={{color: '#fff', backgroundColor: '#000a', padding: 8, marginTop: 8}}>
-          Temporary AR test controls
-        </Text>
-        <Pressable
-          onPress={() => sendToUnity('diag.ping', {nonce: `android-${Date.now()}`})}
-          style={btn}>
-          <Text style={btnText}>Send diag.ping</Text>
-        </Pressable>
-        <Pressable onPress={() => sendToUnity('session.start')} style={btn}>
-          <Text style={btnText}>session.start</Text>
-        </Pressable>
-        <Pressable onPress={() => sendToUnity('session.stop')} style={btn}>
-          <Text style={btnText}>session.stop</Text>
-        </Pressable>
-        <Pressable onPress={() => sendToUnity('placement.confirm')} style={btn}>
-          <Text style={btnText}>placement.confirm (Place here)</Text>
-        </Pressable>
-        <Pressable onPress={() => sendToUnity('placement.reset')} style={btn}>
-          <Text style={btnText}>placement.reset</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => sendToUnity('topic.open', {topicId: 'array_list'})}
-          style={btn}>
-          <Text style={btnText}>Open Array/List</Text>
-        </Pressable>
-        <Pressable
-          onPress={() =>
-            sendToUnity('topic.action', {
-              topicId: 'array_list',
-              action: 'Insert',
-              value: '40',
-            })
-          }
-          style={btn}>
-          <Text style={btnText}>Insert 40</Text>
-        </Pressable>
-        <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
-          <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
-        </Pressable>
-      </View>
+      </Pressable>
+      {showControls && (
+        <View style={{
+          position: 'absolute', top: 94, left: 16, right: 16, zIndex: 1,
+          maxHeight: '55%', padding: 12, borderRadius: 16,
+          backgroundColor: 'rgba(18,20,43,0.92)',
+        }}>
+          <ScrollView>
+            <Text style={{color: '#fff', padding: 8}} numberOfLines={3}>
+              From Unity: {last}
+            </Text>
+            <Text style={{color: '#fff', padding: 8, fontWeight: '600'}}>
+              Temporary AR test controls
+            </Text>
+            <Pressable
+              onPress={() => sendToUnity('diag.ping', {nonce: `android-${Date.now()}`})}
+              style={btn}>
+              <Text style={btnText}>Send diag.ping</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('session.start')} style={btn}>
+              <Text style={btnText}>session.start</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('session.stop')} style={btn}>
+              <Text style={btnText}>session.stop</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('placement.confirm')} style={btn}>
+              <Text style={btnText}>placement.confirm (Place here)</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('placement.reset')} style={btn}>
+              <Text style={btnText}>placement.reset</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => sendToUnity('topic.open', {topicId: 'array_list'})}
+              style={btn}>
+              <Text style={btnText}>Open Array/List</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                sendToUnity('topic.action', {
+                  topicId: 'array_list',
+                  action: 'Insert',
+                  value: '40',
+                })
+              }
+              style={btn}>
+              <Text style={btnText}>Insert 40</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
+              <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 }
