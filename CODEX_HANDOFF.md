@@ -1,6 +1,6 @@
 # Loci redesign — handoff for the next Codex session
 
-Updated: 2026-10-29
+Updated: 2026-10-31
 
 ## Immediate status
 
@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, and Queue first slices are implemented and verified on the phone. The Linked List slice has been exported and installed. Oly confirmed the larger, raised HEAD/TAIL labels are legible; the four-node view after inserting 40 extends past the phone screen. A responsive layout now compacts and recenters nodes, links, and endpoint markers as the chain grows. Next, Oly should refresh Unity and verify the four-node chain fits on screen after export and install.
+**Current action:** List, Stack, Queue, and the first Linked List slice are implemented and verified on the phone. Linked List Insert, animated Delete Head, Search, Traverse, Reset, and the four-node fit have been confirmed. The five-node layout has not yet been checked. Ask Oly which module or task to continue with next.
 
 ## User and collaboration requirements
 
@@ -82,9 +82,10 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - The approved contract contains topic ID `linked_list`. The older Unity project documents Linked List behavior in `Assets/_Project/Scripts/Modules/LinkedListModule.cs` and `LinkedListController.cs`; this modular slice follows those references for a five-node limit, starting chain `10 → 20 → 30 → NULL`, Insert at tail, Delete Head, Search head-to-tail, Traverse head-to-tail, and Reset.
 - Added a real singly linked-node data model in `unity-ar/Assets/_Project/Scripts/Topics/LinkedList/LinkedListState.cs`; it tracks Head, Tail, Next references, and Count, rather than representing the concept as an indexed array/list.
 - Added `LinkedListTopicController` in the dedicated `Loci.Topics.LinkedList` assembly and attached it to `AR Session`. It renders horizontal nodes, arrows, HEAD/TAIL labels, and the terminal NULL marker. Delete Head animates the head node out; Search visits head-to-tail and keeps the matching node highlighted; Traverse visits each node head-to-tail, clears highlights, then sends the traversal order in `topic.event`.
-- Added temporary React test controls using `topicId: "linked_list"` for Open, Insert 40 at tail, Delete Head, Search 20, Traverse, and Reset. Unity refresh and phone verification are pending.
-- On the first on-device visual review, Oly asked for more legible HEAD/TAIL labels lifted above the nodes. Raised the marker offset to 0.09 m above the node top and increased the marker font size to 38; visual verification is pending.
-- Oly confirmed the raised, larger endpoint markers are legible. The four-node screenshot showed the row extending off-screen, so the renderer now scales nodes/spacing and attached labels by node count and recenters the full row including its final link to NULL. Compact five-node layout still needs phone verification.
+- Added temporary React test controls using `topicId: "linked_list"` for Open, Insert 40 at tail, Delete Head, Search 20, Traverse, and Reset.
+- On-device visual review led to raising the HEAD/TAIL marker offset to 0.09 m and increasing marker font size to 38; Oly confirmed the labels are now legible and lifted above their nodes.
+- The first four-node view extended off-screen. The renderer now scales nodes, spacing, and labels as node count grows, and recenters the entire chain including the final link to NULL. Oly confirmed `10 → 20 → 30 → 40 → NULL` fits on screen with HEAD over `10` and TAIL over `40`.
+- On-device action verification: Insert 40 at tail produced `topic.event`; Delete Head animated `10` out, left `20 → 30 → 40 → NULL` with the endpoints updated, and sent `topic.event`; Reset restored `10 → 20 → 30 → NULL` and sent `topic.event`; Search 20 highlighted `10` then `20`, kept 20 highlighted, and sent `topic.event`; Traverse highlighted `10`, `20`, `30` in head-to-tail order, cleared them, and sent order `10, 20, 30`. The five-node maximum layout is still unverified.
 
 ### Queue first modular slice
 
