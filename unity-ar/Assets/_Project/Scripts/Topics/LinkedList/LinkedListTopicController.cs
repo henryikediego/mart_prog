@@ -29,6 +29,7 @@ namespace Loci.Topics.LinkedList
         private bool isOpen;
         private bool isSequenceRunning;
         private int highlightedIndex = -1;
+        private float currentLayoutScale = 1f;
         private Material nodeMaterial;
         private Material highlightMaterial;
 
@@ -218,9 +219,15 @@ namespace Loci.Topics.LinkedList
             for (int i = topicRoot.childCount - 1; i >= 0; i--) Destroy(topicRoot.GetChild(i).gameObject);
             EnsureMaterials();
 
-            float spacing = nodeSpacing;
-            float startX = -(state.Count - 1) * spacing * 0.5f;
-            float labelZ = -nodeSize * 0.14f;
+            currentLayoutScale = state.Count <= 3
+                ? 1f
+                : Mathf.Lerp(1f, 0.6f, (state.Count - 3) / 2f);
+            float spacing = nodeSpacing * currentLayoutScale;
+            float scaledNodeSize = nodeSize * currentLayoutScale;
+            float trailingLinkWidth = state.IsEmpty ? 0f : spacing * 0.62f;
+            float startX = -((state.Count - 1) * spacing + trailingLinkWidth) * 0.5f;
+            float localLabelZ = -nodeSize * 0.14f;
+            float rootLabelZ = -scaledNodeSize * 0.14f;
             int index = 0;
             for (LinkedListState.Node node = state.Head; node != null; node = node.Next, index++)
             {
@@ -228,6 +235,7 @@ namespace Loci.Topics.LinkedList
                 GameObject nodeObject = new GameObject($"Linked List Node {index} (value {node.Value})");
                 nodeObject.transform.SetParent(topicRoot, false);
                 nodeObject.transform.localPosition = new Vector3(x, 0f, 0f);
+                nodeObject.transform.localScale = Vector3.one * currentLayoutScale;
 
                 GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 cube.transform.SetParent(nodeObject.transform, false);
@@ -236,9 +244,9 @@ namespace Loci.Topics.LinkedList
                 if (collider != null) Destroy(collider);
                 cube.GetComponent<MeshRenderer>().sharedMaterial = index == highlightedIndex ? highlightMaterial : nodeMaterial;
 
-                CreateLabel(nodeObject.transform, node.Value.ToString(), new Vector3(0f, 0f, labelZ), 60f, Color.white);
+                CreateLabel(nodeObject.transform, node.Value.ToString(), new Vector3(0f, 0f, localLabelZ), 60f, Color.white);
                 if (index < state.Count - 1)
-                    CreateLabel(topicRoot, "→", new Vector3(x + spacing * 0.5f, 0f, labelZ), 42f, Color.white);
+                    CreateLabel(topicRoot, "→", new Vector3(x + spacing * 0.5f, 0f, rootLabelZ), 42f, Color.white);
             }
 
             if (state.IsEmpty)
@@ -249,20 +257,20 @@ namespace Loci.Topics.LinkedList
 
             float headX = startX;
             float tailX = startX + (state.Count - 1) * spacing;
-            float markerY = nodeSize * 0.5f + markerVerticalGap;
+            float markerY = scaledNodeSize * 0.5f + markerVerticalGap * currentLayoutScale;
             if (state.Count == 1)
             {
-                CreateLabel(topicRoot, "HEAD / TAIL", new Vector3(headX, markerY, labelZ), markerFontSize - 2f, TailColor);
+                CreateLabel(topicRoot, "HEAD / TAIL", new Vector3(headX, markerY, rootLabelZ), markerFontSize - 2f, TailColor);
             }
             else
             {
-                CreateLabel(topicRoot, "HEAD", new Vector3(headX, markerY, labelZ), markerFontSize, HeadColor);
-                CreateLabel(topicRoot, "TAIL", new Vector3(tailX, markerY, labelZ), markerFontSize, TailColor);
+                CreateLabel(topicRoot, "HEAD", new Vector3(headX, markerY, rootLabelZ), markerFontSize, HeadColor);
+                CreateLabel(topicRoot, "TAIL", new Vector3(tailX, markerY, rootLabelZ), markerFontSize, TailColor);
             }
 
             float nullX = tailX + spacing * 0.62f;
-            CreateLabel(topicRoot, "→", new Vector3(tailX + spacing * 0.31f, 0f, labelZ), 42f, Color.white);
-            CreateLabel(topicRoot, "NULL", new Vector3(nullX, 0f, labelZ), 28f, Color.white);
+            CreateLabel(topicRoot, "→", new Vector3(tailX + spacing * 0.31f, 0f, rootLabelZ), 42f, Color.white);
+            CreateLabel(topicRoot, "NULL", new Vector3(nullX, 0f, rootLabelZ), 28f, Color.white);
         }
 
         private void CreateLabel(Transform parent, string text, Vector3 position, float fontSize, Color color)
@@ -271,7 +279,8 @@ namespace Loci.Topics.LinkedList
             labelObject.transform.SetParent(parent, false);
             labelObject.transform.localPosition = position;
             labelObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            labelObject.transform.localScale = new Vector3(-labelScale, labelScale, labelScale);
+            float labelLayoutScale = parent == topicRoot ? currentLayoutScale : 1f;
+            labelObject.transform.localScale = new Vector3(-labelScale * labelLayoutScale, labelScale * labelLayoutScale, labelScale * labelLayoutScale);
 
             TextMeshPro label = labelObject.AddComponent<TextMeshPro>();
             label.text = text;

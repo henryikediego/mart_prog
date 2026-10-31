@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, and Queue first slices are implemented and verified on the phone. The Linked List slice is implemented and has been exported and installed; the first on-device view showed the HEAD/TAIL labels were too small and too close to the node tops. Their height and font size have been increased. Next, Oly should refresh Unity and verify the labels on-device after export and install.
+**Current action:** List, Stack, and Queue first slices are implemented and verified on the phone. The Linked List slice has been exported and installed. Oly confirmed the larger, raised HEAD/TAIL labels are legible; the four-node view after inserting 40 extends past the phone screen. A responsive layout now compacts and recenters nodes, links, and endpoint markers as the chain grows. Next, Oly should refresh Unity and verify the four-node chain fits on screen after export and install.
 
 ## User and collaboration requirements
 
@@ -84,6 +84,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Added `LinkedListTopicController` in the dedicated `Loci.Topics.LinkedList` assembly and attached it to `AR Session`. It renders horizontal nodes, arrows, HEAD/TAIL labels, and the terminal NULL marker. Delete Head animates the head node out; Search visits head-to-tail and keeps the matching node highlighted; Traverse visits each node head-to-tail, clears highlights, then sends the traversal order in `topic.event`.
 - Added temporary React test controls using `topicId: "linked_list"` for Open, Insert 40 at tail, Delete Head, Search 20, Traverse, and Reset. Unity refresh and phone verification are pending.
 - On the first on-device visual review, Oly asked for more legible HEAD/TAIL labels lifted above the nodes. Raised the marker offset to 0.09 m above the node top and increased the marker font size to 38; visual verification is pending.
+- Oly confirmed the raised, larger endpoint markers are legible. The four-node screenshot showed the row extending off-screen, so the renderer now scales nodes/spacing and attached labels by node count and recenters the full row including its final link to NULL. Compact five-node layout still needs phone verification.
 
 ### Queue first modular slice
 
