@@ -220,7 +220,7 @@ namespace Loci.Topics.Loops
             float dataWidth = size + (count - 1) * spacing;
             float sectionGap = 0.04f;
             float totalWidth = dataWidth + sectionGap + loopBlockWidth + sectionGap + resultBoxSize;
-            topicRoot.localScale = Vector3.one * Mathf.Min(1f, 0.65f / totalWidth);
+            topicRoot.localScale = Vector3.one * CalculateViewportFitScale(totalWidth);
 
             float leftEdge = -totalWidth * 0.5f;
             float dataCenter = leftEdge + dataWidth * 0.5f;
@@ -293,6 +293,53 @@ namespace Loci.Topics.Loops
             label.fontSizeMax = fontSize;
             label.rectTransform.sizeDelta = new Vector2(width / labelScale, 50f);
             if (TMP_Settings.defaultFontAsset != null) label.font = TMP_Settings.defaultFontAsset;
+        }
+
+        private float CalculateViewportFitScale(float layoutWidth)
+        {
+            Camera arCamera = Camera.main;
+            if (arCamera != null && Screen.width > 0 && Screen.safeArea.width > 0f)
+            {
+                // Project the full group's side edges into the active camera.
+                // This accounts for portrait FOV, camera angle, and device size,
+                // instead of assuming a fixed world-space width fits every phone.
+                topicRoot.localScale = Vector3.one;
+                float halfWidth = layoutWidth * 0.5f;
+                const float verticalExtent = 0.20f;
+                Vector3[] corners =
+                {
+                    new Vector3(-halfWidth, -verticalExtent, 0f),
+                    new Vector3(-halfWidth, verticalExtent, 0f),
+                    new Vector3(halfWidth, -verticalExtent, 0f),
+                    new Vector3(halfWidth, verticalExtent, 0f)
+                };
+
+                float minX = float.PositiveInfinity;
+                float maxX = float.NegativeInfinity;
+                bool inFrontOfCamera = true;
+                foreach (Vector3 corner in corners)
+                {
+                    Vector3 viewportPoint = arCamera.WorldToViewportPoint(topicRoot.TransformPoint(corner));
+                    if (viewportPoint.z <= arCamera.nearClipPlane)
+                    {
+                        inFrontOfCamera = false;
+                        break;
+                    }
+                    minX = Mathf.Min(minX, viewportPoint.x);
+                    maxX = Mathf.Max(maxX, viewportPoint.x);
+                }
+
+                float projectedWidth = maxX - minX;
+                if (inFrontOfCamera && projectedWidth > 0.001f)
+                {
+                    float safeWidthFraction = Screen.safeArea.width / Screen.width;
+                    float targetViewportWidth = safeWidthFraction * 0.82f;
+                    return Mathf.Min(1f, targetViewportWidth / projectedWidth);
+                }
+            }
+
+            // Conservative fallback for editor or camera setups without a usable projection.
+            return Mathf.Min(1f, 0.42f / Mathf.Max(layoutWidth, 0.001f));
         }
 
         private void EnsureMaterials()
