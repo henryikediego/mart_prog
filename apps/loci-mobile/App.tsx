@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {View, Text, Pressable, ScrollView} from 'react-native';
+import {View, Text, Pressable, ScrollView, TextInput} from 'react-native';
 import UnityView from '@azesmway/react-native-unity';
 
 export default function App() {
@@ -8,6 +8,7 @@ export default function App() {
   const [last, setLast] = useState('nothing yet');
   const [showAR, setShowAR] = useState(true);
   const [showControls, setShowControls] = useState(false);
+  const [loopValues, setLoopValues] = useState('5,10,15');
 
   // Temporary contract controls for testing the modular AR session on-device.
   const sendToUnity = (type: string, payload: object = {}) => {
@@ -230,6 +231,28 @@ export default function App() {
             </Pressable>
             <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'functions', action: 'Reset'})} style={btn}>
               <Text style={btnText}>Reset Functions</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'loops'})} style={btn}>
+              <Text style={btnText}>Open Loops</Text>
+            </Pressable>
+            <TextInput
+              value={loopValues}
+              onChangeText={setLoopValues}
+              placeholder="Enter 1–6 numbers, e.g. 5,10,15"
+              keyboardType="numbers-and-punctuation"
+              style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
+            />
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'loops', action: 'Set Values', value: loopValues})} style={btn}>
+              <Text style={btnText}>Set loop values</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'loops', action: 'Step'})} style={btn}>
+              <Text style={btnText}>Step loop</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'loops', action: 'Run Loop'})} style={btn}>
+              <Text style={btnText}>Run loop</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'loops', action: 'Reset'})} style={btn}>
+              <Text style={btnText}>Reset loops</Text>
             </Pressable>
             <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
               <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>

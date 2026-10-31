@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, Queue, Linked List, and the first modular Functions AR slice are implemented and verified on the phone. A shared calculator derives a readable node limit from physical safe-area short-side width, calibrated to five nodes on the Galaxy A32. Oly verified all four structures fit five readable nodes and block a sixth with a failed `topic.event`. Functions defaults, Set Input behavior, Add/Subtract/Multiply animations and results, and Reset have also been confirmed on-device. Next work should follow Oly’s next requested project step.
+**Current action:** List, Stack, Queue, Linked List, and the first modular Functions AR slice are implemented and verified on the phone. A shared calculator derives a readable node limit from physical safe-area short-side width, calibrated to five nodes on the Galaxy A32. Oly verified all four structures fit five readable nodes and block a sixth with a failed `topic.event`. Functions defaults, learner-provided Set Input behavior, Add/Subtract/Multiply animations and results, and Reset have also been confirmed on-device. The first modular Loops AR slice is implemented and awaits Unity refresh and phone review.
 
 ## User and collaboration requirements
 
@@ -109,6 +109,13 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Unity refreshed without C# compile errors. The only Console error shown was from `Unity.AI.Toolkit.Accounts.Services.Core.Auth.ForceRefreshTokenInternal` in the installed Unity AI Assistant package; its stack trace did not reference Loci code. Oly exported/synced and built the Android app successfully.
 - On-device verification: Unity sent `topic.loaded` for `functions` and showed inputs 10, 20, `add(a, b)`, and return 30. Set Input 15,25 changed the inputs but retained return 30 and sent a successful event. Add animated both inputs, function panel, then output and returned 40; Subtract showed `subtract(a, b)` and returned -10; Multiply showed `multiply(a, b)` and returned 375. Each sent a successful `topic.event`. Reset restored 10, 20, `add(a, b)`, and 30 with a successful event.
 
+### Loops first modular slice
+
+- Contract topic ID is `loops`. The existing reference `Assets/_Project/Scripts/Modules/LoopModule.cs` and `LoopsController.cs` define defaults `10, 20, 30`, learner-entered comma-separated whole-number values (one to six), Set Values, Step, Run Loop, and Reset. The six-value maximum is from the existing Loops reference; it is separate from the display-derived capacity used for the data-structure topics.
+- Added pure `LoopsState` and a dedicated `LoopsTopicController` under `unity-ar/Assets/_Project/Scripts/Topics/Loops/`. The AR visual is a DATA group with indexes, an active CURRENT marker, a LOOP block narrating the current iteration and running total, arrows, and a RESULT total. Step visits one value and animates that value and the total; Run Loop visits all entered values with pauses, clears CURRENT at completion, and reports the final total. Set Values validates and resets iteration state; Reset restores defaults. Actions report through `topic.event`.
+- Attached the controller to `AR Session` in `SampleScene.unity`. Added temporary phone controls with an editable comma-separated value field (default `5,10,15`) plus Open Loops, Set Values, Step, Run Loop, and Reset. The field is test harness only; the final learner-facing topic controls remain React-owned.
+- Unity refresh and phone verification are pending. First checkpoint: no C# compile errors. Then export/sync/build and verify `topic.loaded` for `loops`, default values `10, 20, 30`, a learner-entered value set, Step progression, Run Loop total, and Reset.
+
 ### Temporary phone test controls
 
 `apps/loci-mobile/App.tsx` contains temporary test controls. They are collapsed by default behind a small **Test controls** button so the camera feed and AR objects remain visible. Expand the panel to send session and placement messages plus:
@@ -121,6 +128,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - **Reset list** → `topic.action` with `topicId: "list"`, `action: "Reset"`
 - Stack controls send `topic.open` / `topic.action` using `topicId: "stack"` for Push, Pop, Peek, Search, Traverse, and Reset.
 - Functions controls send `topic.open` / `topic.action` using `topicId: "functions"` for Set Input (`15,25`), Add, Subtract, Multiply, and Reset.
+- Loops controls send `topic.open` / `topic.action` using `topicId: "loops"`; the temporary value field sends the learner-entered comma-separated values with Set Values, with separate Step, Run Loop, and Reset controls.
 - Linked List controls send `topic.open` / `topic.action` using `topicId: "linked_list"` for Insert, Delete Head, Search, Traverse, and Reset.
 
 The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened List, Unity sent `topic.loaded` with `topicId: "list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.
