@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {View, Text, Pressable, ScrollView, TextInput} from 'react-native';
+import {View, Text, Pressable, ScrollView, TextInput, useWindowDimensions} from 'react-native';
 import UnityView from '@azesmway/react-native-unity';
 
 export default function App() {
@@ -9,6 +9,21 @@ export default function App() {
   const [showAR, setShowAR] = useState(true);
   const [showControls, setShowControls] = useState(false);
   const [loopValues, setLoopValues] = useState('5,10,15');
+  const [activeTopicId, setActiveTopicId] = useState('');
+  const {width, height} = useWindowDimensions();
+
+  const handleUnityMessage = (event: {nativeEvent: {message: string}}) => {
+    const message = event.nativeEvent.message;
+    setLast(message);
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed.type === 'topic.loaded') {
+        setActiveTopicId(parsed.payload?.topicId ?? '');
+      }
+    } catch {
+      // Keep displaying non-JSON Unity messages in the temporary test panel.
+    }
+  };
 
   // Temporary contract controls for testing the modular AR session on-device.
   const sendToUnity = (type: string, payload: object = {}) => {
@@ -45,8 +60,19 @@ export default function App() {
         ref={unityRef}
         androidKeepPlayerMounted={true}
         style={{flex: 1}}
-        onUnityMessage={e => setLast(e.nativeEvent.message)}
+        onUnityMessage={handleUnityMessage}
       />
+      {activeTopicId === 'loops' && height > width && (
+        <View style={{
+          position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
+          paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+          backgroundColor: 'rgba(18,20,43,0.88)',
+        }}>
+          <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
+            For a clearer view of Loops, rotate your phone to landscape.
+          </Text>
+        </View>
+      )}
       {!showAR && (
         <View
           style={{
