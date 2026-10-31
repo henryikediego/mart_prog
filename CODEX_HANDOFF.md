@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, Queue, and the first Linked List slice are implemented and verified on the phone. Linked List Insert, animated Delete Head, Search, Traverse, Reset, and the four-node fit have been confirmed. The five-node layout has not yet been checked. Ask Oly which module or task to continue with next.
+**Current action:** List, Stack, Queue, and the first Linked List slice are implemented and verified on the phone. Linked List Insert, animated Delete Head, Search, Traverse, Reset, and the four-node fit have been confirmed. Oly noticed the final arrow overlaps the tail node; the arrow and NULL marker spacing have been corrected locally. Next, Oly should refresh/export/install and confirm the arrow sits in the gap before testing five nodes.
 
 ## User and collaboration requirements
 
@@ -85,6 +85,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Added temporary React test controls using `topicId: "linked_list"` for Open, Insert 40 at tail, Delete Head, Search 20, Traverse, and Reset.
 - On-device visual review led to raising the HEAD/TAIL marker offset to 0.09 m and increasing marker font size to 38; Oly confirmed the labels are now legible and lifted above their nodes.
 - The first four-node view extended off-screen. The renderer now scales nodes, spacing, and labels as node count grows, and recenters the entire chain including the final link to NULL. Oly confirmed `10 → 20 → 30 → 40 → NULL` fits on screen with HEAD over `10` and TAIL over `40`.
+- A later screenshot showed the final arrow overlapping the tail node. Moved it from 0.31 to 0.54 of the node spacing and moved NULL from 0.62 to 0.88 spacing after the tail; re-centered the full chain including this larger terminal link. This adjustment awaits phone verification.
 - On-device action verification: Insert 40 at tail produced `topic.event`; Delete Head animated `10` out, left `20 → 30 → 40 → NULL` with the endpoints updated, and sent `topic.event`; Reset restored `10 → 20 → 30 → NULL` and sent `topic.event`; Search 20 highlighted `10` then `20`, kept 20 highlighted, and sent `topic.event`; Traverse highlighted `10`, `20`, `30` in head-to-tail order, cleared them, and sent order `10, 20, 30`. The five-node maximum layout is still unverified.
 
 ### Queue first modular slice

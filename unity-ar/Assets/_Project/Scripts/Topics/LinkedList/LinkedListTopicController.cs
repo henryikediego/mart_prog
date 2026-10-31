@@ -224,7 +224,7 @@ namespace Loci.Topics.LinkedList
                 : Mathf.Lerp(1f, 0.6f, (state.Count - 3) / 2f);
             float spacing = nodeSpacing * currentLayoutScale;
             float scaledNodeSize = nodeSize * currentLayoutScale;
-            float trailingLinkWidth = state.IsEmpty ? 0f : spacing * 0.62f;
+            float trailingLinkWidth = state.IsEmpty ? 0f : spacing * 0.88f;
             float startX = -((state.Count - 1) * spacing + trailingLinkWidth) * 0.5f;
             float localLabelZ = -nodeSize * 0.14f;
             float rootLabelZ = -scaledNodeSize * 0.14f;
@@ -268,8 +268,8 @@ namespace Loci.Topics.LinkedList
                 CreateLabel(topicRoot, "TAIL", new Vector3(tailX, markerY, rootLabelZ), markerFontSize, TailColor);
             }
 
-            float nullX = tailX + spacing * 0.62f;
-            CreateLabel(topicRoot, "→", new Vector3(tailX + spacing * 0.31f, 0f, rootLabelZ), 42f, Color.white);
+            float nullX = tailX + spacing * 0.88f;
+            CreateLabel(topicRoot, "→", new Vector3(tailX + spacing * 0.54f, 0f, rootLabelZ), 42f, Color.white);
             CreateLabel(topicRoot, "NULL", new Vector3(nullX, 0f, rootLabelZ), 28f, Color.white);
         }
 
