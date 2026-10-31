@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, Queue, and the first Linked List slice are implemented and verified on the phone. Oly noticed the Linked List terminal arrow overlaps the tail node and requested screen-size-based node capacity across List, Stack, and Queue as well. A shared calculator now derives a readable node limit from physical safe-area short-side width, calibrated to five nodes on the Galaxy A32. All four structures block growth at the computed limit and emit a failure event; their visuals scale with node count. The Linked List terminal arrow is moved into the gap before NULL. Next, Oly should refresh/export/install and verify the arrow and the A32 five-node limit across the structures.
+**Current action:** List, Stack, Queue, and the first Linked List slice are implemented and verified on the phone. A shared calculator derives a readable node limit from physical safe-area short-side width, calibrated to five nodes on the Galaxy A32. Oly verified all four structures fit five readable nodes and block a sixth with a failed `topic.event`. The Linked List terminal arrow also sits outside the tail node before NULL. Capacity and layout changes are committed and pushed; the next work should follow Oly’s next requested project step.
 
 ## User and collaboration requirements
 
@@ -17,7 +17,7 @@ The export sync script completed successfully. It copied the Unity folders into 
 - Preserve existing work and do not invent project facts. Use the source files and approved contract as evidence. Ask Oly if an important product or protocol detail is unclear.
 - Each project stage must be committed and pushed to GitHub so Oly's friend can track the work. The shared branch is `codex/loci-ar-modular`.
 - Oly explicitly approved the temporary React Native AR test controls. They are only a test harness, not the product UI.
-- Do not add or run tests unless Oly asks. List, Stack, and Queue behavior has been checked on-device; the Linked List slice is awaiting Unity refresh and phone verification.
+- Do not add or run tests unless Oly asks. List, Stack, Queue, and Linked List behavior has been checked on-device.
 
 ## Product boundary — current approved decision
 
@@ -67,7 +67,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Search 20 was verified on-device: the `20` cell highlighted and Unity sent `topic.event`.
 - Traverse was verified on-device: Unity sent `topic.event` with order `10, 20, 30`, and the search highlight cleared. Reset was verified after inserting `40`: values returned to `10, 20, 30` at indexes `0, 1, 2`, and Unity sent `topic.event`.
 - Updated List Search and Traverse to animate one highlight every 0.45 seconds from index 0 toward the end. Search retains the matching highlight and sends `topic.event` when it finds the value; Traverse clears the highlights and then sends the traversal order. Oly refreshed Unity, exported/synced, built successfully, and verified on-device: Traverse highlighted indexes 0, 1, 2 in order, cleared them, and sent order `10, 20, 30`; Search 20 highlighted index 0, then index 1, remained on 20, and sent `topic.event`.
-- Updated List capacity and rendering to use `ScreenNodeCapacity`: device-specific readable limit, blocked Insert with failure `topic.event`, and cell/label scaling as count increases. This screen-based limit is awaiting refresh and phone verification.
+- Updated List capacity and rendering to use `ScreenNodeCapacity`: device-specific readable limit, blocked Insert with failure `topic.event`, and cell/label scaling as count increases. Oly verified five cells fit and a sixth Insert is blocked with the expected failure event on the Galaxy A32.
 - After renaming the topic ID to `list`, Oly rebuilt the Android app and confirmed Unity sends `topic.loaded` with `topicId: "list"` and displays the three values `10`, `20`, `30`.
 - Oly's last Unity check after this code was added: `refreshed, no red errors`. The on-device 3D topic path sent `topic.loaded`; the visual was not yet acceptable, leading to the display fixes above.
 
@@ -77,7 +77,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Stack defaults to `10, 20, 30`, with vertical bottom-to-top cells and TOP/BOTTOM labels. Its readable capacity is screen-derived and calibrated to five values on the Galaxy A32. `topic.action` supports Push, Pop, Peek, Search, Traverse (top-to-bottom), and Reset, replying with `topic.event`.
 - Added temporary phone controls for opening Stack and exercising those operations. Oly refreshed Unity without errors and verified on-device: `topic.loaded` with `topicId: "stack"`; Push 40 adds it above 30; Pop removes it; Peek highlights 30 without changing state; Search 20 highlights it; Traverse clears the highlight and returns `30, 20, 10`; Reset restores `10, 20, 30` with 30 on top. Each action returned `topic.event`.
 - Updated Stack Search and Traverse to animate one highlight every 0.45 seconds from the top toward the bottom. Search retains the matching highlight and sends `topic.event` when it finds the value; Traverse clears the highlights and then sends the top-to-bottom order. Oly refreshed Unity, exported/synced, built successfully, and verified on-device: Traverse highlighted `30`, `20`, `10` in order, cleared them, and sent order `30, 20, 10`; Search 20 highlighted `30`, then `20`, remained on 20, and sent `topic.event`.
-- Updated Stack capacity and rendering to use `ScreenNodeCapacity`: device-specific readable limit, blocked Push with failure `topic.event`, and vertical scaling as count increases. This screen-based limit is awaiting refresh and phone verification.
+- Updated Stack capacity and rendering to use `ScreenNodeCapacity`: device-specific readable limit, blocked Push with failure `topic.event`, and vertical scaling as count increases. Oly verified five cells fit and a sixth Push is blocked with the expected failure event on the Galaxy A32.
 
 ### Linked List first modular slice
 
@@ -87,9 +87,9 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Added temporary React test controls using `topicId: "linked_list"` for Open, Insert 40 at tail, Delete Head, Search 20, Traverse, and Reset.
 - On-device visual review led to raising the HEAD/TAIL marker offset to 0.09 m and increasing marker font size to 38; Oly confirmed the labels are now legible and lifted above their nodes.
 - The first four-node view extended off-screen. The renderer now scales nodes, spacing, and labels as node count grows, and recenters the entire chain including the final link to NULL. Oly confirmed `10 → 20 → 30 → 40 → NULL` fits on screen with HEAD over `10` and TAIL over `40`.
-- A later screenshot showed the final arrow overlapping the tail node. Moved it from 0.31 to 0.54 of the node spacing and moved NULL from 0.62 to 0.88 spacing after the tail; re-centered the full chain including this larger terminal link. This adjustment awaits phone verification.
-- Implemented screen-based Linked List capacity using the shared safe-area short-side estimate (`min(Screen.safeArea.width, Screen.safeArea.height) / Screen.dpi`), with a 66.7 mm / five-node reference and a five-node fallback when DPI is unavailable. The render scale decreases with node count; Insert fails with a `topic.event` once the device-specific readable limit is reached. Oly approved blocking Insert at that limit. Device capacity and five-node fit await on-device verification.
-- On-device action verification: Insert 40 at tail produced `topic.event`; Delete Head animated `10` out, left `20 → 30 → 40 → NULL` with the endpoints updated, and sent `topic.event`; Reset restored `10 → 20 → 30 → NULL` and sent `topic.event`; Search 20 highlighted `10` then `20`, kept 20 highlighted, and sent `topic.event`; Traverse highlighted `10`, `20`, `30` in head-to-tail order, cleared them, and sent order `10, 20, 30`. The five-node maximum layout is still unverified.
+- A later screenshot showed the final arrow overlapping the tail node. Moved it from 0.31 to 0.54 of the node spacing and moved NULL from 0.62 to 0.88 spacing after the tail; re-centered the full chain including this larger terminal link. Oly verified the arrow and NULL sit outside the tail node in the five-node view.
+- Implemented screen-based Linked List capacity using the shared safe-area short-side estimate (`min(Screen.safeArea.width, Screen.safeArea.height) / Screen.dpi`), with a 66.7 mm / five-node reference and a five-node fallback when DPI is unavailable. The render scale decreases with node count; Insert fails with a `topic.event` once the device-specific readable limit is reached. Oly approved blocking Insert at that limit and verified five nodes fit while a sixth Insert is blocked with the expected failure event on the Galaxy A32.
+- On-device action verification: Insert 40 at tail produced `topic.event`; Delete Head animated `10` out, left `20 → 30 → 40 → NULL` with the endpoints updated, and sent `topic.event`; Reset restored `10 → 20 → 30 → NULL` and sent `topic.event`; Search 20 highlighted `10` then `20`, kept 20 highlighted, and sent `topic.event`; Traverse highlighted `10`, `20`, `30` in head-to-tail order, cleared them, and sent order `10, 20, 30`. The five-node maximum layout and blocked sixth insertion have since been confirmed on the Galaxy A32.
 
 ### Queue first modular slice
 
@@ -98,7 +98,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Added temporary phone controls for Open Queue and Enqueue, Dequeue, Peek, Search, Traverse, and Reset. Oly refreshed Unity, exported/synced, built on Android, and confirmed `topic.loaded` with `topicId: "queue"` plus horizontal `10, 20, 30` cells and clearly readable FRONT/REAR labels. Endpoint labels were enlarged and moved higher for legibility.
 - Queue Traverse animates a highlight front-to-rear with a 0.45-second step, clears highlights when complete, then sends `topic.event` with order `10, 20, 30`. Queue Search animates the highlight from FRONT through cells, keeps the match highlighted, then sends `topic.event`. Oly verified both behaviors on the phone, including Search 20 stopping at the matching cell.
 - Oly also verified Queue Enqueue (40 added at REAR), Dequeue (10 removed from FRONT), Peek (20 highlighted at FRONT without removal), and Reset (restored 10, 20, 30 with correct endpoints). Unity sent the corresponding `topic.event` for each action.
-- Updated Queue capacity and rendering to use `ScreenNodeCapacity`: device-specific readable limit, blocked Enqueue with failure `topic.event`, and horizontal scaling as count increases. This screen-based limit is awaiting refresh and phone verification.
+- Updated Queue capacity and rendering to use `ScreenNodeCapacity`: device-specific readable limit, blocked Enqueue with failure `topic.event`, and horizontal scaling as count increases. Oly verified five cells and the FRONT/REAR markers fit, and a sixth Enqueue is blocked with the expected failure event on the Galaxy A32.
 
 ### Temporary phone test controls
 
