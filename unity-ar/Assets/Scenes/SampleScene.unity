@@ -845,6 +845,8 @@ MonoBehaviour:
   nodeSpacing: 0.14
   labelScale: 0.006
   actionStepDuration: 0.45
+  markerVerticalGap: 0.09
+  markerFontSize: 38
   deleteHeadDuration: 0.35
   deleteHeadExitDistance: 0.16
 --- !u!4 &1383106409

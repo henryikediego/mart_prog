@@ -19,6 +19,8 @@ namespace Loci.Topics.LinkedList
         [SerializeField, Min(0.08f)] private float nodeSpacing = 0.14f;
         [SerializeField, Min(0.001f)] private float labelScale = 0.006f;
         [SerializeField, Min(0.1f)] private float actionStepDuration = 0.45f;
+        [SerializeField, Min(0f)] private float markerVerticalGap = 0.09f;
+        [SerializeField, Min(18f)] private float markerFontSize = 38f;
         [SerializeField, Min(0.01f)] private float deleteHeadDuration = 0.35f;
         [SerializeField, Min(0.05f)] private float deleteHeadExitDistance = 0.16f;
 
@@ -247,15 +249,15 @@ namespace Loci.Topics.LinkedList
 
             float headX = startX;
             float tailX = startX + (state.Count - 1) * spacing;
-            float markerY = nodeSize * 0.72f;
+            float markerY = nodeSize * 0.5f + markerVerticalGap;
             if (state.Count == 1)
             {
-                CreateLabel(topicRoot, "HEAD / TAIL", new Vector3(headX, markerY, labelZ), 22f, TailColor);
+                CreateLabel(topicRoot, "HEAD / TAIL", new Vector3(headX, markerY, labelZ), markerFontSize - 2f, TailColor);
             }
             else
             {
-                CreateLabel(topicRoot, "HEAD", new Vector3(headX, markerY, labelZ), 24f, HeadColor);
-                CreateLabel(topicRoot, "TAIL", new Vector3(tailX, markerY, labelZ), 24f, TailColor);
+                CreateLabel(topicRoot, "HEAD", new Vector3(headX, markerY, labelZ), markerFontSize, HeadColor);
+                CreateLabel(topicRoot, "TAIL", new Vector3(tailX, markerY, labelZ), markerFontSize, TailColor);
             }
 
             float nullX = tailX + spacing * 0.62f;

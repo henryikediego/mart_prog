@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, and Queue first slices are implemented and verified on the phone. A modular Linked List slice is now implemented locally, including linked-node state, head/tail/null visuals, actions, and temporary phone controls. Next, Oly should refresh Unity and report whether compilation completes without red errors.
+**Current action:** List, Stack, and Queue first slices are implemented and verified on the phone. The Linked List slice is implemented and has been exported and installed; the first on-device view showed the HEAD/TAIL labels were too small and too close to the node tops. Their height and font size have been increased. Next, Oly should refresh Unity and verify the labels on-device after export and install.
 
 ## User and collaboration requirements
 
@@ -83,6 +83,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Added a real singly linked-node data model in `unity-ar/Assets/_Project/Scripts/Topics/LinkedList/LinkedListState.cs`; it tracks Head, Tail, Next references, and Count, rather than representing the concept as an indexed array/list.
 - Added `LinkedListTopicController` in the dedicated `Loci.Topics.LinkedList` assembly and attached it to `AR Session`. It renders horizontal nodes, arrows, HEAD/TAIL labels, and the terminal NULL marker. Delete Head animates the head node out; Search visits head-to-tail and keeps the matching node highlighted; Traverse visits each node head-to-tail, clears highlights, then sends the traversal order in `topic.event`.
 - Added temporary React test controls using `topicId: "linked_list"` for Open, Insert 40 at tail, Delete Head, Search 20, Traverse, and Reset. Unity refresh and phone verification are pending.
+- On the first on-device visual review, Oly asked for more legible HEAD/TAIL labels lifted above the nodes. Raised the marker offset to 0.09 m above the node top and increased the marker font size to 38; visual verification is pending.
 
 ### Queue first modular slice
 
