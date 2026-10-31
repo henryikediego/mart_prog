@@ -849,6 +849,9 @@ MonoBehaviour:
   markerFontSize: 38
   deleteHeadDuration: 0.35
   deleteHeadExitDistance: 0.16
+  referenceDisplayWidthMillimeters: 66.7
+  referenceNodeCapacity: 5
+  fallbackNodeCapacity: 5
 --- !u!4 &1383106409
 Transform:
   m_ObjectHideFlags: 0

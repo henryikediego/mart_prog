@@ -23,8 +23,12 @@ namespace Loci.Topics.LinkedList
         [SerializeField, Min(18f)] private float markerFontSize = 38f;
         [SerializeField, Min(0.01f)] private float deleteHeadDuration = 0.35f;
         [SerializeField, Min(0.05f)] private float deleteHeadExitDistance = 0.16f;
+        [Header("Screen-based capacity")]
+        [SerializeField, Min(1f)] private float referenceDisplayWidthMillimeters = 66.7f;
+        [SerializeField, Min(3)] private int referenceNodeCapacity = 5;
+        [SerializeField, Min(3)] private int fallbackNodeCapacity = 5;
 
-        private readonly LinkedListState state = new LinkedListState();
+        private LinkedListState state;
         private Transform topicRoot;
         private bool isOpen;
         private bool isSequenceRunning;
@@ -63,7 +67,7 @@ namespace Loci.Topics.LinkedList
             if (ar == null || !ar.IsPlaced || ar.ContentRoot == null) return;
 
             CloseTopic();
-            state.Reset();
+            state = new LinkedListState(CalculateScreenCapacity());
             topicRoot = new GameObject("Linked List 3D Content").transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -106,7 +110,7 @@ namespace Loci.Topics.LinkedList
             {
                 case "Insert":
                     if (!int.TryParse(value, out int inserted)) return Result(action, value, "Failed", "Enter a valid number to insert at the tail.");
-                    if (!state.TryAppend(inserted)) return Result(action, value, "Failed", "Linked List reached its five-node capacity.");
+                    if (!state.TryAppend(inserted)) return Result(action, value, "Failed", $"This screen's readable limit of {state.Capacity} Linked List nodes has been reached.");
                     return Result(action, inserted.ToString(), "Success", $"Inserted {inserted} as the new tail node.");
                 case "Delete Head":
                 case "Delete":
@@ -219,9 +223,7 @@ namespace Loci.Topics.LinkedList
             for (int i = topicRoot.childCount - 1; i >= 0; i--) Destroy(topicRoot.GetChild(i).gameObject);
             EnsureMaterials();
 
-            currentLayoutScale = state.Count <= 3
-                ? 1f
-                : Mathf.Lerp(1f, 0.6f, (state.Count - 3) / 2f);
+            currentLayoutScale = state.Count <= 3 ? 1f : 3f / state.Count;
             float spacing = nodeSpacing * currentLayoutScale;
             float scaledNodeSize = nodeSize * currentLayoutScale;
             float trailingLinkWidth = state.IsEmpty ? 0f : spacing * 0.88f;
@@ -303,6 +305,19 @@ namespace Loci.Topics.LinkedList
             Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
             nodeMaterial = new Material(shader) { color = NodeColor };
             highlightMaterial = new Material(shader) { color = HighlightColor };
+        }
+
+        private int CalculateScreenCapacity()
+        {
+            Rect safeArea = Screen.safeArea;
+            float dpi = Screen.dpi;
+            if (dpi <= 1f || safeArea.width <= 0f)
+                return fallbackNodeCapacity;
+
+            float usableWidthMillimeters = safeArea.width / dpi * 25.4f;
+            int calculatedCapacity = Mathf.RoundToInt(
+                usableWidthMillimeters / referenceDisplayWidthMillimeters * referenceNodeCapacity);
+            return Mathf.Max(3, calculatedCapacity);
         }
 
         private void SendTopicEvent(LinkedListActionResult result)

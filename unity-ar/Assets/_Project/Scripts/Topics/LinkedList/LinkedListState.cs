@@ -3,7 +3,7 @@ namespace Loci.Topics.LinkedList
     /// <summary>Minimal singly linked-list state, independent of Unity and rendering.</summary>
     public sealed class LinkedListState
     {
-        public const int Capacity = 5;
+        public const int DefaultCapacity = 5;
 
         public sealed class Node
         {
@@ -16,10 +16,15 @@ namespace Loci.Topics.LinkedList
         public Node Head { get; private set; }
         public Node Tail { get; private set; }
         public int Count { get; private set; }
+        public int Capacity { get; }
         public bool IsEmpty => Head == null;
         public bool IsFull => Count >= Capacity;
 
-        public LinkedListState() => Reset();
+        public LinkedListState(int capacity = DefaultCapacity)
+        {
+            Capacity = System.Math.Max(3, capacity);
+            Reset();
+        }
 
         public void Reset()
         {
