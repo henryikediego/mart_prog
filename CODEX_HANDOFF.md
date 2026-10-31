@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, Queue, and the first Linked List slice are implemented and verified on the phone. A shared calculator derives a readable node limit from physical safe-area short-side width, calibrated to five nodes on the Galaxy A32. Oly verified all four structures fit five readable nodes and block a sixth with a failed `topic.event`. The Linked List terminal arrow also sits outside the tail node before NULL. Capacity and layout changes are committed and pushed; the next work should follow Oly’s next requested project step.
+**Current action:** List, Stack, Queue, and the first Linked List slice are implemented and verified on the phone. A shared calculator derives a readable node limit from physical safe-area short-side width, calibrated to five nodes on the Galaxy A32. Oly verified all four structures fit five readable nodes and block a sixth with a failed `topic.event`. The Linked List terminal arrow also sits outside the tail node before NULL. The first modular Functions AR slice has now been added from the existing reference behavior; it is committed/pushed and awaits Unity refresh and on-device review.
 
 ## User and collaboration requirements
 
@@ -100,6 +100,13 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Oly also verified Queue Enqueue (40 added at REAR), Dequeue (10 removed from FRONT), Peek (20 highlighted at FRONT without removal), and Reset (restored 10, 20, 30 with correct endpoints). Unity sent the corresponding `topic.event` for each action.
 - Updated Queue capacity and rendering to use `ScreenNodeCapacity`: device-specific readable limit, blocked Enqueue with failure `topic.event`, and horizontal scaling as count increases. Oly verified five cells and the FRONT/REAR markers fit, and a sixth Enqueue is blocked with the expected failure event on the Galaxy A32.
 
+### Functions first modular slice
+
+- Contract topic ID is `functions`; the existing reference `Assets/_Project/Scripts/Modules/FunctionModule.cs` documents the 3D pipeline and `FunctionsController.cs` documents its learner actions. Oly confirmed preserving that behavior: defaults `a = 10`, `b = 20`, return `30`; Set Input accepts two comma-separated integers and changes only the inputs; Add, Subtract, and Multiply update the active function and return value; Reset restores defaults.
+- Added pure `FunctionsState` and a dedicated `FunctionsTopicController` in `unity-ar/Assets/_Project/Scripts/Topics/Functions/`. The AR visual is an input → function → return pipeline with `INPUTS`, `FUNCTION`, and `OUTPUT` labels, parameter captions, an operation panel, and directional arrows. Add/Subtract/Multiply pulse the two input boxes, function panel, and output in order before sending `topic.event`; Set Input, Reset, and validation failures also send `topic.event`.
+- Attached the controller to `AR Session` in `SampleScene.unity`. Added temporary phone test controls for Open Functions, Set Input 15,25, Add, Subtract, Multiply, and Reset. These controls remain test harness only; React owns final 2D topic UI.
+- Unity refresh and Android verification are pending. The first checkpoint is no red compile errors; then export/sync/build and verify `topic.loaded` with `topicId: "functions"` and the default 10, 20, 30 pipeline.
+
 ### Temporary phone test controls
 
 `apps/loci-mobile/App.tsx` contains temporary test controls. They are collapsed by default behind a small **Test controls** button so the camera feed and AR objects remain visible. Expand the panel to send session and placement messages plus:
@@ -111,6 +118,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - **Traverse list** → `topic.action` with `topicId: "list"`, `action: "Traverse"`
 - **Reset list** → `topic.action` with `topicId: "list"`, `action: "Reset"`
 - Stack controls send `topic.open` / `topic.action` using `topicId: "stack"` for Push, Pop, Peek, Search, Traverse, and Reset.
+- Functions controls send `topic.open` / `topic.action` using `topicId: "functions"` for Set Input (`15,25`), Add, Subtract, Multiply, and Reset.
 - Linked List controls send `topic.open` / `topic.action` using `topicId: "linked_list"` for Insert, Delete Head, Search, Traverse, and Reset.
 
 The controls appeared after Metro refresh; Oly confirmed this. After Oly confirmed placement and opened List, Unity sent `topic.loaded` with `topicId: "list"`. The original expanded controls obscured much of the camera and 3D view, so they were changed to collapse by default. Oly still needs to visually check the compact layout and report the List 3D values and action event. These controls are not the final React UI and should not be removed until the final React integration is present and the user approves cleanup.

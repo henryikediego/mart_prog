@@ -213,6 +213,24 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'linked_list', action: 'Reset'})} style={btn}>
               <Text style={btnText}>Reset Linked List</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'functions'})} style={btn}>
+              <Text style={btnText}>Open Functions</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'functions', action: 'Set Input', value: '15,25'})} style={btn}>
+              <Text style={btnText}>Set Function Inputs: 15, 25</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'functions', action: 'Add'})} style={btn}>
+              <Text style={btnText}>Call Add</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'functions', action: 'Subtract'})} style={btn}>
+              <Text style={btnText}>Call Subtract</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'functions', action: 'Multiply'})} style={btn}>
+              <Text style={btnText}>Call Multiply</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'functions', action: 'Reset'})} style={btn}>
+              <Text style={btnText}>Reset Functions</Text>
+            </Pressable>
             <Pressable onPress={() => setShowAR(s => !s)} style={btn}>
               <Text style={btnText}>{showAR ? 'Leave AR screen' : 'Back to AR screen'}</Text>
             </Pressable>
