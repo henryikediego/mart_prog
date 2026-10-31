@@ -19,7 +19,7 @@ namespace Loci.Topics.Queue
         [SerializeField, Min(0.001f)] private float labelScale = 0.006f;
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
         [SerializeField, Min(0.1f)] private float actionStepDuration = 0.45f;
-        private readonly QueueState state = new QueueState();
+        private QueueState state;
         private Transform topicRoot;
         private bool isOpen;
         private bool isSequenceRunning;
@@ -51,7 +51,7 @@ namespace Loci.Topics.Queue
             if (payload.TopicId != LociTopicId.Queue) { CloseTopic(); return; }
             LociARController ar = LociARController.Instance;
             if (ar == null || !ar.IsPlaced || ar.ContentRoot == null) return;
-            CloseTopic(); state.Reset(); highlightedIndex = -1;
+            CloseTopic(); state = new QueueState(ScreenNodeCapacity.ForCurrentScreen()); state.Reset(); highlightedIndex = -1;
             topicRoot = new GameObject("Queue 3D Content").transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true; RenderQueue(true);
@@ -152,7 +152,7 @@ namespace Loci.Topics.Queue
             {
                 case "Enqueue":
                     if (!int.TryParse(value, out int added)) return Result(action, value, "Failed", "Enter a valid number to enqueue.");
-                    if (!state.TryEnqueue(added)) return Result(action, value, "Failed", "Queue reached its five-value capacity.");
+                    if (!state.TryEnqueue(added)) return Result(action, value, "Failed", $"This screen's readable limit of {state.Capacity} Queue values has been reached.");
                     return Result(action, added.ToString(), "Success", $"Enqueued {added} at the rear of the Queue.");
                 case "Dequeue":
                     if (!state.TryDequeue(out int removed)) return Result(action, string.Empty, "Failed", "Queue is empty.");
@@ -181,7 +181,9 @@ namespace Loci.Topics.Queue
             if (topicRoot == null) return;
             for (int i = topicRoot.childCount - 1; i >= 0; i--) Destroy(topicRoot.GetChild(i).gameObject);
             EnsureMaterials();
-            float spacing = state.Count > 3 ? Mathf.Lerp(cellSpacing, cellSpacing * 0.78f, (state.Count - 3) / 2f) : cellSpacing;
+            float layoutScale = state.Count <= 3 ? 1f : 3f / state.Count;
+            topicRoot.localScale = Vector3.one * layoutScale;
+            float spacing = cellSpacing;
             float startX = -(state.Count - 1) * spacing * 0.5f;
             for (int i = 0; i < state.Count; i++)
             {

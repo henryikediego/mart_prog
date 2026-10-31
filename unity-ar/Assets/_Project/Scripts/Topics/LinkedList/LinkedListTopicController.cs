@@ -23,10 +23,6 @@ namespace Loci.Topics.LinkedList
         [SerializeField, Min(18f)] private float markerFontSize = 38f;
         [SerializeField, Min(0.01f)] private float deleteHeadDuration = 0.35f;
         [SerializeField, Min(0.05f)] private float deleteHeadExitDistance = 0.16f;
-        [Header("Screen-based capacity")]
-        [SerializeField, Min(1f)] private float referenceDisplayWidthMillimeters = 66.7f;
-        [SerializeField, Min(3)] private int referenceNodeCapacity = 5;
-        [SerializeField, Min(3)] private int fallbackNodeCapacity = 5;
 
         private LinkedListState state;
         private Transform topicRoot;
@@ -67,7 +63,7 @@ namespace Loci.Topics.LinkedList
             if (ar == null || !ar.IsPlaced || ar.ContentRoot == null) return;
 
             CloseTopic();
-            state = new LinkedListState(CalculateScreenCapacity());
+            state = new LinkedListState(ScreenNodeCapacity.ForCurrentScreen());
             topicRoot = new GameObject("Linked List 3D Content").transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -305,19 +301,6 @@ namespace Loci.Topics.LinkedList
             Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
             nodeMaterial = new Material(shader) { color = NodeColor };
             highlightMaterial = new Material(shader) { color = HighlightColor };
-        }
-
-        private int CalculateScreenCapacity()
-        {
-            Rect safeArea = Screen.safeArea;
-            float dpi = Screen.dpi;
-            if (dpi <= 1f || safeArea.width <= 0f)
-                return fallbackNodeCapacity;
-
-            float usableWidthMillimeters = safeArea.width / dpi * 25.4f;
-            int calculatedCapacity = Mathf.RoundToInt(
-                usableWidthMillimeters / referenceDisplayWidthMillimeters * referenceNodeCapacity);
-            return Mathf.Max(3, calculatedCapacity);
         }
 
         private void SendTopicEvent(LinkedListActionResult result)

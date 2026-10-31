@@ -23,7 +23,7 @@ namespace Loci.Topics.List
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
         [SerializeField, Min(0.1f)] private float actionStepDuration = 0.45f;
 
-        private readonly ListState state = new ListState();
+        private ListState state;
         private Transform topicRoot;
         private bool isOpen;
         private bool isSequenceRunning;
@@ -77,6 +77,7 @@ namespace Loci.Topics.List
                 return; // LociARController reports E-106 before this subscriber handles the command.
 
             CloseTopic();
+            state = new ListState(ScreenNodeCapacity.ForCurrentScreen());
             state.Reset();
             highlightedIndex = -1;
 
@@ -210,7 +211,7 @@ namespace Loci.Topics.List
                     if (!int.TryParse(value, out int insertValue))
                         return Result("Insert", value, "Failed", "The entered value is not a valid number.");
                     if (!state.TryInsert(insertValue, out int insertedIndex))
-                        return Result("Insert", value, "Failed", "List reached its five-value capacity.");
+                        return Result("Insert", value, "Failed", $"This screen's readable limit of {state.Capacity} List values has been reached.");
                     return Result("Array Insert", insertValue.ToString(), "Success", $"Inserted value {insertValue} at index {insertedIndex}.");
 
                 case "Delete":
@@ -259,9 +260,9 @@ namespace Loci.Topics.List
                 Destroy(topicRoot.GetChild(i).gameObject);
 
             EnsureMaterials();
-            float spacing = state.Values.Count <= 3
-                ? cellSpacing
-                : Mathf.Lerp(cellSpacing, cellSpacing * 0.78f, (state.Values.Count - 3) / 2f);
+            float layoutScale = state.Values.Count <= 3 ? 1f : 3f / state.Values.Count;
+            topicRoot.localScale = Vector3.one * layoutScale;
+            float spacing = cellSpacing;
             float startX = -(state.Values.Count - 1) * spacing * 0.5f;
 
             for (int i = 0; i < state.Values.Count; i++)

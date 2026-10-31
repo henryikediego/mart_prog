@@ -4,16 +4,22 @@ namespace Loci.Topics.List
 {
     /// <summary>
     /// The List data state, independent of Unity objects, AR, and UI.
-    /// The five-item learner-facing capacity and starting values match the
-    /// validated legacy List controller.
+    /// List data and a display-derived learner-facing capacity, independent
+    /// of Unity objects, AR, and UI.
     /// </summary>
     public sealed class ListState
     {
-        public const int Capacity = 5;
+        public const int DefaultCapacity = 5;
 
         private readonly List<int> values = new List<int> { 10, 20, 30 };
 
+        public int Capacity { get; }
         public IReadOnlyList<int> Values => values;
+
+        public ListState(int capacity = DefaultCapacity)
+        {
+            Capacity = System.Math.Max(3, capacity);
+        }
 
         public void Reset()
         {

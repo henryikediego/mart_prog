@@ -20,7 +20,7 @@ namespace Loci.Topics.Stack
         [SerializeField, Min(0.01f)] private float spawnDuration = 0.18f;
         [SerializeField, Min(0.1f)] private float actionStepDuration = 0.45f;
 
-        private readonly StackState state = new StackState();
+        private StackState state;
         private Transform topicRoot;
         private bool isOpen;
         private bool isSequenceRunning;
@@ -57,6 +57,7 @@ namespace Loci.Topics.Stack
             if (ar == null || !ar.IsPlaced || ar.ContentRoot == null) return;
 
             CloseTopic();
+            state = new StackState(ScreenNodeCapacity.ForCurrentScreen());
             state.Reset();
             highlightedDepth = -1;
             GameObject root = new GameObject("Stack 3D Content");
@@ -171,7 +172,7 @@ namespace Loci.Topics.Stack
                 case "Push":
                     if (value.Length == 0) return Result(action, value, "Failed", "Enter a value to push onto the Stack.");
                     if (!int.TryParse(value, out int pushed)) return Result(action, value, "Failed", "The Stack value must be a number.");
-                    if (!state.TryPush(pushed)) return Result(action, value, "Failed", "Stack reached its five-value capacity.");
+                    if (!state.TryPush(pushed)) return Result(action, value, "Failed", $"This screen's readable limit of {state.Capacity} Stack values has been reached.");
                     return Result(action, pushed.ToString(), "Success", $"Pushed {pushed} onto the top of the Stack.");
                 case "Pop":
                     if (!state.TryPop(out int popped)) return Result(action, string.Empty, "Failed", "Stack is empty.");
@@ -206,6 +207,8 @@ namespace Loci.Topics.Stack
             if (topicRoot == null) return;
             for (int i = topicRoot.childCount - 1; i >= 0; i--) Destroy(topicRoot.GetChild(i).gameObject);
             EnsureMaterials();
+            float layoutScale = state.Count <= 3 ? 1f : 3f / state.Count;
+            topicRoot.localScale = Vector3.one * layoutScale;
             float spacing = cellSpacing;
             float bottomY = -(state.Count - 1) * spacing * 0.5f;
             for (int i = 0; i < state.Count; i++)

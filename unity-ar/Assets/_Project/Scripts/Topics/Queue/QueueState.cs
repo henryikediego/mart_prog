@@ -5,13 +5,19 @@ namespace Loci.Topics.Queue
     /// <summary>FIFO queue state independent of Unity objects and UI.</summary>
     public sealed class QueueState
     {
-        public const int Capacity = 5;
+        public const int DefaultCapacity = 5;
         private readonly List<int> values = new List<int> { 10, 20, 30 };
+        public int Capacity { get; }
         public IReadOnlyList<int> Values => values;
         public int Count => values.Count;
         public bool IsEmpty => values.Count == 0;
         public bool IsFull => values.Count >= Capacity;
         public int Front => IsEmpty ? 0 : values[0];
+
+        public QueueState(int capacity = DefaultCapacity)
+        {
+            Capacity = System.Math.Max(3, capacity);
+        }
 
         public void Reset()
         {
