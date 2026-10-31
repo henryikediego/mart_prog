@@ -35,8 +35,32 @@ namespace Loci.Topics.Loops
         private Material resultMaterial;
         private bool isOpen;
         private bool isSequenceRunning;
+        private bool hasViewportMetrics;
+        private bool layoutRefreshPending;
+        private int lastScreenWidth;
+        private int lastScreenHeight;
+        private Rect lastSafeArea;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
+
+        private void Update()
+        {
+            Rect safeArea = Screen.safeArea;
+            if (!hasViewportMetrics || Screen.width != lastScreenWidth || Screen.height != lastScreenHeight || safeArea != lastSafeArea)
+            {
+                lastScreenWidth = Screen.width;
+                lastScreenHeight = Screen.height;
+                lastSafeArea = safeArea;
+                hasViewportMetrics = true;
+                layoutRefreshPending = true;
+            }
+
+            if (layoutRefreshPending && isOpen && !isSequenceRunning)
+            {
+                layoutRefreshPending = false;
+                Render();
+            }
+        }
 
         private void OnDisable()
         {
@@ -70,6 +94,11 @@ namespace Loci.Topics.Loops
             topicRoot = new GameObject("Loops 3D Content").transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
+            lastScreenWidth = Screen.width;
+            lastScreenHeight = Screen.height;
+            lastSafeArea = Screen.safeArea;
+            hasViewportMetrics = true;
+            layoutRefreshPending = false;
             Render();
             SpikeBridge.SendMessageToShell(LociMessageTypes.TopicLoaded,
                 new TopicLoadedPayload { TopicId = LociTopicId.Loops });
