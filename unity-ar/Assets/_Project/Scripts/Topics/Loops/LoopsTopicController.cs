@@ -40,6 +40,11 @@ namespace Loci.Topics.Loops
         private int lastScreenWidth;
         private int lastScreenHeight;
         private Rect lastSafeArea;
+        private bool hasFitScaleCache;
+        private int cachedFitScreenWidth;
+        private int cachedFitScreenHeight;
+        private float cachedFitLayoutWidth;
+        private float cachedFitScale;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
 
@@ -99,6 +104,7 @@ namespace Loci.Topics.Loops
             lastSafeArea = Screen.safeArea;
             hasViewportMetrics = true;
             layoutRefreshPending = false;
+            hasFitScaleCache = false;
             Render();
             SpikeBridge.SendMessageToShell(LociMessageTypes.TopicLoaded,
                 new TopicLoadedPayload { TopicId = LociTopicId.Loops });
@@ -266,6 +272,8 @@ namespace Loci.Topics.Loops
                 Transform cell = CreateBox("Loop Value " + i, new Vector3(x, 0f, 0f),
                     new Vector3(size, size, size * 0.2f), current ? currentMaterial : valueMaterial);
                 valueBoxes.Add(cell);
+                CreateLabel(state.Values[i].ToString(), new Vector3(x, 0f, -size * 0.12f),
+                    42f, Color.white, size * 0.88f);
                 CreateLabel(i.ToString(), new Vector3(x, -size * 0.75f, -size * 0.1f), 30f, Color.white, 0.055f);
                 if (current)
                     CreateLabel("CURRENT", new Vector3(x, size * 0.78f + 0.035f, -0.006f), 23f, LoopColor, 0.12f, FontStyles.Bold);
@@ -326,8 +334,15 @@ namespace Loci.Topics.Loops
 
         private float CalculateViewportFitScale(float layoutWidth)
         {
+            int screenWidth = Screen.width;
+            int screenHeight = Screen.height;
+            if (hasFitScaleCache && screenWidth == cachedFitScreenWidth && screenHeight == cachedFitScreenHeight &&
+                Mathf.Approximately(layoutWidth, cachedFitLayoutWidth))
+                return cachedFitScale;
+
+            float fitScale;
             Camera arCamera = Camera.main;
-            if (arCamera != null && Screen.width > 0 && Screen.safeArea.width > 0f)
+            if (arCamera != null && screenWidth > 0 && Screen.safeArea.width > 0f)
             {
                 // Project the full group's side edges into the active camera.
                 // This accounts for portrait FOV, camera angle, and device size,
@@ -361,14 +376,27 @@ namespace Loci.Topics.Loops
                 float projectedWidth = maxX - minX;
                 if (inFrontOfCamera && projectedWidth > 0.001f)
                 {
-                    float safeWidthFraction = Screen.safeArea.width / Screen.width;
+                    float safeWidthFraction = Screen.safeArea.width / screenWidth;
                     float targetViewportWidth = safeWidthFraction * 0.82f;
-                    return Mathf.Min(1f, targetViewportWidth / projectedWidth);
+                    fitScale = Mathf.Min(1f, targetViewportWidth / projectedWidth);
+                }
+                else
+                {
+                    fitScale = Mathf.Min(1f, 0.42f / Mathf.Max(layoutWidth, 0.001f));
                 }
             }
+            else
+            {
+                // Conservative fallback for editor or camera setups without a usable projection.
+                fitScale = Mathf.Min(1f, 0.42f / Mathf.Max(layoutWidth, 0.001f));
+            }
 
-            // Conservative fallback for editor or camera setups without a usable projection.
-            return Mathf.Min(1f, 0.42f / Mathf.Max(layoutWidth, 0.001f));
+            hasFitScaleCache = true;
+            cachedFitScreenWidth = screenWidth;
+            cachedFitScreenHeight = screenHeight;
+            cachedFitLayoutWidth = layoutWidth;
+            cachedFitScale = fitScale;
+            return fitScale;
         }
 
         private void EnsureMaterials()
