@@ -9,6 +9,8 @@ export default function App() {
   const [showAR, setShowAR] = useState(true);
   const [showControls, setShowControls] = useState(false);
   const [loopValues, setLoopValues] = useState('5,10,15');
+  const [selectionValue, setSelectionValue] = useState('75');
+  const [selectionCondition, setSelectionCondition] = useState('>= 50');
   const [activeTopicId, setActiveTopicId] = useState('');
   const {width, height} = useWindowDimensions();
 
@@ -257,6 +259,37 @@ export default function App() {
             </Pressable>
             <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'functions', action: 'Reset'})} style={btn}>
               <Text style={btnText}>Reset Functions</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'selection', activityId: 'basic_if'})} style={btn}>
+              <Text style={btnText}>Open Basic If</Text>
+            </Pressable>
+            <TextInput
+              value={selectionValue}
+              onChangeText={setSelectionValue}
+              placeholder="Enter a whole number, e.g. 75"
+              keyboardType="numbers-and-punctuation"
+              style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
+            />
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Set Value', value: selectionValue})} style={btn}>
+              <Text style={btnText}>Set selection value</Text>
+            </Pressable>
+            <TextInput
+              value={selectionCondition}
+              onChangeText={setSelectionCondition}
+              placeholder="Condition, e.g. >= 50"
+              style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
+            />
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Set Condition', value: selectionCondition})} style={btn}>
+              <Text style={btnText}>Set selection condition</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Check'})} style={btn}>
+              <Text style={btnText}>Check condition</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Toggle Rule'})} style={btn}>
+              <Text style={btnText}>Toggle Basic If rule</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Reset'})} style={btn}>
+              <Text style={btnText}>Reset Basic If</Text>
             </Pressable>
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'loops'})} style={btn}>
               <Text style={btnText}>Open Loops</Text>

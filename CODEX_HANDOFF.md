@@ -1,6 +1,6 @@
 # Loci redesign — handoff for the next Codex session
 
-Updated: 2026-10-31
+Updated: 2026-11-02
 
 ## Immediate status
 
@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, Queue, Linked List, Functions, and Loops first AR slices are implemented and behaviorally verified. Loops landscape guidance works, but the objects can still remain at portrait size after rotation, even after delaying the fit and allowing up to `2x` landscape scale. Oly asked to log this for later review. Do not interrupt the next topic to keep tuning Loops. Selection is next in the approved order; implement its activities one at a time, starting with Basic If, using the live reference `Assets/_Project/Scripts/Modules/SelectionController.cs` (the parallel state machine in `SelectionModule.cs` is documented dead code and must not be mistaken for runtime behavior).
+**Current action:** List, Stack, Queue, Linked List, Functions, and Loops first AR slices are implemented. Loops landscape guidance works, but the objects can still remain at portrait size after rotation, even after delaying the fit and allowing up to `2x` landscape scale. Oly asked to log this for later review. Do not interrupt the next topic to keep tuning Loops. Selection is next in the approved order; Basic If is implemented as the first Selection activity and awaits Unity refresh and phone review. Continue with its staged verification, then implement Else-if Ladder and Nested If in order.
 
 ## User and collaboration requirements
 
@@ -116,6 +116,14 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Attached the controller to `AR Session` in `SampleScene.unity`. Added temporary phone controls with an editable comma-separated value field (default `5,10,15`) plus Open Loops, Set Values, Step, Run Loop, and Reset. The field is test harness only; the final learner-facing topic controls remain React-owned.
 - The first phone screenshot showed the DATA and RESULT edges outside the viewport. The renderer computes a fit scale from the active camera's projected viewport width with a safe-area margin. The React test harness shows portrait guidance and hides it in landscape. The controller watches screen dimensions and delays re-fitting after rotation; landscape scale may grow to `2x`, capped by the projected viewport target. Oly verified landscape size after one change, but later confirmed it can still look as small as portrait after rotating. Oly asked to defer further review while continuing Selection. Keep this as a known unresolved visual issue; do not claim the landscape fix is complete.
 
+### Selection Basic If first modular slice
+
+- The approved topic ID is `selection`; its activity IDs are `basic_if`, `else_if_ladder`, and `nested_if`. Begin with `basic_if`.
+- The live reference is `Assets/_Project/Scripts/Modules/SelectionController.cs`. Do not copy the parallel state machine in `SelectionModule.cs`; that file is only a display surface and its state is documented as dead code. Basic If defaults are value `75`, condition `>= 50`, and pending result `?`. Its four-rule Toggle Rule cycle is `>= 50`, `< 50`, `== 0`, `!= 0`. Check compares the value using `>=`, `<=`, `>`, `<`, `==`, or `!=`; the result display is `TRUE` or `FALSE`.
+- Added `SelectionState` and `SelectionTopicController` in `unity-ar/Assets/_Project/Scripts/Topics/Selection/`, attached to AR Session. The Unity visual is VALUE → CONDITION → RESULT. React owns the 2D controls. The temporary React harness can open Basic If and send Set Value, Set Condition, Check, Toggle Rule, and Reset.
+- Oly chose one Study Mode event per action, with invalid values reported as failed events. Do not duplicate the source reference's two Basic If Check rows or omit failed Set Value events. Use the action names Set Value, Set Condition, Check, Toggle Rule, and Reset.
+- The implementation awaits Unity refresh. Verify `topic.loaded` for `selection`, then the default diagram `75 → value >= 50 → ?`. Check should pulse CONDITION then RESULT, display `TRUE`, and send one successful event. Continue with Set Value, Set Condition, Toggle Rule, and Reset one action at a time. Implement Else-if Ladder and Nested If only after Basic If is verified.
+
 ### Temporary phone test controls
 
 `apps/loci-mobile/App.tsx` contains temporary test controls. They are collapsed by default behind a small **Test controls** button so the camera feed and AR objects remain visible. Expand the panel to send session and placement messages plus:
@@ -128,6 +136,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - **Reset list** → `topic.action` with `topicId: "list"`, `action: "Reset"`
 - Stack controls send `topic.open` / `topic.action` using `topicId: "stack"` for Push, Pop, Peek, Search, Traverse, and Reset.
 - Functions controls send `topic.open` / `topic.action` using `topicId: "functions"` for Set Input (`15,25`), Add, Subtract, Multiply, and Reset.
+- Selection test controls open `topicId: "selection"`, `activityId: "basic_if"`; editable fields send Set Value and Set Condition, plus Check, Toggle Rule, and Reset.
 - Loops controls send `topic.open` / `topic.action` using `topicId: "loops"`; the temporary value field sends the learner-entered comma-separated values with Set Values, with separate Step, Run Loop, and Reset controls.
 - Linked List controls send `topic.open` / `topic.action` using `topicId: "linked_list"` for Insert, Delete Head, Search, Traverse, and Reset.
 
