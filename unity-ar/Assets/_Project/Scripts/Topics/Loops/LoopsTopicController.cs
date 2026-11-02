@@ -36,10 +36,9 @@ namespace Loci.Topics.Loops
         private bool isOpen;
         private bool isSequenceRunning;
         private bool hasViewportMetrics;
-        private bool layoutRefreshPending;
         private int lastScreenWidth;
         private int lastScreenHeight;
-        private Rect lastSafeArea;
+        private Coroutine viewportRefreshRoutine;
         private bool hasFitScaleCache;
         private int cachedFitScreenWidth;
         private int cachedFitScreenHeight;
@@ -50,21 +49,43 @@ namespace Loci.Topics.Loops
 
         private void Update()
         {
-            Rect safeArea = Screen.safeArea;
-            if (!hasViewportMetrics || Screen.width != lastScreenWidth || Screen.height != lastScreenHeight || safeArea != lastSafeArea)
+            if (!hasViewportMetrics)
             {
                 lastScreenWidth = Screen.width;
                 lastScreenHeight = Screen.height;
-                lastSafeArea = safeArea;
                 hasViewportMetrics = true;
-                layoutRefreshPending = true;
+                return;
             }
 
-            if (layoutRefreshPending && isOpen && !isSequenceRunning)
+            if (Screen.width != lastScreenWidth || Screen.height != lastScreenHeight)
             {
-                layoutRefreshPending = false;
+                lastScreenWidth = Screen.width;
+                lastScreenHeight = Screen.height;
+                if (isOpen)
+                    ScheduleViewportRefresh();
+            }
+        }
+
+        private void ScheduleViewportRefresh()
+        {
+            if (viewportRefreshRoutine != null)
+                StopCoroutine(viewportRefreshRoutine);
+            viewportRefreshRoutine = StartCoroutine(RefreshAfterViewportSettles());
+        }
+
+        private IEnumerator RefreshAfterViewportSettles()
+        {
+            // Let Android rotation and AR camera projection settle before computing a new fit.
+            yield return new WaitForSeconds(0.45f);
+            while (isSequenceRunning)
+                yield return null;
+
+            if (isOpen && topicRoot != null)
+            {
+                hasFitScaleCache = false;
                 Render();
             }
+            viewportRefreshRoutine = null;
         }
 
         private void OnDisable()
@@ -101,9 +122,7 @@ namespace Loci.Topics.Loops
             isOpen = true;
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
-            lastSafeArea = Screen.safeArea;
             hasViewportMetrics = true;
-            layoutRefreshPending = false;
             hasFitScaleCache = false;
             Render();
             SpikeBridge.SendMessageToShell(LociMessageTypes.TopicLoaded,
@@ -431,6 +450,7 @@ namespace Loci.Topics.Loops
         private void CloseTopic()
         {
             StopAllCoroutines();
+            viewportRefreshRoutine = null;
             isOpen = false;
             isSequenceRunning = false;
             valueBoxes.Clear();
