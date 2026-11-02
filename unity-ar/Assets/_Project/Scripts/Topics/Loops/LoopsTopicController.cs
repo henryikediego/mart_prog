@@ -360,6 +360,7 @@ namespace Loci.Topics.Loops
                 return cachedFitScale;
 
             float fitScale;
+            float maximumScale = screenWidth > screenHeight ? 2f : 1f;
             Camera arCamera = Camera.main;
             if (arCamera != null && screenWidth > 0 && Screen.safeArea.width > 0f)
             {
@@ -397,17 +398,19 @@ namespace Loci.Topics.Loops
                 {
                     float safeWidthFraction = Screen.safeArea.width / screenWidth;
                     float targetViewportWidth = safeWidthFraction * 0.82f;
-                    fitScale = Mathf.Min(1f, targetViewportWidth / projectedWidth);
+                    fitScale = Mathf.Min(maximumScale, targetViewportWidth / projectedWidth);
                 }
                 else
                 {
-                    fitScale = Mathf.Min(1f, 0.42f / Mathf.Max(layoutWidth, 0.001f));
+                    float targetWorldWidth = screenWidth > screenHeight ? 0.75f : 0.42f;
+                    fitScale = Mathf.Min(maximumScale, targetWorldWidth / Mathf.Max(layoutWidth, 0.001f));
                 }
             }
             else
             {
                 // Conservative fallback for editor or camera setups without a usable projection.
-                fitScale = Mathf.Min(1f, 0.42f / Mathf.Max(layoutWidth, 0.001f));
+                float targetWorldWidth = screenWidth > screenHeight ? 0.75f : 0.42f;
+                fitScale = Mathf.Min(maximumScale, targetWorldWidth / Mathf.Max(layoutWidth, 0.001f));
             }
 
             hasFitScaleCache = true;
