@@ -728,6 +728,7 @@ GameObject:
   - component: {fileID: 1383106416}
   - component: {fileID: 1383106417}
   - component: {fileID: 1383106418}
+  - component: {fileID: 1383106419}
   m_Layer: 0
   m_Name: AR Session
   m_TagString: Untagged
@@ -924,6 +925,25 @@ MonoBehaviour:
   ruleBoxWidth: 0.19
   ruleBoxHeight: 0.095
   resultBoxSize: 0.095
+  labelScale: 0.006
+  checkPulseDuration: 0.2
+--- !u!114 &1383106419
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1383106406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ad20fd25b3745c0a503f858dfe6ed76, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Loci.Topics.Selection::Loci.Topics.Selection.NestedIfController
+  valueBoxWidth: 0.17
+  valueBoxHeight: 0.095
+  ruleBoxWidth: 0.19
+  ruleBoxHeight: 0.095
+  resultBoxHeight: 0.095
   labelScale: 0.006
   checkPulseDuration: 0.2
 --- !u!4 &1383106409
