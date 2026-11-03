@@ -1,6 +1,6 @@
 # Loci redesign — handoff for the next Codex session
 
-Updated: 2026-11-02
+Updated: 2026-11-03
 
 ## Immediate status
 
@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, Queue, Linked List, Functions, and Loops first AR slices are implemented. Loops landscape guidance works, but the objects can still remain at portrait size after rotation, even after delaying the fit and allowing up to `2x` landscape scale. Oly asked to log this for later review. Do not interrupt Selection work to keep tuning Loops. Basic If and Else-if Ladder are implemented and phone-verified, including invalid-input reporting. Nested If is now implemented and awaits Unity refresh. Verify it on the phone before considering Selection complete.
+**Current action:** List, Stack, Queue, Linked List, Functions, Loops, and all three Selection activities have first AR slices. Loops landscape guidance works, but the objects can still remain at portrait size after rotation, even after delaying the fit and allowing up to `2x` landscape scale. Oly asked to log this for later review. Do not interrupt other topic work to keep tuning Loops. Basic If, Else-if Ladder, and Nested If are implemented and phone-verified, including invalid-input reporting and the reference decision paths. Memory Management is next in the approved topic order; begin by reviewing its existing reference implementation and activity scope.
 
 ## User and collaboration requirements
 
@@ -122,7 +122,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - The live reference is `Assets/_Project/Scripts/Modules/SelectionController.cs`. Do not copy the parallel state machine in `SelectionModule.cs`; that file is only a display surface and its state is documented as dead code. Basic If defaults are value `75`, condition `>= 50`, and pending result `?`. Its four-rule Toggle Rule cycle is `>= 50`, `< 50`, `== 0`, `!= 0`. Check compares the value using `>=`, `<=`, `>`, `<`, `==`, or `!=`; the result display is `TRUE` or `FALSE`.
 - Added `SelectionState` and `SelectionTopicController` in `unity-ar/Assets/_Project/Scripts/Topics/Selection/`, attached to AR Session. The Unity visual is VALUE → CONDITION → RESULT. React owns the 2D controls. The temporary React harness can open Basic If and send Set Value, Set Condition, Check, Toggle Rule, and Reset.
 - Oly chose one Study Mode event per action, with invalid values reported as failed events. Do not duplicate the source reference's two Basic If Check rows or omit failed Set Value events. Use the action names Set Value, Set Condition, Check, Toggle Rule, and Reset.
-- Basic If was verified on-device: it opened with `75 → value >= 50 → ?`; Check changed the result to `TRUE`; setting value `40` and condition `> 50` then checking returned `FALSE`; Toggle Rule changed the condition to `< 50`; invalid condition `abc` produced one failed event without changing the diagram; Reset restored the defaults. The same one-event-per-action decision applies to all Selection activities. Move to Else-if Ladder only after completing the staged verification listed below.
+- Basic If was verified on-device: it opened with `75 → value >= 50 → ?`; Check changed the result to `TRUE`; setting value `40` and condition `> 50` then checking returned `FALSE`; Toggle Rule changed the condition to `< 50`; invalid condition `abc` produced one failed event without changing the diagram; Reset restored the defaults. The same one-event-per-action decision applies to all Selection activities.
 
 ### Selection Else-if Ladder first modular slice
 
@@ -136,7 +136,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - The live reference defines **Pass Rule** (`score >= 50`, then `attendance >= 75`; outputs `Pass`, `Attendance too low`, or `Fail`) and **Project Eligibility Rule** (`exam >= 80`, then `project >= 70`; outputs `Eligible`, `Project score too low`, or `Exam score too low`). The inner condition is only evaluated when the outer condition is true. Defaults are `65,80` with Pass Rule.
 - Implemented `NestedIfState` and `NestedIfController`, attached through the Selection assembly. The diagram shows the two values in the VALUE box, the active preset name in the rule block, then a RESULT box. The result box widens for the reference's longer results. Check pulses the rule block then result and reports whether the inner condition ran.
 - Temporary controls open `topicId: "selection"`, `activityId: "nested_if"`; Set Values accepts exactly two comma-separated whole numbers. Rule Info, Check, Toggle Rule, Reset are available. Invalid values produce one failed event; each supported action produces one event.
-- Next: refresh Unity and report whether there are red compile errors. If clean, export and sync, install, then verify one action at a time: open shows `65 / 80 → Pass Rule → ?`; Check returns `Pass`; set values `65,50` and Check returns `Attendance too low`; set `40,90` and Check returns `Fail` with the inner condition skipped; Toggle Rule changes to Project Eligibility Rule and clears the result; set `90,60` and Check returns `Project score too low`; set `90,80` and Check returns `Eligible`; set `70,90` and Check returns `Exam score too low` with the inner condition skipped; invalid Set Values is rejected without changing the diagram; Reset returns to `65,80`, Pass Rule, and `?`.
+- Nested If was verified on-device: defaults `65 / 80` with Pass Rule returned `Pass`; `65,50` returned `Attendance too low`; `40,90` returned `Fail` and skipped the inner condition; Toggle Rule changed to Project Eligibility Rule; `90,60` returned `Project score too low`; `90,80` returned `Eligible`; `70,90` returned `Exam score too low` and skipped the inner condition; invalid pair `65,abc` was rejected without changing the diagram; Reset restored `65 / 80`, Pass Rule, and `?`. Selection is complete.
 
 ### Temporary phone test controls
 
@@ -150,7 +150,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - **Reset list** → `topic.action` with `topicId: "list"`, `action: "Reset"`
 - Stack controls send `topic.open` / `topic.action` using `topicId: "stack"` for Push, Pop, Peek, Search, Traverse, and Reset.
 - Functions controls send `topic.open` / `topic.action` using `topicId: "functions"` for Set Input (`15,25`), Add, Subtract, Multiply, and Reset.
-- Selection test controls open `topicId: "selection"`, `activityId: "basic_if"`; editable fields send Set Value and Set Condition, plus Check, Toggle Rule, and Reset.
+- Selection test controls open `topicId: "selection"` with activity IDs `basic_if`, `else_if_ladder`, or `nested_if`. They include editable inputs and each activity's Set, Rule Info/Set Condition, Check, Toggle Rule, and Reset actions.
 - Loops controls send `topic.open` / `topic.action` using `topicId: "loops"`; the temporary value field sends the learner-entered comma-separated values with Set Values, with separate Step, Run Loop, and Reset controls.
 - Linked List controls send `topic.open` / `topic.action` using `topicId: "linked_list"` for Insert, Delete Head, Search, Traverse, and Reset.
 
