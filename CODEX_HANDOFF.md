@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, Queue, Linked List, Functions, Loops, and all three Selection activities have first AR slices. Loops landscape guidance works, but the objects can still remain at portrait size after rotation, even after delaying the fit and allowing up to `2x` landscape scale. Oly asked to log this for later review. Do not interrupt other topic work to keep tuning Loops. Basic If, Else-if Ladder, and Nested If are implemented and phone-verified, including invalid-input reporting and the reference decision paths. Memory Management is next in the approved topic order; begin by reviewing its existing reference implementation and activity scope.
+**Current action:** List, Stack, Queue, Linked List, Functions, Loops, and all three Selection activities have first AR slices. Loops landscape guidance works, but the objects can still remain at portrait size after rotation, even after delaying the fit and allowing up to `2x` landscape scale. Oly asked to log this for later review. Do not interrupt other topic work to keep tuning Loops. Basic If, Else-if Ladder, and Nested If are implemented and phone-verified, including invalid-input reporting and the reference decision paths. Memory Management Overview is next, pending Oly's choice of how its wide five-column table should fit the current AR viewport.
 
 ## User and collaboration requirements
 
@@ -137,6 +137,13 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - Implemented `NestedIfState` and `NestedIfController`, attached through the Selection assembly. The diagram shows the two values in the VALUE box, the active preset name in the rule block, then a RESULT box. The result box widens for the reference's longer results. Check pulses the rule block then result and reports whether the inner condition ran.
 - Temporary controls open `topicId: "selection"`, `activityId: "nested_if"`; Set Values accepts exactly two comma-separated whole numbers. Rule Info, Check, Toggle Rule, Reset are available. Invalid values produce one failed event; each supported action produces one event.
 - Nested If was verified on-device: defaults `65 / 80` with Pass Rule returned `Pass`; `65,50` returned `Attendance too low`; `40,90` returned `Fail` and skipped the inner condition; Toggle Rule changed to Project Eligibility Rule; `90,60` returned `Project score too low`; `90,80` returned `Eligible`; `70,90` returned `Exam score too low` and skipped the inner condition; invalid pair `65,abc` was rejected without changing the diagram; Reset restored `65 / 80`, Pass Rule, and `?`. Selection is complete.
+
+### Memory Management Overview — layout decision pending
+
+- Approved topic ID is `memory`; the first activity ID is `overview`. The reference `Assets/_Project/Scripts/Modules/MemoryModule.cs` renders an empty table titled `MEMORY TABLE`, with columns `ADDRESS`, `NAME`, `TYPE`, `VALUE`, `SIZE`, and the message `No variables allocated yet.` The old `MemoryController` defaults to Overview when entering the module.
+- In the source Unity app, `MemoryModule` has a camera/content fit path (`ARContentAnchor`) and an Overview-only `1.45x` scale. The current LociSpike `LociARController` has no camera-fit helper and places content at a fixed distance. The source table row is about `0.612 m` wide before the Overview multiplier; exact old fit behavior is therefore not available in this AR scene.
+- The old source has a porting note that a two-line table reflow was tested on-device and rejected because aligned single-row columns were easier to read. Do not revive that rejected layout without Oly's approval.
+- `MemoryOverviewController` and a temporary **Open Memory Overview** control are drafted locally but are not committed. Before finalizing, ask Oly whether to preserve five aligned columns and add a viewport-fit scale (which may shrink the table/text), or use another layout. Continue with Overview only after agreeing how to keep it readable in the current fixed-distance AR scene.
 
 ### Temporary phone test controls
 
