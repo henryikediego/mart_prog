@@ -343,6 +343,9 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Reset'})} style={btn}>
               <Text style={btnText}>Reset Nested If</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'overview'})} style={btn}>
+              <Text style={btnText}>Open Memory Overview</Text>
+            </Pressable>
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'loops'})} style={btn}>
               <Text style={btnText}>Open Loops</Text>
             </Pressable>

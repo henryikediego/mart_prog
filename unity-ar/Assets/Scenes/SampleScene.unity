@@ -729,6 +729,7 @@ GameObject:
   - component: {fileID: 1383106417}
   - component: {fileID: 1383106418}
   - component: {fileID: 1383106419}
+  - component: {fileID: 1383106420}
   m_Layer: 0
   m_Name: AR Session
   m_TagString: Untagged
@@ -946,6 +947,19 @@ MonoBehaviour:
   resultBoxHeight: 0.095
   labelScale: 0.006
   checkPulseDuration: 0.2
+--- !u!114 &1383106420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1383106406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccd477b0bc714a07a3474fa40e330d7a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Loci.Topics.Memory::Loci.Topics.Memory.MemoryOverviewController
+  horizontalViewportMargin: 0.08
 --- !u!4 &1383106409
 Transform:
   m_ObjectHideFlags: 0
