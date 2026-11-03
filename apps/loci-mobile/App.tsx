@@ -13,6 +13,7 @@ export default function App() {
   const [selectionCondition, setSelectionCondition] = useState('>= 50');
   const [ladderScore, setLadderScore] = useState('75');
   const [nestedValues, setNestedValues] = useState('65,80');
+  const [memoryVariableInput, setMemoryVariableInput] = useState('int age=20');
   const [activeTopicId, setActiveTopicId] = useState('');
   const {width, height} = useWindowDimensions();
 
@@ -345,6 +346,25 @@ export default function App() {
             </Pressable>
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'overview'})} style={btn}>
               <Text style={btnText}>Open Memory Overview</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'variables'})} style={btn}>
+              <Text style={btnText}>Open Memory Variables</Text>
+            </Pressable>
+            <TextInput
+              value={memoryVariableInput}
+              onChangeText={setMemoryVariableInput}
+              placeholder="int age=20, age=25, age, or prediction"
+              autoCapitalize="none"
+              style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
+            />
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Set/Inspect', value: memoryVariableInput})} style={btn}>
+              <Text style={btnText}>Set / Inspect Variable</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Predict Step', value: memoryVariableInput})} style={btn}>
+              <Text style={btnText}>Predict Step</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
+              <Text style={btnText}>Reset Memory Variables</Text>
             </Pressable>
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'loops'})} style={btn}>
               <Text style={btnText}>Open Loops</Text>

@@ -8,7 +8,7 @@ Oly confirmed the temporary AR test controls are visible. The updated Unity Andr
 
 The export sync script completed successfully. It copied the Unity folders into `apps/loci-mobile/unity/builds/android`, updated the app's `android/gradle.properties`, and removed Unity's launcher filter from the copied manifest.
 
-**Current action:** List, Stack, Queue, Linked List, Functions, Loops, and all three Selection activities have first AR slices. Loops landscape guidance works, but the objects can still remain at portrait size after rotation, even after delaying the fit and allowing up to `2x` landscape scale. Oly asked to log this for later review. Do not interrupt other topic work to keep tuning Loops. Basic If, Else-if Ladder, and Nested If are implemented and phone-verified, including invalid-input reporting and the reference decision paths. Memory Overview is implemented with the reference's aligned columns and its own camera-width fit, awaiting Unity refresh and phone review.
+**Current action:** List, Stack, Queue, Linked List, Functions, Loops, and all three Selection activities have first AR slices. Loops landscape guidance works, but the objects can still remain at portrait size after rotation, even after delaying the fit and allowing up to `2x` landscape scale. Oly asked to log this for later review. Do not interrupt other topic work to keep tuning Loops. Basic If, Else-if Ladder, and Nested If are implemented and phone-verified, including invalid-input reporting and the reference decision paths. Memory Overview is implemented and phone-verified as readable. Memory Variables is now implemented with learner-entered set/inspect and the approved guided prediction flow; it needs Unity refresh and phone verification next.
 
 ## User and collaboration requirements
 
@@ -144,7 +144,15 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 - In the source Unity app, `MemoryModule` has a camera/content fit path (`ARContentAnchor`) and an Overview-only `1.45x` scale. The current LociSpike `LociARController` has no camera-fit helper and places content at a fixed distance. The source table row is about `0.612 m` wide before the Overview multiplier; exact old fit behavior is therefore not available in this AR scene.
 - The old source has a porting note that a two-line table reflow was tested on-device and rejected because aligned single-row columns were easier to read. Do not revive that rejected layout without Oly's approval.
 - Codex recommended keeping the reference's five columns and adding camera-width fit; Oly asked which approach was recommended, so this recommendation is being used as the working design. `MemoryOverviewController` and a temporary **Open Memory Overview** control render the title, five column headings, and empty-state message. The table uses the source's Overview scale cap (`1.45x`) and shrinks uniformly only as much as needed to fit inside 8% side margins in the current camera viewport.
-- Next: refresh Unity and report whether there are red compile errors. If clean, export and sync, install, then open Memory Overview. Success looks like `topic.loaded` with `topicId: "memory"` and the AR table displaying `MEMORY TABLE`, `ADDRESS / NAME / TYPE / VALUE / SIZE`, and `No variables allocated yet.` fully in view. Check legibility on the phone before adding the next Memory activity.
+- Overview is phone-verified: Unity sent `topic.loaded` for `memory`, the full table was visible, and Oly confirmed the headings and empty-state message were readable.
+
+### Memory Management Variables slice
+
+- Oly confirmed the Overview headings and empty-state message are readable on the phone. The next activity in the existing Memory order is `variables`.
+- Source supports declarations such as `int age=20`, updates such as `age=25`, and bare-name inspection such as `age`. It preserves an existing variable's type for an untyped update, rejects incompatible values, and shows address, name, type, value, and size. New variable addresses use the source's uniform four-byte index spacing (`0x1000`, `0x1004`, ...); sizes are `int/float 4 bytes`, `double 8 bytes`, `char/bool 1 byte`, and `string varies`.
+- Oly chose **Guided prediction** for Predict Step. The five reference statements are `int age = 20;`, `float price = 15.5;`, `char grade = 'A';`, `age = 21;`, and `bool passed = true;`. Each prompt is shown first; the learner enters an answer and presses Predict Step again. The step then executes even for an incorrect answer, highlights the affected row, and reports expected value and correctness. Reset clears both the table and prediction sequence.
+- `MemoryVariablesController` is attached to AR Session. Temporary phone controls open Memory Variables and allow direct learner-entered declaration / inspection, guided Predict Step, and Reset. The five-column table uses the same width-fit approach as Overview and includes a 3D statement/prompt card during guided prediction.
+- Next: refresh Unity and report whether there are red compile errors. If clean, export and sync, install, open Memory Variables, and verify `topic.loaded` for `memory`. Try `int age=20`, then `age=25`, then inspect `age`; verify the row updates at the same address and the inspect event reports its type, value, address, and size. Then test Predict Step through the five source prompts, confirming the learner can enter answers and that each row highlight/event reports correctness. Check legibility and report before adding another activity.
 
 ### Temporary phone test controls
 
@@ -152,6 +160,9 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 
 - **Open List** → `topic.open` with `topicId: "list"`
 - **Insert 40** → `topic.action` with `topicId: "list"`, `action: "Insert"`, `value: "40"`
+- **Open Memory Overview** → `topic.open` with `topicId: "memory"`, `activityId: "overview"`
+- **Open Memory Variables** → `topic.open` with `topicId: "memory"`, `activityId: "variables"`
+- Memory Variables accepts typed declaration/update/inspection text in the temporary input, plus **Predict Step** and **Reset**. The first Predict Step shows the statement prompt; entering a prediction in the same input and pressing again evaluates and executes it.
 - **Delete last value** → `topic.action` with `topicId: "list"`, `action: "Delete"`
 - **Search 20** → `topic.action` with `topicId: "list"`, `action: "Search"`, `value: "20"`
 - **Traverse list** → `topic.action` with `topicId: "list"`, `action: "Traverse"`
