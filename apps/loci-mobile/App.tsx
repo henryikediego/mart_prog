@@ -11,6 +11,7 @@ export default function App() {
   const [loopValues, setLoopValues] = useState('5,10,15');
   const [selectionValue, setSelectionValue] = useState('75');
   const [selectionCondition, setSelectionCondition] = useState('>= 50');
+  const [ladderScore, setLadderScore] = useState('75');
   const [activeTopicId, setActiveTopicId] = useState('');
   const {width, height} = useWindowDimensions();
 
@@ -290,6 +291,31 @@ export default function App() {
             </Pressable>
             <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Reset'})} style={btn}>
               <Text style={btnText}>Reset Basic If</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'selection', activityId: 'else_if_ladder'})} style={btn}>
+              <Text style={btnText}>Open Else-if Ladder</Text>
+            </Pressable>
+            <TextInput
+              value={ladderScore}
+              onChangeText={setLadderScore}
+              placeholder="Enter a whole-number score, e.g. 75"
+              keyboardType="numbers-and-punctuation"
+              style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
+            />
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Set Score', value: ladderScore})} style={btn}>
+              <Text style={btnText}>Set ladder score</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Rule Info'})} style={btn}>
+              <Text style={btnText}>Ladder rule info</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Check'})} style={btn}>
+              <Text style={btnText}>Check ladder</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Toggle Rule'})} style={btn}>
+              <Text style={btnText}>Toggle ladder rule</Text>
+            </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'selection', action: 'Reset'})} style={btn}>
+              <Text style={btnText}>Reset Else-if Ladder</Text>
             </Pressable>
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'loops'})} style={btn}>
               <Text style={btnText}>Open Loops</Text>

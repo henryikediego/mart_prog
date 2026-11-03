@@ -727,6 +727,7 @@ GameObject:
   - component: {fileID: 1383106415}
   - component: {fileID: 1383106416}
   - component: {fileID: 1383106417}
+  - component: {fileID: 1383106418}
   m_Layer: 0
   m_Name: AR Session
   m_TagString: Untagged
@@ -904,6 +905,24 @@ MonoBehaviour:
   valueBoxSize: 0.095
   conditionBoxWidth: 0.19
   conditionBoxHeight: 0.095
+  resultBoxSize: 0.095
+  labelScale: 0.006
+  checkPulseDuration: 0.2
+--- !u!114 &1383106418
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1383106406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e28afe5c86e1476ca0c104579aa422bd, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Loci.Topics.Selection::Loci.Topics.Selection.ElseIfLadderController
+  valueBoxSize: 0.095
+  ruleBoxWidth: 0.19
+  ruleBoxHeight: 0.095
   resultBoxSize: 0.095
   labelScale: 0.006
   checkPulseDuration: 0.2
