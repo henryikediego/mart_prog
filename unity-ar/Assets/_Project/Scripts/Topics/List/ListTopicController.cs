@@ -28,8 +28,15 @@ namespace Loci.Topics.List
         private bool isOpen;
         private bool isSequenceRunning;
         private int highlightedIndex = -1;
+        private float contentLayoutScale = 1f;
         private Material cellMaterial;
         private Material foundMaterial;
+
+        private void Update()
+        {
+            if (isOpen && topicRoot != null)
+                UpdateViewportScale();
+        }
 
         private void OnEnable()
         {
@@ -260,8 +267,7 @@ namespace Loci.Topics.List
                 Destroy(topicRoot.GetChild(i).gameObject);
 
             EnsureMaterials();
-            float layoutScale = state.Values.Count <= 3 ? 1f : 3f / state.Values.Count;
-            topicRoot.localScale = Vector3.one * layoutScale;
+            contentLayoutScale = state.Values.Count <= 3 ? 1f : 3f / state.Values.Count;
             float spacing = cellSpacing;
             float startX = -(state.Values.Count - 1) * spacing * 0.5f;
 
@@ -290,6 +296,37 @@ namespace Loci.Topics.List
                     StartCoroutine(AnimateIn(cell.transform, finalScale));
                 }
             }
+
+            UpdateViewportScale();
+        }
+
+        private void UpdateViewportScale()
+        {
+            if (topicRoot == null || state == null) return;
+            float baseWidth = Mathf.Max(cellSize,
+                Mathf.Max(0, state.Values.Count - 1) * cellSpacing + cellSize);
+            float baseHeight = cellSize * 2.1f;
+            float maximumScale = CalculateViewportScale(baseWidth, baseHeight);
+            topicRoot.localScale = Vector3.one * Mathf.Min(contentLayoutScale * (Screen.width > Screen.height ? 2f : 1f), maximumScale);
+        }
+
+        private float CalculateViewportScale(float contentWidth, float contentHeight)
+        {
+            bool landscape = Screen.width > Screen.height;
+            float maximumScale = landscape ? 2f : 1f;
+            Camera camera = Camera.main;
+            if (camera == null) return maximumScale;
+            float depth = camera.WorldToViewportPoint(topicRoot.position).z;
+            if (depth <= 0f) return maximumScale;
+
+            const float margin = 0.08f;
+            Vector3 left = camera.ViewportToWorldPoint(new Vector3(margin, 0.5f, depth));
+            Vector3 right = camera.ViewportToWorldPoint(new Vector3(1f - margin, 0.5f, depth));
+            Vector3 bottom = camera.ViewportToWorldPoint(new Vector3(0.5f, margin, depth));
+            Vector3 top = camera.ViewportToWorldPoint(new Vector3(0.5f, 1f - margin, depth));
+            float widthFit = Vector3.Distance(left, right) / Mathf.Max(contentWidth, 0.001f);
+            float heightFit = Vector3.Distance(bottom, top) / Mathf.Max(contentHeight, 0.001f);
+            return Mathf.Min(maximumScale, widthFit, heightFit);
         }
 
         private void CreateLabel(Transform parent, string text, Vector3 localPosition, float fontSize, Color color)

@@ -35,6 +35,12 @@ namespace Loci.Topics.LinkedList
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
 
+        private void Update()
+        {
+            if (isOpen && topicRoot != null)
+                UpdateViewportScale();
+        }
+
         private void OnDisable()
         {
             SpikeBridge.ShellCommandReceived -= OnShellCommand;
@@ -250,6 +256,7 @@ namespace Loci.Topics.LinkedList
             if (state.IsEmpty)
             {
                 CreateLabel(topicRoot, "NULL", Vector3.zero, 38f, Color.white);
+                UpdateViewportScale();
                 return;
             }
 
@@ -269,6 +276,38 @@ namespace Loci.Topics.LinkedList
             float nullX = tailX + spacing * 0.88f;
             CreateLabel(topicRoot, "→", new Vector3(tailX + spacing * 0.54f, 0f, rootLabelZ), 42f, Color.white);
             CreateLabel(topicRoot, "NULL", new Vector3(nullX, 0f, rootLabelZ), 28f, Color.white);
+            UpdateViewportScale();
+        }
+
+        private void UpdateViewportScale()
+        {
+            if (topicRoot == null || state == null) return;
+            bool landscape = Screen.width > Screen.height;
+            float maximumScale = landscape ? 2f : 1f;
+            float scaledSpacing = nodeSpacing * currentLayoutScale;
+            float scaledNodeSize = nodeSize * currentLayoutScale;
+            float contentWidth = state.IsEmpty
+                ? 0.20f
+                : Mathf.Max(0.20f, Mathf.Max(0, state.Count - 1) * scaledSpacing + scaledNodeSize +
+                    scaledSpacing * 0.88f + 0.45f * currentLayoutScale);
+            float contentHeight = scaledNodeSize + markerVerticalGap * currentLayoutScale + 0.12f;
+            Camera camera = Camera.main;
+            if (camera != null)
+            {
+                float depth = camera.WorldToViewportPoint(topicRoot.position).z;
+                if (depth > 0f)
+                {
+                    const float margin = 0.08f;
+                    Vector3 left = camera.ViewportToWorldPoint(new Vector3(margin, 0.5f, depth));
+                    Vector3 right = camera.ViewportToWorldPoint(new Vector3(1f - margin, 0.5f, depth));
+                    Vector3 bottom = camera.ViewportToWorldPoint(new Vector3(0.5f, margin, depth));
+                    Vector3 top = camera.ViewportToWorldPoint(new Vector3(0.5f, 1f - margin, depth));
+                    float widthFit = Vector3.Distance(left, right) / Mathf.Max(contentWidth, 0.001f);
+                    float heightFit = Vector3.Distance(bottom, top) / Mathf.Max(contentHeight, 0.001f);
+                    maximumScale = Mathf.Min(maximumScale, widthFit, heightFit);
+                }
+            }
+            topicRoot.localScale = Vector3.one * maximumScale;
         }
 
         private void CreateLabel(Transform parent, string text, Vector3 position, float fontSize, Color color)

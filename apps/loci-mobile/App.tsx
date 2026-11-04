@@ -66,6 +66,13 @@ export default function App() {
 
   const btn = {marginTop: 8, padding: 14, backgroundColor: '#5B4BFF'};
   const btnText = {color: '#fff', fontWeight: '600' as const};
+  const landscapeGuidanceTopic = activeTopicId === 'list'
+    ? 'List'
+    : activeTopicId === 'queue'
+      ? 'Queue'
+      : activeTopicId === 'linked_list'
+        ? 'Linked List'
+        : '';
 
   return (
     <View style={{flex: 1, backgroundColor: '#F4F5F9'}}>
@@ -83,6 +90,17 @@ export default function App() {
         }}>
           <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
             For a clearer view of Loops, rotate your phone to landscape.
+          </Text>
+        </View>
+      )}
+      {landscapeGuidanceTopic !== '' && height > width && (
+        <View style={{
+          position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
+          paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+          backgroundColor: 'rgba(18,20,43,0.88)',
+        }}>
+          <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
+            For a clearer view of {landscapeGuidanceTopic}, rotate your phone to landscape.
           </Text>
         </View>
       )}

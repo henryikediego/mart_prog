@@ -24,8 +24,15 @@ namespace Loci.Topics.Queue
         private bool isOpen;
         private bool isSequenceRunning;
         private int highlightedIndex = -1;
+        private float contentLayoutScale = 1f;
         private Material cellMaterial;
         private Material foundMaterial;
+
+        private void Update()
+        {
+            if (isOpen && topicRoot != null)
+                UpdateViewportScale();
+        }
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
         private void OnDisable()
@@ -181,8 +188,7 @@ namespace Loci.Topics.Queue
             if (topicRoot == null) return;
             for (int i = topicRoot.childCount - 1; i >= 0; i--) Destroy(topicRoot.GetChild(i).gameObject);
             EnsureMaterials();
-            float layoutScale = state.Count <= 3 ? 1f : 3f / state.Count;
-            topicRoot.localScale = Vector3.one * layoutScale;
+            contentLayoutScale = state.Count <= 3 ? 1f : 3f / state.Count;
             float spacing = cellSpacing;
             float startX = -(state.Count - 1) * spacing * 0.5f;
             for (int i = 0; i < state.Count; i++)
@@ -203,6 +209,33 @@ namespace Loci.Topics.Queue
             float rearX = state.Count == 0 ? cellSpacing : startX + (state.Count - 1) * spacing;
             CreateLabel("FRONT", new Vector3(frontX, markerY, -cellSize * 0.2f), 38f, FrontColor);
             CreateLabel("REAR", new Vector3(rearX, markerY, -cellSize * 0.2f), 38f, RearColor);
+            UpdateViewportScale();
+        }
+
+        private void UpdateViewportScale()
+        {
+            if (topicRoot == null || state == null) return;
+            float baseWidth = Mathf.Max(0, state.Count - 1) * cellSpacing + cellSize + 0.20f;
+            float baseHeight = cellSize + 0.09f + 0.16f;
+            bool landscape = Screen.width > Screen.height;
+            float maximumScale = landscape ? 2f : 1f;
+            Camera camera = Camera.main;
+            if (camera != null)
+            {
+                float depth = camera.WorldToViewportPoint(topicRoot.position).z;
+                if (depth > 0f)
+                {
+                    const float margin = 0.08f;
+                    Vector3 left = camera.ViewportToWorldPoint(new Vector3(margin, 0.5f, depth));
+                    Vector3 right = camera.ViewportToWorldPoint(new Vector3(1f - margin, 0.5f, depth));
+                    Vector3 bottom = camera.ViewportToWorldPoint(new Vector3(0.5f, margin, depth));
+                    Vector3 top = camera.ViewportToWorldPoint(new Vector3(0.5f, 1f - margin, depth));
+                    float widthFit = Vector3.Distance(left, right) / Mathf.Max(baseWidth, 0.001f);
+                    float heightFit = Vector3.Distance(bottom, top) / Mathf.Max(baseHeight, 0.001f);
+                    maximumScale = Mathf.Min(maximumScale, widthFit, heightFit);
+                }
+            }
+            topicRoot.localScale = Vector3.one * Mathf.Min(contentLayoutScale * (landscape ? 2f : 1f), maximumScale);
         }
         private void CreateLabel(string text, Vector3 position, float fontSize, Color color)
         {
