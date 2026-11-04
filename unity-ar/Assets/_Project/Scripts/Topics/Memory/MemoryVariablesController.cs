@@ -19,6 +19,7 @@ namespace Loci.Topics.Memory
         private static readonly Color32 ValueText = new Color32(102, 255, 140, 255);
         private static readonly Color32 RowColor = new Color32(91, 75, 255, 255);
         private static readonly Color32 HighlightColor = new Color32(255, 217, 26, 255);
+        private static readonly Color32 FocusMarkerColor = new Color32(102, 204, 255, 255);
         private static readonly Color32 BodyText = new Color32(245, 245, 250, 255);
         private static readonly Regex NamePattern = new Regex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
 
@@ -352,8 +353,8 @@ namespace Loci.Topics.Memory
                     CreateLabel(record.Value, new Vector3(0.099f, y, -0.012f), 21f, valueColor, 0.10f);
                     CreateLabel(record.Size, new Vector3(0.2295f, y, -0.012f), 21f, valueColor, 0.08f);
                     if (i == focusIndex && marker.Length > 0)
-                        CreateLabel(marker, new Vector3(0f, y - RowStep * 0.45f, -0.014f), 16f,
-                            valueColor, 0.20f, FontStyles.Bold);
+                        CreateLabel(marker, new Vector3(0f, y - RowStep * 0.82f, -0.014f), 26f,
+                            FocusMarkerColor, 0.56f, FontStyles.Bold);
                 }
             }
 
