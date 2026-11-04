@@ -104,14 +104,14 @@ export default function App() {
           </Text>
         </View>
       )}
-      {activeTopicId === 'memory' && activeActivityId === 'variables' && height > width && (
+      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types') && height > width && (
         <View style={{
           position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
           paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
           backgroundColor: 'rgba(18,20,43,0.88)',
         }}>
           <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
-            For a clearer view of Memory Variables, rotate your phone to landscape.
+            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : 'Memory Variables'}, rotate your phone to landscape.
           </Text>
         </View>
       )}
@@ -387,22 +387,39 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'variables'})} style={btn}>
               <Text style={btnText}>Open Memory Variables</Text>
             </Pressable>
-            <TextInput
-              value={memoryVariableInput}
-              onChangeText={setMemoryVariableInput}
-              placeholder="int age=20, age=25, age, or prediction"
-              autoCapitalize="none"
-              style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
-            />
-            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Set/Inspect', value: memoryVariableInput})} style={btn}>
-              <Text style={btnText}>Set / Inspect Variable</Text>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'data_types'})} style={btn}>
+              <Text style={btnText}>Open Memory Data Types</Text>
             </Pressable>
-            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Predict Step', value: memoryVariableInput})} style={btn}>
-              <Text style={btnText}>Predict Step</Text>
-            </Pressable>
-            <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
-              <Text style={btnText}>Reset Memory Variables</Text>
-            </Pressable>
+            {activeActivityId === 'data_types' && (
+              <>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Show Types'})} style={btn}>
+                  <Text style={btnText}>Show Data Types</Text>
+                </Pressable>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
+                  <Text style={btnText}>Reset Data Types</Text>
+                </Pressable>
+              </>
+            )}
+            {activeActivityId === 'variables' && (
+              <>
+                <TextInput
+                  value={memoryVariableInput}
+                  onChangeText={setMemoryVariableInput}
+                  placeholder="int age=20, age=25, age, or prediction"
+                  autoCapitalize="none"
+                  style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
+                />
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Set/Inspect', value: memoryVariableInput})} style={btn}>
+                  <Text style={btnText}>Set / Inspect Variable</Text>
+                </Pressable>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Predict Step', value: memoryVariableInput})} style={btn}>
+                  <Text style={btnText}>Predict Step</Text>
+                </Pressable>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
+                  <Text style={btnText}>Reset Memory Variables</Text>
+                </Pressable>
+              </>
+            )}
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'loops'})} style={btn}>
               <Text style={btnText}>Open Loops</Text>
             </Pressable>

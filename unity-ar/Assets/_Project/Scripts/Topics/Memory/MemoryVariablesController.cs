@@ -32,6 +32,7 @@ namespace Loci.Topics.Memory
         private const float PortraitScaleMultiplier = 1.45f;
         private const float LandscapeScaleMultiplier = 2.0f;
         private const string ActivityId = "variables";
+        private const string DataTypesActivityId = "data_types";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -79,6 +80,7 @@ namespace Loci.Topics.Memory
         private Material headerMaterial;
         private bool isOpen;
         private bool isBusy;
+        private bool isDataTypesActivity;
         private int predictionIndex;
         private bool waitingForPrediction;
 
@@ -113,7 +115,8 @@ namespace Loci.Topics.Memory
         private void Open(TopicOpenPayload payload)
         {
             if (payload == null) return;
-            if (payload.TopicId != LociTopicId.Memory || payload.ActivityId != ActivityId)
+            if (payload.TopicId != LociTopicId.Memory ||
+                (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId))
             {
                 CloseTopic();
                 return;
@@ -126,7 +129,8 @@ namespace Loci.Topics.Memory
             records.Clear();
             predictionIndex = 0;
             waitingForPrediction = false;
-            topicRoot = new GameObject("Memory Variables 3D Content").transform;
+            isDataTypesActivity = payload.ActivityId == DataTypesActivityId;
+            topicRoot = new GameObject(isDataTypesActivity ? "Memory Data Types 3D Content" : "Memory Variables 3D Content").transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
             Render();
@@ -139,6 +143,19 @@ namespace Loci.Topics.Memory
         {
             if (!isOpen || payload == null || payload.TopicId != LociTopicId.Memory || isBusy) return;
             string value = payload.Value == null ? string.Empty : payload.Value.Trim();
+            if (isDataTypesActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Show Types": ShowDataTypes(); break;
+                    case "Reset": ResetDataTypes(); break;
+                    default:
+                        SendEvent(payload.Action, value, "Failed", "Use Show Types to display the common data-type examples.");
+                        break;
+                }
+                return;
+            }
+
             switch (payload.Action)
             {
                 case "Set/Inspect": SetOrInspect(value); break;
@@ -313,6 +330,75 @@ namespace Loci.Topics.Memory
             focusedRowIndex = -1;
             Render();
             SendEvent("Reset", string.Empty, "Success", "Variables reset: the memory table is empty and the guided prediction is ready to start.");
+        }
+
+        private void ShowDataTypes()
+        {
+            records.Clear();
+            predictionIndex = 0;
+            waitingForPrediction = false;
+            focusedRowIndex = -1;
+
+            string[,] demo =
+            {
+                { "age", "int", "20" },
+                { "price", "float", "15.5" },
+                { "grade", "char", "'A'" },
+                { "passed", "bool", "true" },
+                { "name", "string", "\"Mike\"" }
+            };
+            int byteOffset = 0;
+            for (int i = 0; i < demo.GetLength(0); i++)
+            {
+                string type = demo[i, 1];
+                records.Add(new VariableRecord
+                {
+                    Address = "0x" + (4096 + byteOffset).ToString("X"),
+                    Name = demo[i, 0],
+                    Type = type,
+                    Value = demo[i, 2],
+                    Size = TypeSize(type)
+                });
+                byteOffset += TypeByteCount(type);
+            }
+
+            Render();
+            SendEvent("Show Types", string.Empty, "Success",
+                "Displayed common data types with their values, size-aware addresses, and memory sizes: int, float, char, bool, and string.");
+        }
+
+        private void ResetDataTypes()
+        {
+            records.Clear();
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success", "Data Types reset. Use Show Types to display the examples again.");
+        }
+
+        private static string TypeSize(string type)
+        {
+            switch (type)
+            {
+                case "int":
+                case "float": return "4 bytes";
+                case "char":
+                case "bool": return "1 byte";
+                case "string": return "varies";
+                default: return "unknown";
+            }
+        }
+
+        private static int TypeByteCount(string type)
+        {
+            switch (type)
+            {
+                case "int":
+                case "float": return 4;
+                case "char":
+                case "bool": return 1;
+                case "string": return 8;
+                default: return 4;
+            }
         }
 
         private void Render(int focusIndex = -1, string marker = "")
