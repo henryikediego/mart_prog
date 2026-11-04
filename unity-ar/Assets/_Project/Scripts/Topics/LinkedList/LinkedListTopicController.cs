@@ -289,7 +289,7 @@ namespace Loci.Topics.LinkedList
             float contentWidth = state.IsEmpty
                 ? 0.20f
                 : Mathf.Max(0.20f, Mathf.Max(0, state.Count - 1) * scaledSpacing + scaledNodeSize +
-                    scaledSpacing * 0.88f + 0.45f * currentLayoutScale);
+                    scaledSpacing * 0.88f + 0.20f * currentLayoutScale);
             float contentHeight = scaledNodeSize + markerVerticalGap * currentLayoutScale + 0.12f;
             Camera camera = Camera.main;
             if (camera != null)
