@@ -15,6 +15,7 @@ export default function App() {
   const [nestedValues, setNestedValues] = useState('65,80');
   const [memoryVariableInput, setMemoryVariableInput] = useState('int age=20');
   const [activeTopicId, setActiveTopicId] = useState('');
+  const [activeActivityId, setActiveActivityId] = useState('');
   const {width, height} = useWindowDimensions();
 
   const handleUnityMessage = (event: {nativeEvent: {message: string}}) => {
@@ -32,6 +33,13 @@ export default function App() {
 
   // Temporary contract controls for testing the modular AR session on-device.
   const sendToUnity = (type: string, payload: object = {}) => {
+    if (type === 'topic.open') {
+      const topicRequest = payload as {topicId?: string; activityId?: string};
+      setActiveActivityId(topicRequest.activityId ?? '');
+    } else if (type === 'topic.close' || type === 'placement.reset' || type === 'session.stop') {
+      setActiveActivityId('');
+    }
+
     messageCounter.current += 1;
     const message = {
       v: 1,
@@ -75,6 +83,17 @@ export default function App() {
         }}>
           <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
             For a clearer view of Loops, rotate your phone to landscape.
+          </Text>
+        </View>
+      )}
+      {activeTopicId === 'memory' && activeActivityId === 'variables' && height > width && (
+        <View style={{
+          position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
+          paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+          backgroundColor: 'rgba(18,20,43,0.88)',
+        }}>
+          <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
+            For a clearer view of Memory Variables, rotate your phone to landscape.
           </Text>
         </View>
       )}

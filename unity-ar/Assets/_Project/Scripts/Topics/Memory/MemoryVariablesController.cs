@@ -28,7 +28,8 @@ namespace Loci.Topics.Memory
         private const float RowStep = 0.052f;
         private const float RowDepth = 0.0192f;
         private const float LabelScale = 0.006f;
-        private const float TableScaleMultiplier = 1.45f;
+        private const float PortraitScaleMultiplier = 1.45f;
+        private const float LandscapeScaleMultiplier = 2.0f;
         private const string ActivityId = "variables";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
@@ -75,7 +76,6 @@ namespace Loci.Topics.Memory
         private readonly List<Material> rowMaterials = new List<Material>();
         private Transform topicRoot;
         private Material headerMaterial;
-        private Material codeMaterial;
         private bool isOpen;
         private bool isBusy;
         private int predictionIndex;
@@ -88,7 +88,6 @@ namespace Loci.Topics.Memory
             SpikeBridge.ShellCommandReceived -= OnShellCommand;
             CloseTopic();
             DestroyMaterial(ref headerMaterial);
-            DestroyMaterial(ref codeMaterial);
             for (int i = 0; i < rowMaterials.Count; i++) Destroy(rowMaterials[i]);
             rowMaterials.Clear();
         }
@@ -358,34 +357,7 @@ namespace Loci.Topics.Memory
                 }
             }
 
-            RenderCodePanel();
             UpdateViewportFit();
-        }
-
-        private void RenderCodePanel()
-        {
-            string code = "";
-            string prompt = "";
-            if (waitingForPrediction && predictionIndex < PredictionSteps.Length)
-            {
-                code = PredictionSteps[predictionIndex].Code;
-                prompt = PredictionSteps[predictionIndex].Question;
-            }
-            else if (predictionIndex >= PredictionSteps.Length)
-            {
-                code = "Program finished.";
-                prompt = "Guided variable prediction complete.";
-            }
-            else
-            {
-                code = "Set / inspect a variable";
-                prompt = "Use Predict Step for guided prediction.";
-            }
-
-            CreateBox("Memory Variable Code Panel", new Vector3(0f, -0.39f, 0f),
-                new Vector3(TableWidth, 0.065f, RowDepth), codeMaterial);
-            CreateLabel(code, new Vector3(0f, -0.378f, -0.012f), 20f, BodyText, 0.55f, FontStyles.Bold);
-            CreateLabel(prompt, new Vector3(0f, -0.43f, -0.012f), 14f, HeaderText, 0.56f);
         }
 
         private void UpdateViewportFit()
@@ -400,10 +372,12 @@ namespace Loci.Topics.Memory
             Vector3 bottom = camera.ViewportToWorldPoint(new Vector3(0.5f, horizontalViewportMargin, depth));
             Vector3 top = camera.ViewportToWorldPoint(new Vector3(0.5f, 1f - horizontalViewportMargin, depth));
             float availableHeight = Vector3.Distance(bottom, top);
-            const float ContentHeight = 0.60f;
-            float fit = Mathf.Min(1f, availableWidth / (TableWidth * TableScaleMultiplier),
-                availableHeight / (ContentHeight * TableScaleMultiplier));
-            topicRoot.localScale = Vector3.one * (TableScaleMultiplier * fit);
+            bool landscape = Screen.width > Screen.height;
+            float scaleCap = landscape ? LandscapeScaleMultiplier : PortraitScaleMultiplier;
+            float contentHeight = 0.24f + Mathf.Max(1, records.Count) * RowStep;
+            float fit = Mathf.Min(1f,
+                Mathf.Min(availableWidth / (TableWidth * scaleCap), availableHeight / (contentHeight * scaleCap)));
+            topicRoot.localScale = Vector3.one * (scaleCap * fit);
         }
 
         private bool TryParseAssignment(string input, out string type, out string name, out string value, out string error)
@@ -517,7 +491,6 @@ namespace Loci.Topics.Memory
         private void EnsureMaterials()
         {
             if (headerMaterial == null) headerMaterial = CreateMaterial(HeaderBackground);
-            if (codeMaterial == null) codeMaterial = CreateMaterial(new Color32(18, 20, 43, 255));
         }
 
         private static Material CreateMaterial(Color color)
