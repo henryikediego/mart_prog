@@ -375,19 +375,6 @@ namespace Loci.Topics.Memory
             SendEvent("Reset", string.Empty, "Success", "Data Types reset. Use Show Types to display the examples again.");
         }
 
-        private static string TypeSize(string type)
-        {
-            switch (type)
-            {
-                case "int":
-                case "float": return "4 bytes";
-                case "char":
-                case "bool": return "1 byte";
-                case "string": return "varies";
-                default: return "unknown";
-            }
-        }
-
         private static int TypeByteCount(string type)
         {
             switch (type)
