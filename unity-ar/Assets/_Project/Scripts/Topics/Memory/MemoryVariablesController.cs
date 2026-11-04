@@ -31,6 +31,7 @@ namespace Loci.Topics.Memory
         private const float LabelScale = 0.006f;
         private const float PortraitScaleMultiplier = 1.45f;
         private const float LandscapeScaleMultiplier = 2.0f;
+        private const float DataTypesLandscapeScaleMultiplier = 3.0f;
         private const string ActivityId = "variables";
         private const string DataTypesActivityId = "data_types";
 
@@ -447,7 +448,9 @@ namespace Loci.Topics.Memory
             Vector3 top = camera.ViewportToWorldPoint(new Vector3(0.5f, 1f - horizontalViewportMargin, depth));
             float availableHeight = Vector3.Distance(bottom, top);
             bool landscape = Screen.width > Screen.height;
-            float scaleCap = landscape ? LandscapeScaleMultiplier : PortraitScaleMultiplier;
+            float scaleCap = landscape
+                ? (isDataTypesActivity ? DataTypesLandscapeScaleMultiplier : LandscapeScaleMultiplier)
+                : PortraitScaleMultiplier;
             float contentHeight = 0.24f + Mathf.Max(1, records.Count) * RowStep;
             float fit = Mathf.Min(1f,
                 Mathf.Min(availableWidth / (TableWidth * scaleCap), availableHeight / (contentHeight * scaleCap)));
