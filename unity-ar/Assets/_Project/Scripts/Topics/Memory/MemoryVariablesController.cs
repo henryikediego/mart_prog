@@ -38,6 +38,7 @@ namespace Loci.Topics.Memory
         private const string MemoryAccessActivityId = "memory_access";
         private const string LoopMemoryActivityId = "loop_memory";
         private const string ArraysActivityId = "arrays";
+        private const string FunctionsActivityId = "functions";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -90,11 +91,13 @@ namespace Loci.Topics.Memory
         private bool isMemoryAccessActivity;
         private bool isLoopMemoryActivity;
         private bool isArraysActivity;
+        private bool isFunctionsActivity;
         private bool needsFocusMarkerGap;
         private bool hasGlobalMarker;
         private int predictionIndex;
         private int memoryAccessStep;
         private int loopMemoryStep;
+        private int functionMemoryStep;
         private bool waitingForPrediction;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
@@ -131,7 +134,8 @@ namespace Loci.Topics.Memory
             if (payload.TopicId != LociTopicId.Memory ||
                 (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId &&
                  payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId &&
-                 payload.ActivityId != LoopMemoryActivityId && payload.ActivityId != ArraysActivityId))
+                 payload.ActivityId != LoopMemoryActivityId && payload.ActivityId != ArraysActivityId &&
+                 payload.ActivityId != FunctionsActivityId))
             {
                 CloseTopic();
                 return;
@@ -149,13 +153,16 @@ namespace Loci.Topics.Memory
             isMemoryAccessActivity = payload.ActivityId == MemoryAccessActivityId;
             isLoopMemoryActivity = payload.ActivityId == LoopMemoryActivityId;
             isArraysActivity = payload.ActivityId == ArraysActivityId;
+            isFunctionsActivity = payload.ActivityId == FunctionsActivityId;
             memoryAccessStep = 0;
             loopMemoryStep = 0;
+            functionMemoryStep = 0;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
                 isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
                 isMemoryAccessActivity ? "Memory Access 3D Content" :
                 isLoopMemoryActivity ? "Loop Memory 3D Content" :
-                isArraysActivity ? "Memory Arrays 3D Content" : "Memory Variables 3D Content";
+                isArraysActivity ? "Memory Arrays 3D Content" :
+                isFunctionsActivity ? "Memory Functions 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -204,6 +211,19 @@ namespace Loci.Topics.Memory
                     case "Reset": ResetArrays(); break;
                     default:
                         SendEvent("Memory Set Array", value, "Failed", "Enter an array declaration or element update, inspect an element, or Reset the Arrays activity.");
+                        break;
+                }
+                return;
+            }
+
+            if (isFunctionsActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Function Call": StepMemoryFunctionCall(); break;
+                    case "Reset": ResetMemoryFunctionCall(); break;
+                    default:
+                        SendEvent("Memory Function Call", value, "Failed", "Use Function Call to follow the add() memory trace, or Reset to start again.");
                         break;
                 }
                 return;
@@ -873,6 +893,107 @@ namespace Loci.Topics.Memory
             focusedRowIndex = -1;
             Render();
             SendEvent("Reset", string.Empty, "Success", "Arrays reset. The table is empty and ready for a new array.");
+        }
+
+        private void StepMemoryFunctionCall()
+        {
+            functionMemoryStep++;
+            switch (functionMemoryStep)
+            {
+                case 1:
+                    AddMemoryFunctionVariable("x", "10");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Function Call", "int x = 10;", "Success",
+                        "Allocated new variable x with value 10."));
+                    break;
+                case 2:
+                    AddMemoryFunctionVariable("y", "20");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Function Call", "int y = 20;", "Success",
+                        "Allocated new variable y with value 20."));
+                    break;
+                case 3:
+                    Render();
+                    SendEvent("Memory Function Call", "result = add(x, y);", "Success",
+                        "Function call add(x, y) started. A new function frame is created.");
+                    break;
+                case 4:
+                    AddMemoryFunctionFrameVariable("a:param", "10");
+                    Render(records.Count - 1, "FUNCTION\nFRAME");
+                    StartCoroutine(CompleteAfterHighlight("Memory Function Call", "int add(int a, int b)", "Success",
+                        "Created param variable a inside add() with value 10."));
+                    break;
+                case 5:
+                    AddMemoryFunctionFrameVariable("b:param", "20");
+                    Render(records.Count - 1, "FUNCTION\nFRAME");
+                    StartCoroutine(CompleteAfterHighlight("Memory Function Call", "int add(int a, int b)", "Success",
+                        "Created param variable b inside add() with value 20."));
+                    break;
+                case 6:
+                    AddMemoryFunctionFrameVariable("sum:local", "30");
+                    Render(records.Count - 1, "FUNCTION\nFRAME");
+                    StartCoroutine(CompleteAfterHighlight("Memory Function Call", "int sum = a + b;", "Success",
+                        "Created local variable sum inside add() with value 30."));
+                    break;
+                case 7:
+                {
+                    int sumIndex = records.FindIndex(record => record.Name == "sum:local");
+                    Render(sumIndex, "RETURN\n30");
+                    StartCoroutine(CompleteAfterHighlight("Memory Function Call", "return sum;", "Success",
+                        "The function returns the value 30."));
+                    break;
+                }
+                case 8:
+                    records.RemoveAll(record => record.Name == "a:param" || record.Name == "b:param" || record.Name == "sum:local");
+                    AddMemoryFunctionVariable("result", "30");
+                    Render(records.Count - 1, "RETURN\nSTORED");
+                    StartCoroutine(CompleteAfterHighlight("Memory Function Call", "int result = 30;", "Success",
+                        "Return value 30 was stored in result. The add() frame was removed."));
+                    break;
+                case 9:
+                    focusedRowIndex = -1;
+                    Render();
+                    SendEvent("Memory Function Call", string.Empty, "Finished", "Function call memory trace completed");
+                    break;
+                default:
+                    SendEvent("Memory Function Call", string.Empty, "Finished", "Function call memory trace completed");
+                    break;
+            }
+        }
+
+        private void AddMemoryFunctionVariable(string name, string value)
+        {
+            records.Add(new VariableRecord
+            {
+                Address = AddressForIndex(records.Count),
+                Name = name,
+                Type = "int",
+                Value = value,
+                Size = TypeSize("int")
+            });
+        }
+
+        private void AddMemoryFunctionFrameVariable(string name, string value)
+        {
+            int byteOffset = 0;
+            for (int i = 0; i < records.Count; i++) byteOffset += TypeByteCount(records[i].Type);
+            records.Add(new VariableRecord
+            {
+                Address = "0x" + (4096 + byteOffset).ToString("X"),
+                Name = name,
+                Type = "int",
+                Value = value,
+                Size = TypeSize("int")
+            });
+        }
+
+        private void ResetMemoryFunctionCall()
+        {
+            records.Clear();
+            functionMemoryStep = 0;
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success", "Memory Function Call reset. The table is empty and the trace is ready to start.");
         }
 
         private static int TypeByteCount(string type)
