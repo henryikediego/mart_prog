@@ -40,6 +40,7 @@ namespace Loci.Topics.Memory
         private const string ArraysActivityId = "arrays";
         private const string FunctionsActivityId = "functions";
         private const string MemorySelectionActivityId = "selection";
+        private const string MemoryScopeActivityId = "scope";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -94,6 +95,7 @@ namespace Loci.Topics.Memory
         private bool isArraysActivity;
         private bool isFunctionsActivity;
         private bool isMemorySelectionActivity;
+        private bool isMemoryScopeActivity;
         private bool needsFocusMarkerGap;
         private bool hasGlobalMarker;
         private int predictionIndex;
@@ -101,6 +103,7 @@ namespace Loci.Topics.Memory
         private int loopMemoryStep;
         private int functionMemoryStep;
         private int memorySelectionStep;
+        private int memoryScopeStep;
         private bool waitingForPrediction;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
@@ -138,7 +141,8 @@ namespace Loci.Topics.Memory
                 (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId &&
                  payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId &&
                  payload.ActivityId != LoopMemoryActivityId && payload.ActivityId != ArraysActivityId &&
-                 payload.ActivityId != FunctionsActivityId && payload.ActivityId != MemorySelectionActivityId))
+                 payload.ActivityId != FunctionsActivityId && payload.ActivityId != MemorySelectionActivityId &&
+                 payload.ActivityId != MemoryScopeActivityId))
             {
                 CloseTopic();
                 return;
@@ -158,17 +162,20 @@ namespace Loci.Topics.Memory
             isArraysActivity = payload.ActivityId == ArraysActivityId;
             isFunctionsActivity = payload.ActivityId == FunctionsActivityId;
             isMemorySelectionActivity = payload.ActivityId == MemorySelectionActivityId;
+            isMemoryScopeActivity = payload.ActivityId == MemoryScopeActivityId;
             memoryAccessStep = 0;
             loopMemoryStep = 0;
             functionMemoryStep = 0;
             memorySelectionStep = 0;
+            memoryScopeStep = 0;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
                 isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
                 isMemoryAccessActivity ? "Memory Access 3D Content" :
                 isLoopMemoryActivity ? "Loop Memory 3D Content" :
                 isArraysActivity ? "Memory Arrays 3D Content" :
                 isFunctionsActivity ? "Memory Functions 3D Content" :
-                isMemorySelectionActivity ? "Memory Selection 3D Content" : "Memory Variables 3D Content";
+                isMemorySelectionActivity ? "Memory Selection 3D Content" :
+                isMemoryScopeActivity ? "Memory Scope 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -243,6 +250,19 @@ namespace Loci.Topics.Memory
                     case "Reset": ResetMemorySelection(); break;
                     default:
                         SendEvent("Memory Selection", value, "Failed", "Use Run If-Else to follow the memory selection trace, or Reset to start again.");
+                        break;
+                }
+                return;
+            }
+
+            if (isMemoryScopeActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Scope Step": StepMemoryScope(); break;
+                    case "Reset": ResetMemoryScope(); break;
+                    default:
+                        SendEvent("Memory Scope", value, "Failed", "Use Scope Step to follow the block-scope trace, or Reset to start again.");
                         break;
                 }
                 return;
@@ -1060,6 +1080,76 @@ namespace Loci.Topics.Memory
             focusedRowIndex = -1;
             Render();
             SendEvent("Reset", string.Empty, "Success", "Memory Selection reset. The table is empty and the trace is ready to start.");
+        }
+
+        private void StepMemoryScope()
+        {
+            memoryScopeStep++;
+            switch (memoryScopeStep)
+            {
+                case 1:
+                    AddMemoryFunctionVariable("x", "10");
+                    Render(records.Count - 1, "ALLOCATED\nouter scope");
+                    StartCoroutine(CompleteAfterHighlight("Memory Scope", "int x = 10;", "Success",
+                        "Allocated x = 10 outside the if block. It remains in scope after the block ends."));
+                    break;
+                case 2:
+                    Render(-1, "CONDITION\nTRUE");
+                    SendEvent("Memory Scope", "if (x > 5)", "Success",
+                        "The condition x > 5 evaluated TRUE because x stores 10.");
+                    break;
+                case 3:
+                    AddMemoryFunctionVariable("y", "20");
+                    Render(-1, "LOCAL\nif block");
+                    StartCoroutine(CompleteAfterHighlight("Memory Scope", "int y = 20;", "Success",
+                        "Allocated y = 20 inside the if block. y is local to that block."));
+                    break;
+                case 4:
+                {
+                    int xIndex = records.FindIndex(record => record.Name == "x");
+                    if (xIndex < 0)
+                    {
+                        SendEvent("Memory Scope", "x = x + y;", "Failed", "The outer-scope variable x is missing. Reset the trace and try again.");
+                        break;
+                    }
+                    records[xIndex].Value = "30";
+                    Render(xIndex, "UPDATED\n10 → 30");
+                    StartCoroutine(CompleteAfterHighlight("Memory Scope", "x = x + y;", "Success",
+                        "Updated x from 10 to 30 using the block-local variable y = 20."));
+                    break;
+                }
+                case 5:
+                    records.RemoveAll(record => record.Name == "y");
+                    Render(-1, "REMOVED\ny out of scope");
+                    SendEvent("Memory Scope", "end of if block", "Success",
+                        "The if block ended, so its local variable y was removed from memory.");
+                    break;
+                case 6:
+                {
+                    int xIndex = records.FindIndex(record => record.Name == "x");
+                    Render(xIndex, "SCOPE\nREMAINS");
+                    SendEvent("Memory Scope", "x remains in memory", "Success",
+                        "x remains in memory with value 30 because it was declared outside the if block.");
+                    break;
+                }
+                case 7:
+                    focusedRowIndex = -1;
+                    Render();
+                    SendEvent("Memory Scope", string.Empty, "Finished", "Scope memory trace completed");
+                    break;
+                default:
+                    SendEvent("Memory Scope", string.Empty, "Finished", "Scope memory trace completed");
+                    break;
+            }
+        }
+
+        private void ResetMemoryScope()
+        {
+            records.Clear();
+            memoryScopeStep = 0;
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success", "Memory Scope reset. The table is empty and the trace is ready to start.");
         }
 
         private static int TypeByteCount(string type)
