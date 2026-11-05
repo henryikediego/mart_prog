@@ -37,6 +37,7 @@ namespace Loci.Topics.Memory
         private const string AddressLayoutActivityId = "address_layout";
         private const string MemoryAccessActivityId = "memory_access";
         private const string LoopMemoryActivityId = "loop_memory";
+        private const string ArraysActivityId = "arrays";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -88,6 +89,7 @@ namespace Loci.Topics.Memory
         private bool isAddressLayoutActivity;
         private bool isMemoryAccessActivity;
         private bool isLoopMemoryActivity;
+        private bool isArraysActivity;
         private bool needsFocusMarkerGap;
         private bool hasGlobalMarker;
         private int predictionIndex;
@@ -129,7 +131,7 @@ namespace Loci.Topics.Memory
             if (payload.TopicId != LociTopicId.Memory ||
                 (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId &&
                  payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId &&
-                 payload.ActivityId != LoopMemoryActivityId))
+                 payload.ActivityId != LoopMemoryActivityId && payload.ActivityId != ArraysActivityId))
             {
                 CloseTopic();
                 return;
@@ -146,12 +148,14 @@ namespace Loci.Topics.Memory
             isAddressLayoutActivity = payload.ActivityId == AddressLayoutActivityId;
             isMemoryAccessActivity = payload.ActivityId == MemoryAccessActivityId;
             isLoopMemoryActivity = payload.ActivityId == LoopMemoryActivityId;
+            isArraysActivity = payload.ActivityId == ArraysActivityId;
             memoryAccessStep = 0;
             loopMemoryStep = 0;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
                 isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
                 isMemoryAccessActivity ? "Memory Access 3D Content" :
-                isLoopMemoryActivity ? "Loop Memory 3D Content" : "Memory Variables 3D Content";
+                isLoopMemoryActivity ? "Loop Memory 3D Content" :
+                isArraysActivity ? "Memory Arrays 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -186,6 +190,20 @@ namespace Loci.Topics.Memory
                     case "Reset": ResetLoopMemory(); break;
                     default:
                         SendEvent("Memory Loop", value, "Failed", "Use Loop Step to follow the memory loop trace, or Reset to start again.");
+                        break;
+                }
+                return;
+            }
+
+            if (isArraysActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Set Array": SetArray(value); break;
+                    case "Inspect": InspectArrayElement(value); break;
+                    case "Reset": ResetArrays(); break;
+                    default:
+                        SendEvent("Memory Set Array", value, "Failed", "Enter an array declaration or element update, inspect an element, or Reset the Arrays activity.");
                         break;
                 }
                 return;
@@ -669,6 +687,192 @@ namespace Loci.Topics.Memory
             focusedRowIndex = -1;
             Render();
             SendEvent("Reset", string.Empty, "Success", "Loop Memory reset. The table is empty and the trace is ready to start.");
+        }
+
+        private void SetArray(string input)
+        {
+            if (!TryParseArrayInput(input, out string arrayName, out int declaredLength,
+                    out string type, out List<string> values, out bool isUpdate, out string error))
+            {
+                SendEvent("Memory Set Array", input, "Failed", error);
+                return;
+            }
+
+            if (isUpdate)
+            {
+                string elementName = arrayName + "[" + declaredLength + "]";
+                int elementIndex = records.FindIndex(record => record.Name == elementName);
+                if (elementIndex < 0)
+                {
+                    SendEvent("Memory Set Array", input, "Failed", "No array element named " + elementName + " was found.");
+                    return;
+                }
+
+                VariableRecord existing = records[elementIndex];
+                string newValue = values[0];
+                if (!IsCompatible(existing.Type, newValue))
+                {
+                    SendEvent("Memory Set Array", input, "Failed", TypeError(existing.Type, elementName));
+                    return;
+                }
+
+                string previousValue = existing.Value;
+                existing.Value = newValue;
+                Render(elementIndex, "UPDATED\n" + previousValue + " → " + newValue);
+                StartCoroutine(CompleteAfterHighlight("Memory Set Array", input, "Success",
+                    "Updated " + elementName + " from " + previousValue + " to " + newValue + "."));
+                return;
+            }
+
+            records.RemoveAll(record => record.Name.StartsWith(arrayName + "[", StringComparison.Ordinal));
+            int baseOffset = 0;
+            for (int i = 0; i < records.Count; i++) baseOffset += TypeByteCount(records[i].Type);
+            int firstIndex = records.Count;
+            int typeBytes = TypeByteCount(type);
+            for (int i = 0; i < values.Count; i++)
+            {
+                records.Add(new VariableRecord
+                {
+                    Address = "0x" + (4096 + baseOffset + i * typeBytes).ToString("X"),
+                    Name = arrayName + "[" + i + "]",
+                    Type = type,
+                    Value = values[i],
+                    Size = TypeSize(type)
+                });
+            }
+
+            Render(firstIndex, "ARRAY\nALLOCATED");
+            StartCoroutine(CompleteAfterHighlight("Memory Set Array", input, "Success",
+                "Allocated array " + arrayName + " with " + values.Count + " " + type + " element(s) in consecutive memory locations."));
+        }
+
+        private void InspectArrayElement(string input)
+        {
+            string elementName = (input ?? string.Empty).Trim();
+            int index = records.FindIndex(record => record.Name == elementName && record.Name.Contains("["));
+            if (index < 0)
+            {
+                SendEvent("Memory Inspect", elementName, "Failed", "No array element named " + elementName + " was found.");
+                return;
+            }
+
+            VariableRecord record = records[index];
+            Render(index, "INSPECTED");
+            StartCoroutine(CompleteAfterHighlight("Memory Inspect", elementName, "Success",
+                "Inspect: " + record.Name + " is a " + record.Type + " array element. It stores " + record.Value +
+                " at address " + record.Address + " and uses " + record.Size + "."));
+        }
+
+        private bool TryParseArrayInput(string input, out string arrayName, out int bracketNumber,
+            out string type, out List<string> values, out bool isUpdate, out string error)
+        {
+            arrayName = string.Empty;
+            bracketNumber = 0;
+            type = string.Empty;
+            values = new List<string>();
+            isUpdate = false;
+            error = string.Empty;
+
+            string cleaned = (input ?? string.Empty).Trim();
+            int equals = cleaned.IndexOf('=');
+            if (equals < 0 || equals != cleaned.LastIndexOf('='))
+            {
+                error = "Use an array declaration such as int marks[3]=70,80,65 or an element update such as marks[2]=85.";
+                return false;
+            }
+
+            string left = cleaned.Substring(0, equals).Trim();
+            string right = cleaned.Substring(equals + 1).Trim().Replace("{", string.Empty).Replace("}", string.Empty);
+            string[] knownTypes = { "int", "float", "double", "char", "bool", "string" };
+            for (int i = 0; i < knownTypes.Length; i++)
+            {
+                string prefix = knownTypes[i] + " ";
+                if (!left.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                type = knownTypes[i];
+                left = left.Substring(prefix.Length).Trim();
+                break;
+            }
+
+            int open = left.IndexOf('[');
+            int close = left.IndexOf(']');
+            if (open <= 0 || close != left.Length - 1 || close <= open ||
+                left.IndexOf('[', open + 1) >= 0 || left.IndexOf(']', close + 1) >= 0)
+            {
+                error = "Use an array name with a bracketed length or index, such as marks[3].";
+                return false;
+            }
+
+            arrayName = left.Substring(0, open).Trim();
+            string bracketText = left.Substring(open + 1, close - open - 1).Trim();
+            if (!NamePattern.IsMatch(arrayName) || !int.TryParse(bracketText, NumberStyles.None,
+                    CultureInfo.InvariantCulture, out bracketNumber) || bracketNumber < 0)
+            {
+                error = "Use a valid array name and a whole-number length or index, such as marks[3].";
+                return false;
+            }
+            if (right.Length == 0)
+            {
+                error = "Enter at least one array value.";
+                return false;
+            }
+
+            isUpdate = type.Length == 0 && !right.Contains(",");
+            string[] rawValues = right.Split(',');
+            for (int i = 0; i < rawValues.Length; i++)
+            {
+                string item = rawValues[i].Trim();
+                if (item.Length == 0)
+                {
+                    error = "Remove empty entries and enter one value for each array element.";
+                    return false;
+                }
+                values.Add(item);
+            }
+
+            if (isUpdate)
+            {
+                if (values.Count != 1)
+                {
+                    error = "Enter one value when updating an array element.";
+                    return false;
+                }
+                return true;
+            }
+
+            if (bracketNumber != values.Count)
+            {
+                error = "The declared array length is " + bracketNumber + ", but " + values.Count +
+                    " value(s) were entered. Enter exactly " + bracketNumber + " value(s), or change the declared length.";
+                return false;
+            }
+            if (values.Count > 6)
+            {
+                error = "Arrays can contain at most 6 values in this activity.";
+                return false;
+            }
+            if (type.Length == 0) type = InferType(values[0]);
+            if (type == null)
+            {
+                error = "Could not identify the array element type. Add a type such as int or string.";
+                return false;
+            }
+            for (int i = 0; i < values.Count; i++)
+            {
+                if (!IsCompatible(type, values[i]))
+                {
+                    error = TypeError(type, arrayName + "[" + i + "]");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private void ResetArrays()
+        {
+            records.Clear();
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success", "Arrays reset. The table is empty and ready for a new array.");
         }
 
         private static int TypeByteCount(string type)

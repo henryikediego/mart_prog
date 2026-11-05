@@ -14,6 +14,8 @@ export default function App() {
   const [ladderScore, setLadderScore] = useState('75');
   const [nestedValues, setNestedValues] = useState('65,80');
   const [memoryVariableInput, setMemoryVariableInput] = useState('int age=20');
+  const [memoryArrayInput, setMemoryArrayInput] = useState('int marks[3]=70,80,65');
+  const [memoryArrayInspectInput, setMemoryArrayInspectInput] = useState('marks[2]');
   const [activeTopicId, setActiveTopicId] = useState('');
   const [activeActivityId, setActiveActivityId] = useState('');
   const {width, height} = useWindowDimensions();
@@ -104,14 +106,14 @@ export default function App() {
           </Text>
         </View>
       )}
-      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout' || activeActivityId === 'memory_access' || activeActivityId === 'loop_memory') && height > width && (
+      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout' || activeActivityId === 'memory_access' || activeActivityId === 'loop_memory' || activeActivityId === 'arrays') && height > width && (
         <View style={{
           position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
           paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
           backgroundColor: 'rgba(18,20,43,0.88)',
         }}>
           <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
-            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : activeActivityId === 'memory_access' ? 'Memory Access' : activeActivityId === 'loop_memory' ? 'Loop Memory' : 'Memory Variables'}, rotate your phone to landscape.
+            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : activeActivityId === 'memory_access' ? 'Memory Access' : activeActivityId === 'loop_memory' ? 'Loop Memory' : activeActivityId === 'arrays' ? 'Arrays' : 'Memory Variables'}, rotate your phone to landscape.
           </Text>
         </View>
       )}
@@ -399,6 +401,9 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'loop_memory'})} style={btn}>
               <Text style={btnText}>Open Loop Memory</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'arrays'})} style={btn}>
+              <Text style={btnText}>Open Memory Arrays</Text>
+            </Pressable>
             {activeActivityId === 'data_types' && (
               <>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Show Types'})} style={btn}>
@@ -436,6 +441,34 @@ export default function App() {
                 </Pressable>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
                   <Text style={btnText}>Reset Loop Memory</Text>
+                </Pressable>
+              </>
+            )}
+            {activeActivityId === 'arrays' && (
+              <>
+                <TextInput
+                  value={memoryArrayInput}
+                  onChangeText={setMemoryArrayInput}
+                  placeholder="int marks[3]=70,80,65 or marks[2]=85"
+                  autoCapitalize="none"
+                  keyboardType="numbers-and-punctuation"
+                  style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
+                />
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Set Array', value: memoryArrayInput})} style={btn}>
+                  <Text style={btnText}>Set Array / Update Element</Text>
+                </Pressable>
+                <TextInput
+                  value={memoryArrayInspectInput}
+                  onChangeText={setMemoryArrayInspectInput}
+                  placeholder="Element to inspect, e.g. marks[2]"
+                  autoCapitalize="none"
+                  style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
+                />
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Inspect', value: memoryArrayInspectInput})} style={btn}>
+                  <Text style={btnText}>Inspect Array Element</Text>
+                </Pressable>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
+                  <Text style={btnText}>Reset Memory Arrays</Text>
                 </Pressable>
               </>
             )}
