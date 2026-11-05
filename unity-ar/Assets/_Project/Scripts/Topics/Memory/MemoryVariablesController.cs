@@ -34,6 +34,7 @@ namespace Loci.Topics.Memory
         private const float DataTypesLandscapeScaleMultiplier = 3.0f;
         private const string ActivityId = "variables";
         private const string DataTypesActivityId = "data_types";
+        private const string AddressLayoutActivityId = "address_layout";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -82,6 +83,7 @@ namespace Loci.Topics.Memory
         private bool isOpen;
         private bool isBusy;
         private bool isDataTypesActivity;
+        private bool isAddressLayoutActivity;
         private int predictionIndex;
         private bool waitingForPrediction;
 
@@ -117,7 +119,8 @@ namespace Loci.Topics.Memory
         {
             if (payload == null) return;
             if (payload.TopicId != LociTopicId.Memory ||
-                (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId))
+                (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId &&
+                 payload.ActivityId != AddressLayoutActivityId))
             {
                 CloseTopic();
                 return;
@@ -131,7 +134,10 @@ namespace Loci.Topics.Memory
             predictionIndex = 0;
             waitingForPrediction = false;
             isDataTypesActivity = payload.ActivityId == DataTypesActivityId;
-            topicRoot = new GameObject(isDataTypesActivity ? "Memory Data Types 3D Content" : "Memory Variables 3D Content").transform;
+            isAddressLayoutActivity = payload.ActivityId == AddressLayoutActivityId;
+            string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
+                isAddressLayoutActivity ? "Memory Address Layout 3D Content" : "Memory Variables 3D Content";
+            topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
             Render();
@@ -144,14 +150,23 @@ namespace Loci.Topics.Memory
         {
             if (!isOpen || payload == null || payload.TopicId != LociTopicId.Memory || isBusy) return;
             string value = payload.Value == null ? string.Empty : payload.Value.Trim();
-            if (isDataTypesActivity)
+            if (isDataTypesActivity || isAddressLayoutActivity)
             {
                 switch (payload.Action)
                 {
-                    case "Show Types": ShowDataTypes(); break;
-                    case "Reset": ResetDataTypes(); break;
+                    case "Show Types":
+                        if (isDataTypesActivity) ShowDataTypes();
+                        else SendEvent(payload.Action, value, "Failed", "Show Types is only available in the Data Types activity.");
+                        break;
+                    case "Show Layout":
+                        if (isAddressLayoutActivity) ShowAddressLayout();
+                        else SendEvent(payload.Action, value, "Failed", "Show Layout is only available in the Address Layout activity.");
+                        break;
+                    case "Reset": ResetMemoryDemo(); break;
                     default:
-                        SendEvent(payload.Action, value, "Failed", "Use Show Types to display the common data-type examples.");
+                        SendEvent(payload.Action, value, "Failed", isAddressLayoutActivity
+                            ? "Use Show Layout to display the address layout example."
+                            : "Use Show Types to display the common data-type examples.");
                         break;
                 }
                 return;
@@ -368,12 +383,29 @@ namespace Loci.Topics.Memory
                 "Displayed common data types with their values, size-aware addresses, and memory sizes: int, float, char, bool, and string.");
         }
 
-        private void ResetDataTypes()
+        private void ShowAddressLayout()
+        {
+            records.Clear();
+            predictionIndex = 0;
+            waitingForPrediction = false;
+            records.Add(new VariableRecord { Address = "0x1000", Name = "age", Type = "int", Value = "20", Size = TypeSize("int") });
+            records.Add(new VariableRecord { Address = "0x1004", Name = "price", Type = "float", Value = "15.5", Size = TypeSize("float") });
+            records.Add(new VariableRecord { Address = "0x1008", Name = "grade", Type = "char", Value = "'A'", Size = TypeSize("char") });
+            records.Add(new VariableRecord { Address = "0x1009", Name = "passed", Type = "bool", Value = "true", Size = TypeSize("bool") });
+            records.Add(new VariableRecord { Address = "0x100A", Name = "level", Type = "int", Value = "3", Size = TypeSize("int") });
+            Render(4, "ADDRESS\nLAYOUT");
+            SendEvent("Show Layout", string.Empty, "Success",
+                "Displayed how memory addresses advance by each data type's size. The level int row is highlighted with the ADDRESS LAYOUT marker.");
+        }
+
+        private void ResetMemoryDemo()
         {
             records.Clear();
             focusedRowIndex = -1;
             Render();
-            SendEvent("Reset", string.Empty, "Success", "Data Types reset. Use Show Types to display the examples again.");
+            string activityName = isAddressLayoutActivity ? "Address Layout" : "Data Types";
+            string actionName = isAddressLayoutActivity ? "Show Layout" : "Show Types";
+            SendEvent("Reset", string.Empty, "Success", activityName + " reset. Use " + actionName + " to display the example again.");
         }
 
         private static int TypeByteCount(string type)
@@ -449,7 +481,7 @@ namespace Loci.Topics.Memory
             float availableHeight = Vector3.Distance(bottom, top);
             bool landscape = Screen.width > Screen.height;
             float scaleCap = landscape
-                ? (isDataTypesActivity ? DataTypesLandscapeScaleMultiplier : LandscapeScaleMultiplier)
+                ? (isDataTypesActivity || isAddressLayoutActivity ? DataTypesLandscapeScaleMultiplier : LandscapeScaleMultiplier)
                 : PortraitScaleMultiplier;
             float contentHeight = 0.24f + Mathf.Max(1, records.Count) * RowStep;
             float fit = Mathf.Min(1f,

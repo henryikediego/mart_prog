@@ -104,14 +104,14 @@ export default function App() {
           </Text>
         </View>
       )}
-      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types') && height > width && (
+      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout') && height > width && (
         <View style={{
           position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
           paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
           backgroundColor: 'rgba(18,20,43,0.88)',
         }}>
           <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
-            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : 'Memory Variables'}, rotate your phone to landscape.
+            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : 'Memory Variables'}, rotate your phone to landscape.
           </Text>
         </View>
       )}
@@ -390,6 +390,9 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'data_types'})} style={btn}>
               <Text style={btnText}>Open Memory Data Types</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'address_layout'})} style={btn}>
+              <Text style={btnText}>Open Memory Address Layout</Text>
+            </Pressable>
             {activeActivityId === 'data_types' && (
               <>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Show Types'})} style={btn}>
@@ -397,6 +400,16 @@ export default function App() {
                 </Pressable>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
                   <Text style={btnText}>Reset Data Types</Text>
+                </Pressable>
+              </>
+            )}
+            {activeActivityId === 'address_layout' && (
+              <>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Show Layout'})} style={btn}>
+                  <Text style={btnText}>Show Address Layout</Text>
+                </Pressable>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
+                  <Text style={btnText}>Reset Address Layout</Text>
                 </Pressable>
               </>
             )}
