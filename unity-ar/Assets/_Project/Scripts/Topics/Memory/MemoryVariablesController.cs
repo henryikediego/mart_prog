@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Loci.Topics.Memory
 {
-    /// <summary>AR memory table and guided variable prediction; 2D controls remain in React.</summary>
+    /// <summary>AR memory table activities, including guided prediction; 2D controls remain in React.</summary>
     public sealed class MemoryVariablesController : MonoBehaviour
     {
         private static readonly Color32 TitleColor = new Color32(255, 217, 26, 255);
@@ -471,6 +471,19 @@ namespace Loci.Topics.Memory
         {
             Camera camera = Camera.main;
             if (camera == null || topicRoot == null) return;
+
+            // These examples contain several small text labels. Face their board
+            // toward the camera so a downward-looking phone does not foreshorten it.
+            // Position stays on the shared AR content root; only the board's tilt changes.
+            if (isDataTypesActivity || isAddressLayoutActivity)
+            {
+                float rotationBlend = 1f - Mathf.Exp(-8f * Time.deltaTime);
+                topicRoot.rotation = Quaternion.Slerp(
+                    topicRoot.rotation,
+                    camera.transform.rotation,
+                    rotationBlend);
+            }
+
             float depth = camera.WorldToViewportPoint(topicRoot.position).z;
             if (depth <= 0f) return;
             Vector3 left = camera.ViewportToWorldPoint(new Vector3(horizontalViewportMargin, 0.5f, depth));
