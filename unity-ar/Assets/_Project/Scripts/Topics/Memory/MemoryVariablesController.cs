@@ -35,6 +35,7 @@ namespace Loci.Topics.Memory
         private const string ActivityId = "variables";
         private const string DataTypesActivityId = "data_types";
         private const string AddressLayoutActivityId = "address_layout";
+        private const string MemoryAccessActivityId = "memory_access";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -84,7 +85,9 @@ namespace Loci.Topics.Memory
         private bool isBusy;
         private bool isDataTypesActivity;
         private bool isAddressLayoutActivity;
+        private bool isMemoryAccessActivity;
         private int predictionIndex;
+        private int memoryAccessStep;
         private bool waitingForPrediction;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
@@ -120,7 +123,7 @@ namespace Loci.Topics.Memory
             if (payload == null) return;
             if (payload.TopicId != LociTopicId.Memory ||
                 (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId &&
-                 payload.ActivityId != AddressLayoutActivityId))
+                 payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId))
             {
                 CloseTopic();
                 return;
@@ -135,8 +138,11 @@ namespace Loci.Topics.Memory
             waitingForPrediction = false;
             isDataTypesActivity = payload.ActivityId == DataTypesActivityId;
             isAddressLayoutActivity = payload.ActivityId == AddressLayoutActivityId;
+            isMemoryAccessActivity = payload.ActivityId == MemoryAccessActivityId;
+            memoryAccessStep = 0;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
-                isAddressLayoutActivity ? "Memory Address Layout 3D Content" : "Memory Variables 3D Content";
+                isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
+                isMemoryAccessActivity ? "Memory Access 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -150,6 +156,19 @@ namespace Loci.Topics.Memory
         {
             if (!isOpen || payload == null || payload.TopicId != LociTopicId.Memory || isBusy) return;
             string value = payload.Value == null ? string.Empty : payload.Value.Trim();
+            if (isMemoryAccessActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Access Step": StepMemoryAccess(); break;
+                    case "Reset": ResetMemoryAccess(); break;
+                    default:
+                        SendEvent(payload.Action, value, "Failed", "Use Access Step to follow the memory access trace, or Reset to start again.");
+                        break;
+                }
+                return;
+            }
+
             if (isDataTypesActivity || isAddressLayoutActivity)
             {
                 switch (payload.Action)
@@ -406,6 +425,74 @@ namespace Loci.Topics.Memory
             string activityName = isAddressLayoutActivity ? "Address Layout" : "Data Types";
             string actionName = isAddressLayoutActivity ? "Show Layout" : "Show Types";
             SendEvent("Reset", string.Empty, "Success", activityName + " reset. Use " + actionName + " to display the example again.");
+        }
+
+        private void StepMemoryAccess()
+        {
+            memoryAccessStep++;
+            switch (memoryAccessStep)
+            {
+                case 1:
+                    AddMemoryAccessVariable("x", "4");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Access", "int x = 4;", "Success",
+                        "Allocated new variable x with value 4."));
+                    break;
+                case 2:
+                    AddMemoryAccessVariable("y", "6");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Access", "int y = 6;", "Success",
+                        "Allocated new variable y with value 6."));
+                    break;
+                case 3:
+                    FocusMemoryAccessRead("x", "4");
+                    StartCoroutine(CompleteAfterHighlight("Memory Access", "read x", "Success",
+                        "Read x from memory. Its stored value is 4."));
+                    break;
+                case 4:
+                    FocusMemoryAccessRead("y", "6");
+                    StartCoroutine(CompleteAfterHighlight("Memory Access", "read y", "Success",
+                        "Read y from memory. Its stored value is 6."));
+                    break;
+                case 5:
+                    AddMemoryAccessVariable("sum", "10");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Access", "int sum = x + y;", "Success",
+                        "x and y were read from memory. Their values 4 and 6 were added, so sum stores 10."));
+                    break;
+                default:
+                    focusedRowIndex = -1;
+                    Render();
+                    SendEvent("Memory Access", "", "Finished", "Memory access trace completed.");
+                    break;
+            }
+        }
+
+        private void AddMemoryAccessVariable(string name, string value)
+        {
+            records.Add(new VariableRecord
+            {
+                Address = AddressForIndex(records.Count),
+                Name = name,
+                Type = "int",
+                Value = value,
+                Size = TypeSize("int")
+            });
+        }
+
+        private void FocusMemoryAccessRead(string name, string value)
+        {
+            int index = records.FindIndex(record => record.Name == name);
+            Render(index, "READ\n" + name + " = " + value);
+        }
+
+        private void ResetMemoryAccess()
+        {
+            records.Clear();
+            memoryAccessStep = 0;
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success", "Memory Access reset. The table is empty and the trace is ready to start.");
         }
 
         private static int TypeByteCount(string type)
