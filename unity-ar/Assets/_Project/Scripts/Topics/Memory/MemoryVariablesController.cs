@@ -39,6 +39,7 @@ namespace Loci.Topics.Memory
         private const string LoopMemoryActivityId = "loop_memory";
         private const string ArraysActivityId = "arrays";
         private const string FunctionsActivityId = "functions";
+        private const string MemorySelectionActivityId = "selection";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -92,12 +93,14 @@ namespace Loci.Topics.Memory
         private bool isLoopMemoryActivity;
         private bool isArraysActivity;
         private bool isFunctionsActivity;
+        private bool isMemorySelectionActivity;
         private bool needsFocusMarkerGap;
         private bool hasGlobalMarker;
         private int predictionIndex;
         private int memoryAccessStep;
         private int loopMemoryStep;
         private int functionMemoryStep;
+        private int memorySelectionStep;
         private bool waitingForPrediction;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
@@ -135,7 +138,7 @@ namespace Loci.Topics.Memory
                 (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId &&
                  payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId &&
                  payload.ActivityId != LoopMemoryActivityId && payload.ActivityId != ArraysActivityId &&
-                 payload.ActivityId != FunctionsActivityId))
+                 payload.ActivityId != FunctionsActivityId && payload.ActivityId != MemorySelectionActivityId))
             {
                 CloseTopic();
                 return;
@@ -154,15 +157,18 @@ namespace Loci.Topics.Memory
             isLoopMemoryActivity = payload.ActivityId == LoopMemoryActivityId;
             isArraysActivity = payload.ActivityId == ArraysActivityId;
             isFunctionsActivity = payload.ActivityId == FunctionsActivityId;
+            isMemorySelectionActivity = payload.ActivityId == MemorySelectionActivityId;
             memoryAccessStep = 0;
             loopMemoryStep = 0;
             functionMemoryStep = 0;
+            memorySelectionStep = 0;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
                 isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
                 isMemoryAccessActivity ? "Memory Access 3D Content" :
                 isLoopMemoryActivity ? "Loop Memory 3D Content" :
                 isArraysActivity ? "Memory Arrays 3D Content" :
-                isFunctionsActivity ? "Memory Functions 3D Content" : "Memory Variables 3D Content";
+                isFunctionsActivity ? "Memory Functions 3D Content" :
+                isMemorySelectionActivity ? "Memory Selection 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -224,6 +230,19 @@ namespace Loci.Topics.Memory
                     case "Reset": ResetMemoryFunctionCall(); break;
                     default:
                         SendEvent("Memory Function Call", value, "Failed", "Use Function Call to follow the add() memory trace, or Reset to start again.");
+                        break;
+                }
+                return;
+            }
+
+            if (isMemorySelectionActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Run If-Else": StepMemorySelection(); break;
+                    case "Reset": ResetMemorySelection(); break;
+                    default:
+                        SendEvent("Memory Selection", value, "Failed", "Use Run If-Else to follow the memory selection trace, or Reset to start again.");
                         break;
                 }
                 return;
@@ -994,6 +1013,53 @@ namespace Loci.Topics.Memory
             focusedRowIndex = -1;
             Render();
             SendEvent("Reset", string.Empty, "Success", "Memory Function Call reset. The table is empty and the trace is ready to start.");
+        }
+
+        private void StepMemorySelection()
+        {
+            memorySelectionStep++;
+            switch (memorySelectionStep)
+            {
+                case 1:
+                    AddMemoryFunctionVariable("score", "75");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Selection", "int score = 75;", "Success",
+                        "Allocated new variable score with value 75."));
+                    break;
+                case 2:
+                    Render(-1, "CONDITION\nTRUE");
+                    SendEvent("Memory Selection", "if (score >= 50)", "Success",
+                        "The condition score >= 50 evaluated TRUE because score stores 75.");
+                    break;
+                case 3:
+                    AddMemoryFunctionVariable("result", "1");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Selection", "result = 1;", "Success",
+                        "The TRUE branch executed. result was stored as 1 in memory."));
+                    break;
+                case 4:
+                    Render(-1, "BRANCH\nSKIPPED");
+                    SendEvent("Memory Selection", "else branch skipped", "Success",
+                        "The ELSE branch was skipped because the condition was TRUE.");
+                    break;
+                case 5:
+                    focusedRowIndex = -1;
+                    Render();
+                    SendEvent("Memory Selection", string.Empty, "Finished", "Selection memory trace completed");
+                    break;
+                default:
+                    SendEvent("Memory Selection", string.Empty, "Finished", "Selection memory trace completed");
+                    break;
+            }
+        }
+
+        private void ResetMemorySelection()
+        {
+            records.Clear();
+            memorySelectionStep = 0;
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success", "Memory Selection reset. The table is empty and the trace is ready to start.");
         }
 
         private static int TypeByteCount(string type)

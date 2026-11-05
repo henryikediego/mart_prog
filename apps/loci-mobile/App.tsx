@@ -106,14 +106,14 @@ export default function App() {
           </Text>
         </View>
       )}
-      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout' || activeActivityId === 'memory_access' || activeActivityId === 'loop_memory' || activeActivityId === 'arrays' || activeActivityId === 'functions') && height > width && (
+      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout' || activeActivityId === 'memory_access' || activeActivityId === 'loop_memory' || activeActivityId === 'arrays' || activeActivityId === 'functions' || activeActivityId === 'selection') && height > width && (
         <View style={{
           position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
           paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
           backgroundColor: 'rgba(18,20,43,0.88)',
         }}>
           <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
-            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : activeActivityId === 'memory_access' ? 'Memory Access' : activeActivityId === 'loop_memory' ? 'Loop Memory' : activeActivityId === 'arrays' ? 'Arrays' : activeActivityId === 'functions' ? 'Memory Functions' : 'Memory Variables'}, rotate your phone to landscape.
+            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : activeActivityId === 'memory_access' ? 'Memory Access' : activeActivityId === 'loop_memory' ? 'Loop Memory' : activeActivityId === 'arrays' ? 'Arrays' : activeActivityId === 'functions' ? 'Memory Functions' : activeActivityId === 'selection' ? 'Memory Selection' : 'Memory Variables'}, rotate your phone to landscape.
           </Text>
         </View>
       )}
@@ -407,6 +407,9 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'functions'})} style={btn}>
               <Text style={btnText}>Open Memory Functions</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'selection'})} style={btn}>
+              <Text style={btnText}>Open Memory Selection</Text>
+            </Pressable>
             {activeActivityId === 'data_types' && (
               <>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Show Types'})} style={btn}>
@@ -482,6 +485,16 @@ export default function App() {
                 </Pressable>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
                   <Text style={btnText}>Reset Memory Functions</Text>
+                </Pressable>
+              </>
+            )}
+            {activeActivityId === 'selection' && (
+              <>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Run If-Else'})} style={btn}>
+                  <Text style={btnText}>Run If-Else</Text>
+                </Pressable>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
+                  <Text style={btnText}>Reset Memory Selection</Text>
                 </Pressable>
               </>
             )}
