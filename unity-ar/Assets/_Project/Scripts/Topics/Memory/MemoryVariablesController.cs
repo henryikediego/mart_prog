@@ -36,6 +36,7 @@ namespace Loci.Topics.Memory
         private const string DataTypesActivityId = "data_types";
         private const string AddressLayoutActivityId = "address_layout";
         private const string MemoryAccessActivityId = "memory_access";
+        private const string LoopMemoryActivityId = "loop_memory";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -86,9 +87,12 @@ namespace Loci.Topics.Memory
         private bool isDataTypesActivity;
         private bool isAddressLayoutActivity;
         private bool isMemoryAccessActivity;
-        private bool needsReadMarkerGap;
+        private bool isLoopMemoryActivity;
+        private bool needsFocusMarkerGap;
+        private bool hasGlobalMarker;
         private int predictionIndex;
         private int memoryAccessStep;
+        private int loopMemoryStep;
         private bool waitingForPrediction;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
@@ -124,7 +128,8 @@ namespace Loci.Topics.Memory
             if (payload == null) return;
             if (payload.TopicId != LociTopicId.Memory ||
                 (payload.ActivityId != ActivityId && payload.ActivityId != DataTypesActivityId &&
-                 payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId))
+                 payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId &&
+                 payload.ActivityId != LoopMemoryActivityId))
             {
                 CloseTopic();
                 return;
@@ -140,10 +145,13 @@ namespace Loci.Topics.Memory
             isDataTypesActivity = payload.ActivityId == DataTypesActivityId;
             isAddressLayoutActivity = payload.ActivityId == AddressLayoutActivityId;
             isMemoryAccessActivity = payload.ActivityId == MemoryAccessActivityId;
+            isLoopMemoryActivity = payload.ActivityId == LoopMemoryActivityId;
             memoryAccessStep = 0;
+            loopMemoryStep = 0;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
                 isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
-                isMemoryAccessActivity ? "Memory Access 3D Content" : "Memory Variables 3D Content";
+                isMemoryAccessActivity ? "Memory Access 3D Content" :
+                isLoopMemoryActivity ? "Loop Memory 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -165,6 +173,19 @@ namespace Loci.Topics.Memory
                     case "Reset": ResetMemoryAccess(); break;
                     default:
                         SendEvent(payload.Action, value, "Failed", "Use Access Step to follow the memory access trace, or Reset to start again.");
+                        break;
+                }
+                return;
+            }
+
+            if (isLoopMemoryActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Loop Step": StepLoopMemory(); break;
+                    case "Reset": ResetLoopMemory(); break;
+                    default:
+                        SendEvent("Memory Loop", value, "Failed", "Use Loop Step to follow the memory loop trace, or Reset to start again.");
                         break;
                 }
                 return;
@@ -496,6 +517,160 @@ namespace Loci.Topics.Memory
             SendEvent("Reset", string.Empty, "Success", "Memory Access reset. The table is empty and the trace is ready to start.");
         }
 
+        private void StepLoopMemory()
+        {
+            loopMemoryStep++;
+            switch (loopMemoryStep)
+            {
+                case 1:
+                    AddMemoryLoopArray();
+                    Render(0, "ARRAY\nALLOCATED");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop",
+                        "int numbers[3] = {2, 4, 6};", "Success",
+                        "Loop setup completed. The loop values were placed in consecutive memory locations so the loop can read them one by one."));
+                    break;
+                case 2:
+                {
+                    SetMemoryLoopVariable("total", "0", out bool totalAllocated, out string totalPrevious);
+                    Render(records.FindIndex(record => record.Name == "total"),
+                        totalAllocated ? "ALLOCATED\nnew variable" : "UPDATED\n" + totalPrevious + " → 0");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "int total = 0;", "Success",
+                        "total was allocated with the starting value 0."));
+                    break;
+                }
+                case 3:
+                {
+                    SetMemoryLoopVariable("i", "0", out bool indexAllocated, out string indexPrevious);
+                    Render(records.FindIndex(record => record.Name == "i"),
+                        indexAllocated ? "ALLOCATED\nnew variable" : "UPDATED\n" + indexPrevious + " → 0");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "int i = 0;", "Success",
+                        "Loop counter i was created with value 0."));
+                    break;
+                }
+                case 4:
+                    ReadMemoryLoopValue("numbers[0]", "2");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "read numbers[0]", "Success",
+                        "The loop reads numbers[0], which stores 2."));
+                    break;
+                case 5:
+                {
+                    SetMemoryLoopVariable("total", "2", out _, out string totalBeforeTwo);
+                    Render(records.FindIndex(record => record.Name == "total"), "UPDATED\n" + totalBeforeTwo + " → 2");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "total = total + numbers[0];", "Success",
+                        "total was updated from 0 to 2."));
+                    break;
+                }
+                case 6:
+                {
+                    SetMemoryLoopVariable("i", "1", out _, out string indexBeforeOne);
+                    Render(records.FindIndex(record => record.Name == "i"), "UPDATED\n" + indexBeforeOne + " → 1");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "i = i + 1;", "Success",
+                        "Loop counter i was updated from 0 to 1."));
+                    break;
+                }
+                case 7:
+                    ReadMemoryLoopValue("numbers[1]", "4");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "read numbers[1]", "Success",
+                        "The loop reads numbers[1], which stores 4."));
+                    break;
+                case 8:
+                {
+                    SetMemoryLoopVariable("total", "6", out _, out string totalBeforeSix);
+                    Render(records.FindIndex(record => record.Name == "total"), "UPDATED\n" + totalBeforeSix + " → 6");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "total = total + numbers[1];", "Success",
+                        "total was updated from 2 to 6."));
+                    break;
+                }
+                case 9:
+                {
+                    SetMemoryLoopVariable("i", "2", out _, out string indexBeforeTwo);
+                    Render(records.FindIndex(record => record.Name == "i"), "UPDATED\n" + indexBeforeTwo + " → 2");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "i = i + 1;", "Success",
+                        "Loop counter i was updated from 1 to 2."));
+                    break;
+                }
+                case 10:
+                    ReadMemoryLoopValue("numbers[2]", "6");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "read numbers[2]", "Success",
+                        "The loop reads numbers[2], which stores 6."));
+                    break;
+                case 11:
+                {
+                    SetMemoryLoopVariable("total", "12", out _, out string totalBeforeTwelve);
+                    Render(records.FindIndex(record => record.Name == "total"), "UPDATED\n" + totalBeforeTwelve + " → 12");
+                    StartCoroutine(CompleteAfterHighlight("Memory Loop", "total = total + numbers[2];", "Success",
+                        "total was updated from 6 to 12."));
+                    break;
+                }
+                case 12:
+                    records.RemoveAll(record => record.Name == "i");
+                    focusedRowIndex = -1;
+                    Render(-1, "REMOVED\nloop counter");
+                    SendEvent("Memory Loop", "loop ends", "Success",
+                        "The loop ended. The temporary loop counter i was removed.");
+                    break;
+                case 13:
+                {
+                    int totalIndex = records.FindIndex(record => record.Name == "total");
+                    Render(totalIndex, "LOOP\nCOMPLETE");
+                    SendEvent("Memory Loop", string.Empty, "Finished",
+                        "Loop memory trace completed");
+                    break;
+                }
+                default:
+                    SendEvent("Memory Loop", string.Empty, "Finished", "Loop memory trace completed.");
+                    break;
+            }
+        }
+
+        private void AddMemoryLoopArray()
+        {
+            string[] values = { "2", "4", "6" };
+            for (int i = 0; i < values.Length; i++)
+            {
+                records.Add(new VariableRecord
+                {
+                    Address = "0x" + (4096 + records.Count * TypeByteCount("int")).ToString("X"),
+                    Name = "numbers[" + i + "]",
+                    Type = "int",
+                    Value = values[i],
+                    Size = TypeSize("int")
+                });
+            }
+        }
+
+        private void SetMemoryLoopVariable(string name, string value, out bool allocated, out string previous)
+        {
+            int index = records.FindIndex(record => record.Name == name);
+            allocated = index < 0;
+            previous = allocated ? string.Empty : records[index].Value;
+            VariableRecord record = new VariableRecord
+            {
+                Address = allocated ? AddressForIndex(records.Count) : records[index].Address,
+                Name = name,
+                Type = "int",
+                Value = value,
+                Size = TypeSize("int")
+            };
+            if (allocated) records.Add(record);
+            else records[index] = record;
+        }
+
+        private void ReadMemoryLoopValue(string name, string value)
+        {
+            int index = records.FindIndex(record => record.Name == name);
+            Render(index, "READ\n" + name + " = " + value);
+        }
+
+        private void ResetLoopMemory()
+        {
+            records.Clear();
+            loopMemoryStep = 0;
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success", "Loop Memory reset. The table is empty and the trace is ready to start.");
+        }
+
         private static int TypeByteCount(string type)
         {
             switch (type)
@@ -513,8 +688,8 @@ namespace Loci.Topics.Memory
         {
             if (!isOpen || topicRoot == null) return;
             focusedRowIndex = focusIndex;
-            needsReadMarkerGap = isMemoryAccessActivity && focusIndex >= 0 &&
-                marker.StartsWith("READ", StringComparison.Ordinal);
+            needsFocusMarkerGap = focusIndex >= 0 && focusIndex < records.Count - 1 && marker.Length > 0;
+            hasGlobalMarker = focusIndex < 0 && marker.Length > 0 && records.Count > 0;
             ClearVisuals();
             EnsureMaterials();
 
@@ -536,7 +711,7 @@ namespace Loci.Topics.Memory
                 for (int i = 0; i < records.Count; i++)
                 {
                     float y = -0.012f - i * RowStep;
-                    if (needsReadMarkerGap && i > focusIndex) y -= RowStep * 1.2f;
+                    if (needsFocusMarkerGap && i > focusIndex) y -= RowStep * 1.2f;
                     Material material = CreateMaterial(i == focusIndex ? HighlightColor : RowColor);
                     rowMaterials.Add(material);
                     Transform row = CreateBox("Memory Variable Row " + records[i].Name,
@@ -553,6 +728,9 @@ namespace Loci.Topics.Memory
                         CreateLabel(marker, new Vector3(0f, y - RowStep * 0.82f, -0.014f), 26f,
                             FocusMarkerColor, 0.56f, FontStyles.Bold);
                 }
+                if (hasGlobalMarker)
+                    CreateLabel(marker, new Vector3(0f, -0.012f - records.Count * RowStep, -0.014f),
+                        26f, FocusMarkerColor, 0.56f, FontStyles.Bold);
             }
 
             UpdateViewportFit();
@@ -588,7 +766,7 @@ namespace Loci.Topics.Memory
                 ? (isDataTypesActivity || isAddressLayoutActivity ? DataTypesLandscapeScaleMultiplier : LandscapeScaleMultiplier)
                 : PortraitScaleMultiplier;
             float contentHeight = 0.24f + Mathf.Max(1, records.Count) * RowStep +
-                (needsReadMarkerGap ? RowStep * 1.2f : 0f);
+                (needsFocusMarkerGap || hasGlobalMarker ? RowStep * 1.2f : 0f);
             float fit = Mathf.Min(1f,
                 Mathf.Min(availableWidth / (TableWidth * scaleCap), availableHeight / (contentHeight * scaleCap)));
             topicRoot.localScale = Vector3.one * (scaleCap * fit);
