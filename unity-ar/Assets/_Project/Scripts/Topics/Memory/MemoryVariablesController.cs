@@ -86,6 +86,7 @@ namespace Loci.Topics.Memory
         private bool isDataTypesActivity;
         private bool isAddressLayoutActivity;
         private bool isMemoryAccessActivity;
+        private bool needsReadMarkerGap;
         private int predictionIndex;
         private int memoryAccessStep;
         private bool waitingForPrediction;
@@ -512,6 +513,8 @@ namespace Loci.Topics.Memory
         {
             if (!isOpen || topicRoot == null) return;
             focusedRowIndex = focusIndex;
+            needsReadMarkerGap = isMemoryAccessActivity && focusIndex >= 0 &&
+                marker.StartsWith("READ", StringComparison.Ordinal);
             ClearVisuals();
             EnsureMaterials();
 
@@ -533,6 +536,7 @@ namespace Loci.Topics.Memory
                 for (int i = 0; i < records.Count; i++)
                 {
                     float y = -0.012f - i * RowStep;
+                    if (needsReadMarkerGap && i > focusIndex) y -= RowStep * 1.2f;
                     Material material = CreateMaterial(i == focusIndex ? HighlightColor : RowColor);
                     rowMaterials.Add(material);
                     Transform row = CreateBox("Memory Variable Row " + records[i].Name,
@@ -583,7 +587,8 @@ namespace Loci.Topics.Memory
             float scaleCap = landscape
                 ? (isDataTypesActivity || isAddressLayoutActivity ? DataTypesLandscapeScaleMultiplier : LandscapeScaleMultiplier)
                 : PortraitScaleMultiplier;
-            float contentHeight = 0.24f + Mathf.Max(1, records.Count) * RowStep;
+            float contentHeight = 0.24f + Mathf.Max(1, records.Count) * RowStep +
+                (needsReadMarkerGap ? RowStep * 1.2f : 0f);
             float fit = Mathf.Min(1f,
                 Mathf.Min(availableWidth / (TableWidth * scaleCap), availableHeight / (contentHeight * scaleCap)));
             topicRoot.localScale = Vector3.one * (scaleCap * fit);
