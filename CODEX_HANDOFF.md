@@ -200,7 +200,7 @@ The root `README.md` still describes the older dashboard-based Unity app. For re
 ### Memory Management Selection slice
 
 - This is the `selection` activity under Memory Management, distinct from the standalone Selection topic. The reference is a fixed five-step `if (score >= 50)` trace: allocate `score = 75`, evaluate the condition TRUE, allocate `result = 1` in the TRUE branch, report the ELSE branch skipped, then report completion.
-- Implemented in `MemoryVariablesController` as `activityId: "selection"`. It uses a global CONDITION TRUE marker, highlights the new result row, then shows BRANCH SKIPPED. Each step emits one event with the source action name **Memory Selection**; the final event is Finished. React temporary controls open **Memory Selection**, advance **Run If-Else**, and Reset; portrait guidance is included. This slice has not yet been Unity-refreshed or phone-verified. Next ask Oly to refresh Unity and report red C# compile errors, then use the usual export/sync/build/install flow and verify the four visible steps, Finished event, and Reset one step at a time.
+- Implemented in `MemoryVariablesController` as `activityId: "selection"`. It uses a global CONDITION TRUE marker, highlights the new result row, then shows BRANCH SKIPPED. Each step emits one event with the source action name **Memory Selection**; the final event is Finished. React temporary controls open **Memory Selection**, advance **Run If-Else**, and Reset; portrait guidance is included. Oly refreshed Unity, exported, synced, installed, then confirmed the `score = 75` row, CONDITION TRUE, `result = 1`, BRANCH SKIPPED, Finished, and Reset clearing the table. The activity is phone-verified.
 
 ### Temporary phone test controls
 
