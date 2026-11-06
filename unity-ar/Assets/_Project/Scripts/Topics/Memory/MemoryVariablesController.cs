@@ -44,6 +44,7 @@ namespace Loci.Topics.Memory
         private const string MemoryRemoveVariableActivityId = "remove_variable";
         private const string MemoryTraceExerciseActivityId = "trace_exercise";
         private const string MemoryDebugExerciseActivityId = "debug_exercise";
+        private const string MemoryFinalAssessmentActivityId = "final_assessment";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -167,6 +168,34 @@ namespace Loci.Topics.Memory
                 new MemoryExerciseVariable("passed", "bool", "true"))
         };
 
+        private static readonly MemoryExerciseQuestion[] FinalAssessmentQuestions =
+        {
+            new MemoryExerciseQuestion("int x = 4;\nint y = 6;\nx = y + 2;",
+                "What value is stored in x after the last line?", "8", "x",
+                "y stores 6, so y + 2 gives 8. Therefore, x becomes 8.",
+                new MemoryExerciseVariable("x", "int", "8"), new MemoryExerciseVariable("y", "int", "6")),
+            new MemoryExerciseQuestion("float price = 10.5;\nprice = 12.5;",
+                "What value is stored in price after the update?", "12.5", "price",
+                "The original value 10.5 is replaced by 12.5 in the same memory location.",
+                new MemoryExerciseVariable("price", "float", "12.5")),
+            new MemoryExerciseQuestion("int marks[3] = {70, 80, 90};\nmarks[0] = 75;",
+                "What value is stored in marks[0]?", "75", "marks[0]",
+                "Only index 0 is updated. marks[0] changes from 70 to 75.",
+                new MemoryExerciseVariable("marks[0]", "int", "75"),
+                new MemoryExerciseVariable("marks[1]", "int", "80"),
+                new MemoryExerciseVariable("marks[2]", "int", "90")),
+            new MemoryExerciseQuestion("int score = 55;\nif (score >= 50) result = 1;\nelse result = 0;",
+                "What value is stored in result?", "1", "result",
+                "score is 55, so score >= 50 is true. The true branch runs and result becomes 1.",
+                new MemoryExerciseVariable("score", "int", "55"), new MemoryExerciseVariable("result", "int", "1")),
+            new MemoryExerciseQuestion("int a = 10;\nint b = 20;\nint sum = a + b;",
+                "What value is stored in sum?", "30", "sum",
+                "a stores 10 and b stores 20. Therefore, a + b gives 30.",
+                new MemoryExerciseVariable("a", "int", "10"),
+                new MemoryExerciseVariable("b", "int", "20"),
+                new MemoryExerciseVariable("sum", "int", "30"))
+        };
+
         private readonly List<VariableRecord> records = new List<VariableRecord>();
         private readonly List<Transform> rowTransforms = new List<Transform>();
         private readonly List<Material> rowMaterials = new List<Material>();
@@ -185,6 +214,7 @@ namespace Loci.Topics.Memory
         private bool isMemoryRemoveVariableActivity;
         private bool isMemoryTraceExerciseActivity;
         private bool isMemoryDebugExerciseActivity;
+        private bool isMemoryFinalAssessmentActivity;
         private bool needsFocusMarkerGap;
         private bool hasGlobalMarker;
         private int predictionIndex;
@@ -204,6 +234,11 @@ namespace Loci.Topics.Memory
         private int debugExerciseCorrectCount;
         private bool awaitingDebugExerciseAnswer;
         private bool debugExerciseCompleted;
+        private int finalAssessmentQuestionIndex = -1;
+        private int finalAssessmentAnswerCount;
+        private int finalAssessmentCorrectCount;
+        private bool awaitingFinalAssessmentAnswer;
+        private bool finalAssessmentCompleted;
         private bool waitingForPrediction;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
@@ -243,7 +278,8 @@ namespace Loci.Topics.Memory
                  payload.ActivityId != LoopMemoryActivityId && payload.ActivityId != ArraysActivityId &&
                  payload.ActivityId != FunctionsActivityId && payload.ActivityId != MemorySelectionActivityId &&
                  payload.ActivityId != MemoryScopeActivityId && payload.ActivityId != MemoryRemoveVariableActivityId &&
-                 payload.ActivityId != MemoryTraceExerciseActivityId && payload.ActivityId != MemoryDebugExerciseActivityId))
+                 payload.ActivityId != MemoryTraceExerciseActivityId && payload.ActivityId != MemoryDebugExerciseActivityId &&
+                 payload.ActivityId != MemoryFinalAssessmentActivityId))
             {
                 CloseTopic();
                 return;
@@ -267,6 +303,7 @@ namespace Loci.Topics.Memory
             isMemoryRemoveVariableActivity = payload.ActivityId == MemoryRemoveVariableActivityId;
             isMemoryTraceExerciseActivity = payload.ActivityId == MemoryTraceExerciseActivityId;
             isMemoryDebugExerciseActivity = payload.ActivityId == MemoryDebugExerciseActivityId;
+            isMemoryFinalAssessmentActivity = payload.ActivityId == MemoryFinalAssessmentActivityId;
             memoryAccessStep = 0;
             loopMemoryStep = 0;
             functionMemoryStep = 0;
@@ -283,6 +320,11 @@ namespace Loci.Topics.Memory
             debugExerciseCorrectCount = 0;
             awaitingDebugExerciseAnswer = false;
             debugExerciseCompleted = false;
+            finalAssessmentQuestionIndex = -1;
+            finalAssessmentAnswerCount = 0;
+            finalAssessmentCorrectCount = 0;
+            awaitingFinalAssessmentAnswer = false;
+            finalAssessmentCompleted = false;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
                 isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
                 isMemoryAccessActivity ? "Memory Access 3D Content" :
@@ -293,7 +335,8 @@ namespace Loci.Topics.Memory
                 isMemoryScopeActivity ? "Memory Scope 3D Content" :
                 isMemoryRemoveVariableActivity ? "Memory Remove Variable 3D Content" :
                 isMemoryTraceExerciseActivity ? "Memory Trace Exercise 3D Content" :
-                isMemoryDebugExerciseActivity ? "Memory Debug Exercise 3D Content" : "Memory Variables 3D Content";
+                isMemoryDebugExerciseActivity ? "Memory Debug Exercise 3D Content" :
+                isMemoryFinalAssessmentActivity ? "Memory Final Assessment 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -424,6 +467,22 @@ namespace Loci.Topics.Memory
                     case "Reset": ResetMemoryDebugExercise(); break;
                     default:
                         SendEvent("Memory Debug Exercise", value, "Failed", "Start a debug question, submit your answer, or Reset the exercise.");
+                        break;
+                }
+                return;
+            }
+
+            if (isMemoryFinalAssessmentActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Start Assessment":
+                    case "Next Question": StartMemoryFinalAssessmentQuestion(); break;
+                    case "Submit Answer": SubmitMemoryFinalAssessmentAnswer(value); break;
+                    case "Finish Assessment": FinishMemoryFinalAssessment(); break;
+                    case "Reset": ResetMemoryFinalAssessment(); break;
+                    default:
+                        SendEvent("Memory Final Assessment", value, "Failed", "Start an assessment question, submit your answer, finish the assessment, or Reset.");
                         break;
                 }
                 return;
@@ -1585,6 +1644,128 @@ namespace Loci.Topics.Memory
             Render();
             SendEvent("Reset", string.Empty, "Success",
                 "Memory Debug Exercise reset. The table is empty and the first question is ready.");
+        }
+
+        private void StartMemoryFinalAssessmentQuestion()
+        {
+            if (finalAssessmentCompleted)
+            {
+                SendEvent("Memory Final Assessment", string.Empty, "Finished",
+                    "Final Assessment is complete. Reset to start again.");
+                return;
+            }
+
+            if (awaitingFinalAssessmentAnswer)
+            {
+                SendEvent("Memory Final Assessment", string.Empty, "Failed",
+                    "Submit your answer to the current assessment question before moving on.");
+                return;
+            }
+
+            int nextIndex = finalAssessmentQuestionIndex + 1;
+            if (nextIndex >= FinalAssessmentQuestions.Length)
+            {
+                SendEvent("Memory Final Assessment", string.Empty, "Failed",
+                    "All five questions have been answered. Choose Finish Assessment to see your score.");
+                return;
+            }
+
+            finalAssessmentQuestionIndex = nextIndex;
+            awaitingFinalAssessmentAnswer = true;
+            records.Clear();
+            focusedRowIndex = -1;
+            Render();
+            MemoryExerciseQuestion question = FinalAssessmentQuestions[finalAssessmentQuestionIndex];
+            SendEvent("Memory Final Assessment", question.Code, "Started",
+                "Question " + (finalAssessmentQuestionIndex + 1) + "/" + FinalAssessmentQuestions.Length + ": " + question.Question);
+        }
+
+        private void SubmitMemoryFinalAssessmentAnswer(string answer)
+        {
+            if (finalAssessmentCompleted)
+            {
+                SendEvent("Memory Final Assessment", answer, "Finished",
+                    "Final Assessment is complete. Reset to start again.");
+                return;
+            }
+
+            if (!awaitingFinalAssessmentAnswer || finalAssessmentQuestionIndex < 0 ||
+                finalAssessmentQuestionIndex >= FinalAssessmentQuestions.Length)
+            {
+                SendEvent("Memory Final Assessment", answer, "Failed",
+                    "Start an assessment question before submitting an answer.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(answer))
+            {
+                SendEvent("Memory Final Assessment", answer, "Failed",
+                    "Enter your answer before submitting it.");
+                return;
+            }
+
+            MemoryExerciseQuestion question = FinalAssessmentQuestions[finalAssessmentQuestionIndex];
+            bool correct = NormalizePrediction(answer) == NormalizePrediction(question.Answer);
+            if (correct) finalAssessmentCorrectCount++;
+            finalAssessmentAnswerCount++;
+            awaitingFinalAssessmentAnswer = false;
+
+            records.Clear();
+            for (int i = 0; i < question.FinalVariables.Length; i++)
+            {
+                MemoryExerciseVariable item = question.FinalVariables[i];
+                records.Add(new VariableRecord
+                {
+                    Address = AddressForIndex(records.Count),
+                    Name = item.Name,
+                    Type = item.Type,
+                    Value = item.Value,
+                    Size = TypeSize(item.Type)
+                });
+            }
+
+            int focusIndex = records.FindIndex(record => record.Name == question.Focus);
+            Render(focusIndex, "FINAL\nRESULT");
+
+            string details = (correct ? "Correct. " : "Not correct. Expected answer: " + question.Answer + ". ") +
+                question.Explanation + " Question " + finalAssessmentAnswerCount + "/" + FinalAssessmentQuestions.Length + ".";
+            StartCoroutine(CompleteAfterHighlight("Memory Final Assessment", answer,
+                correct ? "Correct" : "Incorrect", details));
+        }
+
+        private void FinishMemoryFinalAssessment()
+        {
+            if (awaitingFinalAssessmentAnswer)
+            {
+                SendEvent("Memory Final Assessment", string.Empty, "Failed",
+                    "Submit your answer to the current question before finishing the assessment.");
+                return;
+            }
+
+            if (finalAssessmentAnswerCount < FinalAssessmentQuestions.Length)
+            {
+                SendEvent("Memory Final Assessment", string.Empty, "Failed",
+                    "Answer all five questions before finishing the assessment.");
+                return;
+            }
+
+            finalAssessmentCompleted = true;
+            SendEvent("Memory Final Assessment", string.Empty, "Finished",
+                "Final Assessment completed. Score: " + finalAssessmentCorrectCount + " out of " + FinalAssessmentQuestions.Length + ".");
+        }
+
+        private void ResetMemoryFinalAssessment()
+        {
+            records.Clear();
+            finalAssessmentQuestionIndex = -1;
+            finalAssessmentAnswerCount = 0;
+            finalAssessmentCorrectCount = 0;
+            awaitingFinalAssessmentAnswer = false;
+            finalAssessmentCompleted = false;
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success",
+                "Memory Final Assessment reset. The table is empty and the first question is ready.");
         }
 
         private static int TypeByteCount(string type)
