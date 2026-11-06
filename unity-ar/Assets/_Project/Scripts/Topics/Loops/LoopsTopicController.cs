@@ -418,8 +418,8 @@ namespace Loci.Topics.Loops
                     float safeHeightFraction = screenHeight > 0
                         ? Screen.safeArea.height / screenHeight
                         : 1f;
-                    float targetViewportWidth = safeWidthFraction * (landscape ? 0.94f : 0.82f);
-                    float targetViewportHeight = safeHeightFraction * (landscape ? 0.86f : 0.68f);
+                    float targetViewportWidth = safeWidthFraction * (landscape ? 0.98f : 0.82f);
+                    float targetViewportHeight = safeHeightFraction * (landscape ? 0.96f : 0.68f);
                     float maximumScale = landscape ? 4f : 1f;
                     fitScale = Mathf.Min(maximumScale, targetViewportWidth / projectedWidth,
                         targetViewportHeight / projectedHeight);
