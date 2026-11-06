@@ -38,6 +38,8 @@ namespace Loci.Topics.Loops
         private bool hasViewportMetrics;
         private int lastScreenWidth;
         private int lastScreenHeight;
+        private float lastCameraAspect;
+        private ScreenOrientation lastScreenOrientation;
         private Coroutine viewportRefreshRoutine;
         private bool hasFitScaleCache;
         private int cachedFitScreenWidth;
@@ -53,14 +55,23 @@ namespace Loci.Topics.Loops
             {
                 lastScreenWidth = Screen.width;
                 lastScreenHeight = Screen.height;
+                lastCameraAspect = GetCameraAspect();
+                lastScreenOrientation = Screen.orientation;
                 hasViewportMetrics = true;
                 return;
             }
 
-            if (Screen.width != lastScreenWidth || Screen.height != lastScreenHeight)
+            float cameraAspect = GetCameraAspect();
+            ScreenOrientation screenOrientation = Screen.orientation;
+            bool screenChanged = Screen.width != lastScreenWidth || Screen.height != lastScreenHeight;
+            bool cameraAspectChanged = !Mathf.Approximately(cameraAspect, lastCameraAspect);
+            bool orientationChanged = screenOrientation != lastScreenOrientation;
+            if (screenChanged || cameraAspectChanged || orientationChanged)
             {
                 lastScreenWidth = Screen.width;
                 lastScreenHeight = Screen.height;
+                lastCameraAspect = cameraAspect;
+                lastScreenOrientation = screenOrientation;
                 if (isOpen)
                     ScheduleViewportRefresh();
             }
@@ -122,6 +133,8 @@ namespace Loci.Topics.Loops
             isOpen = true;
             lastScreenWidth = Screen.width;
             lastScreenHeight = Screen.height;
+            lastCameraAspect = GetCameraAspect();
+            lastScreenOrientation = Screen.orientation;
             hasViewportMetrics = true;
             hasFitScaleCache = false;
             Render();
@@ -360,13 +373,12 @@ namespace Loci.Topics.Loops
                 return cachedFitScale;
 
             float fitScale;
-            float maximumScale = screenWidth > screenHeight ? 2f : 1f;
             Camera arCamera = Camera.main;
             if (arCamera != null && screenWidth > 0 && Screen.safeArea.width > 0f)
             {
-                // Project the full group's side edges into the active camera.
-                // This accounts for portrait FOV, camera angle, and device size,
-                // instead of assuming a fixed world-space width fits every phone.
+                // Fit to both safe-area dimensions. A width-only fit could make
+                // the row too small when landscape rotation changes the camera
+                // aspect without updating Screen.width/height in the Unity view.
                 topicRoot.localScale = Vector3.one;
                 float halfWidth = layoutWidth * 0.5f;
                 const float verticalExtent = 0.20f;
@@ -380,6 +392,8 @@ namespace Loci.Topics.Loops
 
                 float minX = float.PositiveInfinity;
                 float maxX = float.NegativeInfinity;
+                float minY = float.PositiveInfinity;
+                float maxY = float.NegativeInfinity;
                 bool inFrontOfCamera = true;
                 foreach (Vector3 corner in corners)
                 {
@@ -391,26 +405,31 @@ namespace Loci.Topics.Loops
                     }
                     minX = Mathf.Min(minX, viewportPoint.x);
                     maxX = Mathf.Max(maxX, viewportPoint.x);
+                    minY = Mathf.Min(minY, viewportPoint.y);
+                    maxY = Mathf.Max(maxY, viewportPoint.y);
                 }
 
                 float projectedWidth = maxX - minX;
-                if (inFrontOfCamera && projectedWidth > 0.001f)
+                float projectedHeight = maxY - minY;
+                if (inFrontOfCamera && projectedWidth > 0.001f && projectedHeight > 0.001f)
                 {
                     float safeWidthFraction = Screen.safeArea.width / screenWidth;
-                    float targetViewportWidth = safeWidthFraction * 0.82f;
-                    fitScale = Mathf.Min(maximumScale, targetViewportWidth / projectedWidth);
+                    float safeHeightFraction = screenHeight > 0
+                        ? Screen.safeArea.height / screenHeight
+                        : 1f;
+                    float targetViewportWidth = safeWidthFraction * 0.86f;
+                    float targetViewportHeight = safeHeightFraction * 0.68f;
+                    fitScale = Mathf.Min(targetViewportWidth / projectedWidth, targetViewportHeight / projectedHeight);
                 }
                 else
                 {
-                    float targetWorldWidth = screenWidth > screenHeight ? 0.75f : 0.42f;
-                    fitScale = Mathf.Min(maximumScale, targetWorldWidth / Mathf.Max(layoutWidth, 0.001f));
+                    fitScale = CalculateFallbackScale(layoutWidth);
                 }
             }
             else
             {
                 // Conservative fallback for editor or camera setups without a usable projection.
-                float targetWorldWidth = screenWidth > screenHeight ? 0.75f : 0.42f;
-                fitScale = Mathf.Min(maximumScale, targetWorldWidth / Mathf.Max(layoutWidth, 0.001f));
+                fitScale = CalculateFallbackScale(layoutWidth);
             }
 
             hasFitScaleCache = true;
@@ -419,6 +438,22 @@ namespace Loci.Topics.Loops
             cachedFitLayoutWidth = layoutWidth;
             cachedFitScale = fitScale;
             return fitScale;
+        }
+
+        private static float CalculateFallbackScale(float layoutWidth)
+        {
+            bool landscape = GetCameraAspect() > 1f;
+            float targetWorldWidth = landscape ? 1.05f : 0.42f;
+            float fit = targetWorldWidth / Mathf.Max(layoutWidth, 0.001f);
+            return landscape ? Mathf.Min(4f, fit) : Mathf.Min(1f, fit);
+        }
+
+        private static float GetCameraAspect()
+        {
+            Camera arCamera = Camera.main;
+            if (arCamera != null && arCamera.aspect > 0f)
+                return arCamera.aspect;
+            return Screen.height > 0 ? (float)Screen.width / Screen.height : 1f;
         }
 
         private void EnsureMaterials()
