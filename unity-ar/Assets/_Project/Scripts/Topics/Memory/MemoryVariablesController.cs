@@ -42,6 +42,7 @@ namespace Loci.Topics.Memory
         private const string MemorySelectionActivityId = "selection";
         private const string MemoryScopeActivityId = "scope";
         private const string MemoryRemoveVariableActivityId = "remove_variable";
+        private const string MemoryTraceExerciseActivityId = "trace_exercise";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -73,6 +74,41 @@ namespace Loci.Topics.Memory
             }
         }
 
+        private sealed class TraceExerciseVariable
+        {
+            public readonly string Name;
+            public readonly string Type;
+            public readonly string Value;
+
+            public TraceExerciseVariable(string name, string type, string value)
+            {
+                Name = name;
+                Type = type;
+                Value = value;
+            }
+        }
+
+        private sealed class TraceExerciseQuestion
+        {
+            public readonly string Code;
+            public readonly string Question;
+            public readonly string Answer;
+            public readonly string Focus;
+            public readonly string Explanation;
+            public readonly TraceExerciseVariable[] FinalVariables;
+
+            public TraceExerciseQuestion(string code, string question, string answer, string focus,
+                string explanation, params TraceExerciseVariable[] finalVariables)
+            {
+                Code = code;
+                Question = question;
+                Answer = answer;
+                Focus = focus;
+                Explanation = explanation;
+                FinalVariables = finalVariables;
+            }
+        }
+
         private static readonly PredictionStep[] PredictionSteps =
         {
             new PredictionStep("int age = 20;", "Predict the value that will be stored in age.", "age", "int", "20"),
@@ -80,6 +116,32 @@ namespace Loci.Topics.Memory
             new PredictionStep("char grade = 'A';", "Predict the value that will be stored in grade.", "grade", "char", "'A'"),
             new PredictionStep("age = 21;", "Predict the new value that will replace the old value of age.", "age", "int", "21"),
             new PredictionStep("bool passed = true;", "Predict the value that will be stored in passed.", "passed", "bool", "true")
+        };
+
+        private static readonly TraceExerciseQuestion[] TraceExerciseQuestions =
+        {
+            new TraceExerciseQuestion("int x = 4; int y = 6; x = y + 2;",
+                "What value is stored in x after the last line?", "8", "x",
+                "y stores 6, so y + 2 gives 8. Therefore, x is updated from 4 to 8.",
+                new TraceExerciseVariable("x", "int", "8"), new TraceExerciseVariable("y", "int", "6")),
+            new TraceExerciseQuestion("int a = 10; int b = 3; b = a - b;",
+                "What value is stored in b after the last line?", "7", "b",
+                "a stores 10 and b stores 3. The expression a - b gives 7, so b becomes 7.",
+                new TraceExerciseVariable("a", "int", "10"), new TraceExerciseVariable("b", "int", "7")),
+            new TraceExerciseQuestion("int score = 45; if (score >= 50) result = 1; else result = 0;",
+                "What value is stored in result?", "0", "result",
+                "score is 45, so score >= 50 is false. The else branch runs and result becomes 0.",
+                new TraceExerciseVariable("score", "int", "45"), new TraceExerciseVariable("result", "int", "0")),
+            new TraceExerciseQuestion("int marks[3] = {70, 80, 90}; marks[1] = 85;",
+                "What value is stored in marks[1]?", "85", "marks[1]",
+                "Only index 1 is updated. marks[1] changes from 80 to 85.",
+                new TraceExerciseVariable("marks[0]", "int", "70"),
+                new TraceExerciseVariable("marks[1]", "int", "85"),
+                new TraceExerciseVariable("marks[2]", "int", "90")),
+            new TraceExerciseQuestion("int p = 5; int q = p; p = 9;",
+                "What value is stored in q after p changes?", "5", "q",
+                "q received a copy of p's value when p was 5. Changing p later does not change q.",
+                new TraceExerciseVariable("p", "int", "9"), new TraceExerciseVariable("q", "int", "5"))
         };
 
         private readonly List<VariableRecord> records = new List<VariableRecord>();
@@ -98,6 +160,7 @@ namespace Loci.Topics.Memory
         private bool isMemorySelectionActivity;
         private bool isMemoryScopeActivity;
         private bool isMemoryRemoveVariableActivity;
+        private bool isMemoryTraceExerciseActivity;
         private bool needsFocusMarkerGap;
         private bool hasGlobalMarker;
         private int predictionIndex;
@@ -107,6 +170,11 @@ namespace Loci.Topics.Memory
         private int memorySelectionStep;
         private int memoryScopeStep;
         private int memoryRemoveVariableStep;
+        private int traceExerciseQuestionIndex = -1;
+        private int traceExerciseAnswerCount;
+        private int traceExerciseCorrectCount;
+        private bool awaitingTraceExerciseAnswer;
+        private bool traceExerciseCompleted;
         private bool waitingForPrediction;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
@@ -145,7 +213,8 @@ namespace Loci.Topics.Memory
                  payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId &&
                  payload.ActivityId != LoopMemoryActivityId && payload.ActivityId != ArraysActivityId &&
                  payload.ActivityId != FunctionsActivityId && payload.ActivityId != MemorySelectionActivityId &&
-                 payload.ActivityId != MemoryScopeActivityId && payload.ActivityId != MemoryRemoveVariableActivityId))
+                 payload.ActivityId != MemoryScopeActivityId && payload.ActivityId != MemoryRemoveVariableActivityId &&
+                 payload.ActivityId != MemoryTraceExerciseActivityId))
             {
                 CloseTopic();
                 return;
@@ -167,12 +236,18 @@ namespace Loci.Topics.Memory
             isMemorySelectionActivity = payload.ActivityId == MemorySelectionActivityId;
             isMemoryScopeActivity = payload.ActivityId == MemoryScopeActivityId;
             isMemoryRemoveVariableActivity = payload.ActivityId == MemoryRemoveVariableActivityId;
+            isMemoryTraceExerciseActivity = payload.ActivityId == MemoryTraceExerciseActivityId;
             memoryAccessStep = 0;
             loopMemoryStep = 0;
             functionMemoryStep = 0;
             memorySelectionStep = 0;
             memoryScopeStep = 0;
             memoryRemoveVariableStep = 0;
+            traceExerciseQuestionIndex = -1;
+            traceExerciseAnswerCount = 0;
+            traceExerciseCorrectCount = 0;
+            awaitingTraceExerciseAnswer = false;
+            traceExerciseCompleted = false;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
                 isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
                 isMemoryAccessActivity ? "Memory Access 3D Content" :
@@ -181,7 +256,8 @@ namespace Loci.Topics.Memory
                 isFunctionsActivity ? "Memory Functions 3D Content" :
                 isMemorySelectionActivity ? "Memory Selection 3D Content" :
                 isMemoryScopeActivity ? "Memory Scope 3D Content" :
-                isMemoryRemoveVariableActivity ? "Memory Remove Variable 3D Content" : "Memory Variables 3D Content";
+                isMemoryRemoveVariableActivity ? "Memory Remove Variable 3D Content" :
+                isMemoryTraceExerciseActivity ? "Memory Trace Exercise 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -282,6 +358,21 @@ namespace Loci.Topics.Memory
                     case "Reset": ResetMemoryRemoveVariable(); break;
                     default:
                         SendEvent("Memory Remove Variable", value, "Failed", "Use Remove Step to follow the variable-removal trace, or Reset to start again.");
+                        break;
+                }
+                return;
+            }
+
+            if (isMemoryTraceExerciseActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Start Trace":
+                    case "Next Question": StartMemoryTraceQuestion(); break;
+                    case "Submit Answer": SubmitMemoryTraceAnswer(value); break;
+                    case "Reset": ResetMemoryTraceExercise(); break;
+                    default:
+                        SendEvent("Memory Trace Exercise", value, "Failed", "Start a trace question, submit your answer, or Reset the exercise.");
                         break;
                 }
                 return;
@@ -1225,6 +1316,115 @@ namespace Loci.Topics.Memory
             focusedRowIndex = -1;
             Render();
             SendEvent("Reset", string.Empty, "Success", "Remove Variable reset. The table is empty and the trace is ready to start.");
+        }
+
+        private void StartMemoryTraceQuestion()
+        {
+            if (traceExerciseCompleted)
+            {
+                SendEvent("Memory Trace Exercise", string.Empty, "Finished",
+                    "Trace Exercise is complete. Reset to start again.");
+                return;
+            }
+
+            if (awaitingTraceExerciseAnswer)
+            {
+                SendEvent("Memory Trace Exercise", string.Empty, "Failed",
+                    "Submit your answer to the current trace question before moving on.");
+                return;
+            }
+
+            int nextIndex = traceExerciseQuestionIndex + 1;
+            if (nextIndex >= TraceExerciseQuestions.Length)
+            {
+                SendEvent("Memory Trace Exercise", string.Empty, "Finished",
+                    "Trace Exercise is complete. Reset to start again.");
+                return;
+            }
+
+            traceExerciseQuestionIndex = nextIndex;
+            awaitingTraceExerciseAnswer = true;
+            records.Clear();
+            focusedRowIndex = -1;
+            Render();
+            TraceExerciseQuestion question = TraceExerciseQuestions[traceExerciseQuestionIndex];
+            SendEvent("Memory Trace Exercise", question.Code, "Started",
+                "Question " + (traceExerciseQuestionIndex + 1) + "/" + TraceExerciseQuestions.Length + ": " + question.Question);
+        }
+
+        private void SubmitMemoryTraceAnswer(string answer)
+        {
+            if (traceExerciseCompleted)
+            {
+                SendEvent("Memory Trace Exercise", answer, "Finished",
+                    "Trace Exercise is complete. Reset to start again.");
+                return;
+            }
+
+            if (!awaitingTraceExerciseAnswer || traceExerciseQuestionIndex < 0 ||
+                traceExerciseQuestionIndex >= TraceExerciseQuestions.Length)
+            {
+                SendEvent("Memory Trace Exercise", answer, "Failed",
+                    "Start a trace question before submitting an answer.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(answer))
+            {
+                SendEvent("Memory Trace Exercise", answer, "Failed",
+                    "Enter your answer before submitting it.");
+                return;
+            }
+
+            TraceExerciseQuestion question = TraceExerciseQuestions[traceExerciseQuestionIndex];
+            bool correct = NormalizePrediction(answer) == NormalizePrediction(question.Answer);
+            if (correct) traceExerciseCorrectCount++;
+            traceExerciseAnswerCount++;
+            awaitingTraceExerciseAnswer = false;
+
+            records.Clear();
+            for (int i = 0; i < question.FinalVariables.Length; i++)
+            {
+                TraceExerciseVariable item = question.FinalVariables[i];
+                records.Add(new VariableRecord
+                {
+                    Address = AddressForIndex(records.Count),
+                    Name = item.Name,
+                    Type = item.Type,
+                    Value = item.Value,
+                    Size = TypeSize(item.Type)
+                });
+            }
+
+            int focusIndex = records.FindIndex(record => record.Name == question.Focus);
+            Render(focusIndex, "TRACE\nRESULT");
+            bool isFinalAnswer = traceExerciseAnswerCount >= TraceExerciseQuestions.Length;
+            if (isFinalAnswer) traceExerciseCompleted = true;
+
+            string details = (correct ? "Correct. " : "Not correct. Expected answer: " + question.Answer + ". ") +
+                question.Explanation;
+            if (isFinalAnswer)
+            {
+                details += " Question " + traceExerciseAnswerCount + "/" + TraceExerciseQuestions.Length +
+                    ". Trace Exercise completed. Score: " + traceExerciseCorrectCount + "/" + TraceExerciseQuestions.Length + ".";
+            }
+
+            StartCoroutine(CompleteAfterHighlight("Memory Trace Exercise", answer,
+                correct ? "Correct" : "Incorrect", details));
+        }
+
+        private void ResetMemoryTraceExercise()
+        {
+            records.Clear();
+            traceExerciseQuestionIndex = -1;
+            traceExerciseAnswerCount = 0;
+            traceExerciseCorrectCount = 0;
+            awaitingTraceExerciseAnswer = false;
+            traceExerciseCompleted = false;
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success",
+                "Memory Trace Exercise reset. The table is empty and the first question is ready.");
         }
 
         private static int TypeByteCount(string type)
