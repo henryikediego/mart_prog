@@ -1838,16 +1838,19 @@ namespace Loci.Topics.Memory
             Camera camera = Camera.main;
             if (camera == null || topicRoot == null) return;
 
-            // These examples contain several small text labels. Face their board
-            // toward the camera so a downward-looking phone does not foreshorten it.
-            // Position stays on the shared AR content root; only the board's tilt changes.
-            if (isDataTypesActivity || isAddressLayoutActivity)
+            // Keep every Memory table at a consistent middle angle between the
+            // placement's upright board and a fully camera-facing board. This
+            // avoids the foreshortening of the other memory tables while keeping
+            // Data Types and Address Layout from appearing square-on.
+            Transform placementRoot = LociARController.Instance != null
+                ? LociARController.Instance.ContentRoot
+                : topicRoot.parent;
+            if (placementRoot != null)
             {
+                Quaternion middleAngle = Quaternion.Slerp(
+                    placementRoot.rotation, camera.transform.rotation, 0.5f);
                 float rotationBlend = 1f - Mathf.Exp(-8f * Time.deltaTime);
-                topicRoot.rotation = Quaternion.Slerp(
-                    topicRoot.rotation,
-                    camera.transform.rotation,
-                    rotationBlend);
+                topicRoot.rotation = Quaternion.Slerp(topicRoot.rotation, middleAngle, rotationBlend);
             }
 
             float depth = camera.WorldToViewportPoint(topicRoot.position).z;
