@@ -41,6 +41,7 @@ namespace Loci.Topics.Memory
         private const string FunctionsActivityId = "functions";
         private const string MemorySelectionActivityId = "selection";
         private const string MemoryScopeActivityId = "scope";
+        private const string MemoryRemoveVariableActivityId = "remove_variable";
 
         [SerializeField, Range(0.05f, 0.2f)] private float horizontalViewportMargin = 0.08f;
         [SerializeField, Min(0.05f)] private float highlightDuration = 0.35f;
@@ -96,6 +97,7 @@ namespace Loci.Topics.Memory
         private bool isFunctionsActivity;
         private bool isMemorySelectionActivity;
         private bool isMemoryScopeActivity;
+        private bool isMemoryRemoveVariableActivity;
         private bool needsFocusMarkerGap;
         private bool hasGlobalMarker;
         private int predictionIndex;
@@ -104,6 +106,7 @@ namespace Loci.Topics.Memory
         private int functionMemoryStep;
         private int memorySelectionStep;
         private int memoryScopeStep;
+        private int memoryRemoveVariableStep;
         private bool waitingForPrediction;
 
         private void OnEnable() => SpikeBridge.ShellCommandReceived += OnShellCommand;
@@ -142,7 +145,7 @@ namespace Loci.Topics.Memory
                  payload.ActivityId != AddressLayoutActivityId && payload.ActivityId != MemoryAccessActivityId &&
                  payload.ActivityId != LoopMemoryActivityId && payload.ActivityId != ArraysActivityId &&
                  payload.ActivityId != FunctionsActivityId && payload.ActivityId != MemorySelectionActivityId &&
-                 payload.ActivityId != MemoryScopeActivityId))
+                 payload.ActivityId != MemoryScopeActivityId && payload.ActivityId != MemoryRemoveVariableActivityId))
             {
                 CloseTopic();
                 return;
@@ -163,11 +166,13 @@ namespace Loci.Topics.Memory
             isFunctionsActivity = payload.ActivityId == FunctionsActivityId;
             isMemorySelectionActivity = payload.ActivityId == MemorySelectionActivityId;
             isMemoryScopeActivity = payload.ActivityId == MemoryScopeActivityId;
+            isMemoryRemoveVariableActivity = payload.ActivityId == MemoryRemoveVariableActivityId;
             memoryAccessStep = 0;
             loopMemoryStep = 0;
             functionMemoryStep = 0;
             memorySelectionStep = 0;
             memoryScopeStep = 0;
+            memoryRemoveVariableStep = 0;
             string rootName = isDataTypesActivity ? "Memory Data Types 3D Content" :
                 isAddressLayoutActivity ? "Memory Address Layout 3D Content" :
                 isMemoryAccessActivity ? "Memory Access 3D Content" :
@@ -175,7 +180,8 @@ namespace Loci.Topics.Memory
                 isArraysActivity ? "Memory Arrays 3D Content" :
                 isFunctionsActivity ? "Memory Functions 3D Content" :
                 isMemorySelectionActivity ? "Memory Selection 3D Content" :
-                isMemoryScopeActivity ? "Memory Scope 3D Content" : "Memory Variables 3D Content";
+                isMemoryScopeActivity ? "Memory Scope 3D Content" :
+                isMemoryRemoveVariableActivity ? "Memory Remove Variable 3D Content" : "Memory Variables 3D Content";
             topicRoot = new GameObject(rootName).transform;
             topicRoot.SetParent(ar.ContentRoot, false);
             isOpen = true;
@@ -263,6 +269,19 @@ namespace Loci.Topics.Memory
                     case "Reset": ResetMemoryScope(); break;
                     default:
                         SendEvent("Memory Scope", value, "Failed", "Use Scope Step to follow the block-scope trace, or Reset to start again.");
+                        break;
+                }
+                return;
+            }
+
+            if (isMemoryRemoveVariableActivity)
+            {
+                switch (payload.Action)
+                {
+                    case "Remove Step": StepMemoryRemoveVariable(); break;
+                    case "Reset": ResetMemoryRemoveVariable(); break;
+                    default:
+                        SendEvent("Memory Remove Variable", value, "Failed", "Use Remove Step to follow the variable-removal trace, or Reset to start again.");
                         break;
                 }
                 return;
@@ -1002,13 +1021,18 @@ namespace Loci.Topics.Memory
 
         private void AddMemoryFunctionVariable(string name, string value)
         {
+            AddMemoryTypedVariable(name, "int", value);
+        }
+
+        private void AddMemoryTypedVariable(string name, string type, string value)
+        {
             records.Add(new VariableRecord
             {
                 Address = AddressForIndex(records.Count),
                 Name = name,
-                Type = "int",
+                Type = type,
                 Value = value,
-                Size = TypeSize("int")
+                Size = TypeSize(type)
             });
         }
 
@@ -1150,6 +1174,57 @@ namespace Loci.Topics.Memory
             focusedRowIndex = -1;
             Render();
             SendEvent("Reset", string.Empty, "Success", "Memory Scope reset. The table is empty and the trace is ready to start.");
+        }
+
+        private void StepMemoryRemoveVariable()
+        {
+            memoryRemoveVariableStep++;
+            switch (memoryRemoveVariableStep)
+            {
+                case 1:
+                    AddMemoryTypedVariable("age", "int", "20");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Remove Variable", "int age = 20;", "Success",
+                        "Allocated age with value 20."));
+                    break;
+                case 2:
+                    AddMemoryTypedVariable("price", "float", "15.5");
+                    Render(records.Count - 1, "ALLOCATED\nnew variable");
+                    StartCoroutine(CompleteAfterHighlight("Memory Remove Variable", "float price = 15.5;", "Success",
+                        "Allocated price with value 15.5."));
+                    break;
+                case 3:
+                    records.RemoveAll(record => record.Name == "age");
+                    Render(-1, "REMOVED\nage = 20");
+                    SendEvent("Memory Remove Variable", "remove age;", "Success",
+                        "Removed age from memory. The separate price variable remains allocated.");
+                    break;
+                case 4:
+                {
+                    int priceIndex = records.FindIndex(record => record.Name == "price");
+                    Render(priceIndex, "REMAINS\nafter removal");
+                    SendEvent("Memory Remove Variable", "price remains in memory", "Success",
+                        "price remains in memory with value 15.5 because only age was removed.");
+                    break;
+                }
+                case 5:
+                    focusedRowIndex = -1;
+                    Render();
+                    SendEvent("Memory Remove Variable", string.Empty, "Finished", "Remove Variable trace completed");
+                    break;
+                default:
+                    SendEvent("Memory Remove Variable", string.Empty, "Finished", "Remove Variable trace completed");
+                    break;
+            }
+        }
+
+        private void ResetMemoryRemoveVariable()
+        {
+            records.Clear();
+            memoryRemoveVariableStep = 0;
+            focusedRowIndex = -1;
+            Render();
+            SendEvent("Reset", string.Empty, "Success", "Remove Variable reset. The table is empty and the trace is ready to start.");
         }
 
         private static int TypeByteCount(string type)

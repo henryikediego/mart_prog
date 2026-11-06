@@ -106,14 +106,14 @@ export default function App() {
           </Text>
         </View>
       )}
-      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout' || activeActivityId === 'memory_access' || activeActivityId === 'loop_memory' || activeActivityId === 'arrays' || activeActivityId === 'functions' || activeActivityId === 'selection' || activeActivityId === 'scope') && height > width && (
+      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout' || activeActivityId === 'memory_access' || activeActivityId === 'loop_memory' || activeActivityId === 'arrays' || activeActivityId === 'functions' || activeActivityId === 'selection' || activeActivityId === 'scope' || activeActivityId === 'remove_variable') && height > width && (
         <View style={{
           position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
           paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
           backgroundColor: 'rgba(18,20,43,0.88)',
         }}>
           <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
-            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : activeActivityId === 'memory_access' ? 'Memory Access' : activeActivityId === 'loop_memory' ? 'Loop Memory' : activeActivityId === 'arrays' ? 'Arrays' : activeActivityId === 'functions' ? 'Memory Functions' : activeActivityId === 'selection' ? 'Memory Selection' : activeActivityId === 'scope' ? 'Memory Scope' : 'Memory Variables'}, rotate your phone to landscape.
+            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : activeActivityId === 'memory_access' ? 'Memory Access' : activeActivityId === 'loop_memory' ? 'Loop Memory' : activeActivityId === 'arrays' ? 'Arrays' : activeActivityId === 'functions' ? 'Memory Functions' : activeActivityId === 'selection' ? 'Memory Selection' : activeActivityId === 'scope' ? 'Memory Scope' : activeActivityId === 'remove_variable' ? 'Remove Variable' : 'Memory Variables'}, rotate your phone to landscape.
           </Text>
         </View>
       )}
@@ -413,6 +413,9 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'scope'})} style={btn}>
               <Text style={btnText}>Open Memory Scope</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'remove_variable'})} style={btn}>
+              <Text style={btnText}>Open Remove Variable</Text>
+            </Pressable>
             {activeActivityId === 'data_types' && (
               <>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Show Types'})} style={btn}>
@@ -508,6 +511,16 @@ export default function App() {
                 </Pressable>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
                   <Text style={btnText}>Reset Memory Scope</Text>
+                </Pressable>
+              </>
+            )}
+            {activeActivityId === 'remove_variable' && (
+              <>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Remove Step'})} style={btn}>
+                  <Text style={btnText}>Remove Step</Text>
+                </Pressable>
+                <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
+                  <Text style={btnText}>Reset Remove Variable</Text>
                 </Pressable>
               </>
             )}
