@@ -16,10 +16,10 @@ export default function App() {
   const [memoryVariableInput, setMemoryVariableInput] = useState('int age=20');
   const [memoryArrayInput, setMemoryArrayInput] = useState('int marks[3]=70,80,65');
   const [memoryArrayInspectInput, setMemoryArrayInspectInput] = useState('marks[2]');
-  const [memoryTraceAnswer, setMemoryTraceAnswer] = useState('');
-  const [memoryTraceCode, setMemoryTraceCode] = useState('');
-  const [memoryTraceQuestion, setMemoryTraceQuestion] = useState('');
-  const [memoryTracePhase, setMemoryTracePhase] = useState('ready');
+  const [memoryExerciseAnswer, setMemoryExerciseAnswer] = useState('');
+  const [memoryExerciseCode, setMemoryExerciseCode] = useState('');
+  const [memoryExerciseQuestion, setMemoryExerciseQuestion] = useState('');
+  const [memoryExercisePhase, setMemoryExercisePhase] = useState('ready');
   const [activeTopicId, setActiveTopicId] = useState('');
   const [activeActivityId, setActiveActivityId] = useState('');
   const {width, height} = useWindowDimensions();
@@ -33,22 +33,23 @@ export default function App() {
         setActiveTopicId(parsed.payload?.topicId ?? '');
       } else if (parsed.type === 'topic.event' && parsed.payload?.topicId === 'memory') {
         const payload = parsed.payload;
-        if (payload.action === 'Memory Trace Exercise') {
+        if (payload.action === 'Memory Trace Exercise' || payload.action === 'Memory Debug Exercise') {
           if (payload.result === 'Started') {
-            setMemoryTraceCode(payload.value ?? '');
-            setMemoryTraceQuestion(String(payload.details ?? '').replace(/^Question \d+\/\d+:\s*/, ''));
-            setMemoryTraceAnswer('');
-            setMemoryTracePhase('answering');
+            setMemoryExerciseCode(payload.value ?? '');
+            setMemoryExerciseQuestion(String(payload.details ?? '').replace(/^Question \d+\/\d+:\s*/, ''));
+            setMemoryExerciseAnswer('');
+            setMemoryExercisePhase('answering');
           } else if (payload.result === 'Correct' || payload.result === 'Incorrect') {
-            setMemoryTracePhase(String(payload.details ?? '').includes('Trace Exercise completed') ? 'complete' : 'next');
+            const details = String(payload.details ?? '');
+            setMemoryExercisePhase(details.includes('Trace Exercise completed') || details.includes('Debug Exercise completed') ? 'complete' : 'next');
           } else if (payload.result === 'Finished') {
-            setMemoryTracePhase('complete');
+            setMemoryExercisePhase('complete');
           }
-        } else if (payload.action === 'Reset' && activeActivityId === 'trace_exercise') {
-          setMemoryTraceCode('');
-          setMemoryTraceQuestion('');
-          setMemoryTraceAnswer('');
-          setMemoryTracePhase('ready');
+        } else if (payload.action === 'Reset' && (activeActivityId === 'trace_exercise' || activeActivityId === 'debug_exercise')) {
+          setMemoryExerciseCode('');
+          setMemoryExerciseQuestion('');
+          setMemoryExerciseAnswer('');
+          setMemoryExercisePhase('ready');
         }
       }
     } catch {
@@ -61,11 +62,11 @@ export default function App() {
     if (type === 'topic.open') {
       const topicRequest = payload as {topicId?: string; activityId?: string};
       setActiveActivityId(topicRequest.activityId ?? '');
-      if (topicRequest.activityId === 'trace_exercise') {
-        setMemoryTraceCode('');
-        setMemoryTraceQuestion('');
-        setMemoryTraceAnswer('');
-        setMemoryTracePhase('ready');
+      if (topicRequest.activityId === 'trace_exercise' || topicRequest.activityId === 'debug_exercise') {
+        setMemoryExerciseCode('');
+        setMemoryExerciseQuestion('');
+        setMemoryExerciseAnswer('');
+        setMemoryExercisePhase('ready');
       }
     } else if (type === 'topic.close' || type === 'placement.reset' || type === 'session.stop') {
       setActiveActivityId('');
@@ -135,14 +136,14 @@ export default function App() {
           </Text>
         </View>
       )}
-      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout' || activeActivityId === 'memory_access' || activeActivityId === 'loop_memory' || activeActivityId === 'arrays' || activeActivityId === 'functions' || activeActivityId === 'selection' || activeActivityId === 'scope' || activeActivityId === 'remove_variable' || activeActivityId === 'trace_exercise') && height > width && (
+      {activeTopicId === 'memory' && (activeActivityId === 'variables' || activeActivityId === 'data_types' || activeActivityId === 'address_layout' || activeActivityId === 'memory_access' || activeActivityId === 'loop_memory' || activeActivityId === 'arrays' || activeActivityId === 'functions' || activeActivityId === 'selection' || activeActivityId === 'scope' || activeActivityId === 'remove_variable' || activeActivityId === 'trace_exercise' || activeActivityId === 'debug_exercise') && height > width && (
         <View style={{
           position: 'absolute', top: 96, left: 16, right: 16, zIndex: 1,
           paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
           backgroundColor: 'rgba(18,20,43,0.88)',
         }}>
           <Text style={{color: '#fff', fontWeight: '600', textAlign: 'center'}}>
-            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : activeActivityId === 'memory_access' ? 'Memory Access' : activeActivityId === 'loop_memory' ? 'Loop Memory' : activeActivityId === 'arrays' ? 'Arrays' : activeActivityId === 'functions' ? 'Memory Functions' : activeActivityId === 'selection' ? 'Memory Selection' : activeActivityId === 'scope' ? 'Memory Scope' : activeActivityId === 'remove_variable' ? 'Remove Variable' : activeActivityId === 'trace_exercise' ? 'Trace Exercise' : 'Memory Variables'}, rotate your phone to landscape.
+            For a clearer view of {activeActivityId === 'data_types' ? 'Memory Data Types' : activeActivityId === 'address_layout' ? 'Memory Address Layout' : activeActivityId === 'memory_access' ? 'Memory Access' : activeActivityId === 'loop_memory' ? 'Loop Memory' : activeActivityId === 'arrays' ? 'Arrays' : activeActivityId === 'functions' ? 'Memory Functions' : activeActivityId === 'selection' ? 'Memory Selection' : activeActivityId === 'scope' ? 'Memory Scope' : activeActivityId === 'remove_variable' ? 'Remove Variable' : activeActivityId === 'trace_exercise' ? 'Trace Exercise' : activeActivityId === 'debug_exercise' ? 'Debug Exercise' : 'Memory Variables'}, rotate your phone to landscape.
           </Text>
         </View>
       )}
@@ -448,6 +449,9 @@ export default function App() {
             <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'trace_exercise'})} style={btn}>
               <Text style={btnText}>Open Memory Trace Exercise</Text>
             </Pressable>
+            <Pressable onPress={() => sendToUnity('topic.open', {topicId: 'memory', activityId: 'debug_exercise'})} style={btn}>
+              <Text style={btnText}>Open Memory Debug Exercise</Text>
+            </Pressable>
             {activeActivityId === 'data_types' && (
               <>
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Show Types'})} style={btn}>
@@ -556,40 +560,40 @@ export default function App() {
                 </Pressable>
               </>
             )}
-            {activeActivityId === 'trace_exercise' && (
+            {(activeActivityId === 'trace_exercise' || activeActivityId === 'debug_exercise') && (
               <>
-                {memoryTraceCode !== '' && (
+                {memoryExerciseCode !== '' && (
                   <View style={{marginTop: 10, padding: 12, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 8}}>
                     <Text style={{color: '#fff', fontWeight: '700'}}>Code</Text>
-                    <Text style={{color: '#fff', marginTop: 4}}>{memoryTraceCode}</Text>
+                    <Text style={{color: '#fff', marginTop: 4}}>{memoryExerciseCode}</Text>
                     <Text style={{color: '#fff', fontWeight: '700', marginTop: 10}}>Question</Text>
-                    <Text style={{color: '#fff', marginTop: 4}}>{memoryTraceQuestion}</Text>
+                    <Text style={{color: '#fff', marginTop: 4}}>{memoryExerciseQuestion}</Text>
                   </View>
                 )}
-                {memoryTracePhase === 'answering' && (
+                {memoryExercisePhase === 'answering' && (
                   <TextInput
-                    value={memoryTraceAnswer}
-                    onChangeText={setMemoryTraceAnswer}
-                    placeholder="Enter your answer"
+                    value={memoryExerciseAnswer}
+                    onChangeText={setMemoryExerciseAnswer}
+                    placeholder={activeActivityId === 'debug_exercise' ? 'Enter the line number, e.g. 2' : 'Enter your answer'}
                     keyboardType="numbers-and-punctuation"
                     style={{marginTop: 8, padding: 14, backgroundColor: '#fff', color: '#12142B'}}
                   />
                 )}
-                {(memoryTracePhase === 'ready' || memoryTracePhase === 'next') && (
-                  <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: memoryTracePhase === 'next' ? 'Next Question' : 'Start Trace'})} style={btn}>
-                    <Text style={btnText}>{memoryTracePhase === 'next' ? 'Next Trace Question' : 'Start Trace'}</Text>
+                {(memoryExercisePhase === 'ready' || memoryExercisePhase === 'next') && (
+                  <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: memoryExercisePhase === 'next' ? 'Next Question' : activeActivityId === 'debug_exercise' ? 'Start Debug' : 'Start Trace'})} style={btn}>
+                    <Text style={btnText}>{memoryExercisePhase === 'next' ? (activeActivityId === 'debug_exercise' ? 'Next Debug Question' : 'Next Trace Question') : (activeActivityId === 'debug_exercise' ? 'Start Debug' : 'Start Trace')}</Text>
                   </Pressable>
                 )}
-                {memoryTracePhase === 'answering' && (
-                  <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Submit Answer', value: memoryTraceAnswer})} style={btn}>
-                    <Text style={btnText}>Submit Trace Answer</Text>
+                {memoryExercisePhase === 'answering' && (
+                  <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Submit Answer', value: memoryExerciseAnswer})} style={btn}>
+                    <Text style={btnText}>{activeActivityId === 'debug_exercise' ? 'Submit Debug Answer' : 'Submit Trace Answer'}</Text>
                   </Pressable>
                 )}
-                {memoryTracePhase === 'complete' && (
-                  <Text style={{color: '#fff', marginTop: 10, fontWeight: '700'}}>Trace Exercise complete</Text>
+                {memoryExercisePhase === 'complete' && (
+                  <Text style={{color: '#fff', marginTop: 10, fontWeight: '700'}}>{activeActivityId === 'debug_exercise' ? 'Debug Exercise complete' : 'Trace Exercise complete'}</Text>
                 )}
                 <Pressable onPress={() => sendToUnity('topic.action', {topicId: 'memory', action: 'Reset'})} style={btn}>
-                  <Text style={btnText}>Reset Trace Exercise</Text>
+                  <Text style={btnText}>{activeActivityId === 'debug_exercise' ? 'Reset Debug Exercise' : 'Reset Trace Exercise'}</Text>
                 </Pressable>
               </>
             )}
