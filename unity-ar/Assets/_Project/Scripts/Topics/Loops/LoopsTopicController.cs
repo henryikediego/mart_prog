@@ -413,13 +413,16 @@ namespace Loci.Topics.Loops
                 float projectedHeight = maxY - minY;
                 if (inFrontOfCamera && projectedWidth > 0.001f && projectedHeight > 0.001f)
                 {
+                    bool landscape = GetCameraAspect() > 1f;
                     float safeWidthFraction = Screen.safeArea.width / screenWidth;
                     float safeHeightFraction = screenHeight > 0
                         ? Screen.safeArea.height / screenHeight
                         : 1f;
-                    float targetViewportWidth = safeWidthFraction * 0.86f;
-                    float targetViewportHeight = safeHeightFraction * 0.68f;
-                    fitScale = Mathf.Min(targetViewportWidth / projectedWidth, targetViewportHeight / projectedHeight);
+                    float targetViewportWidth = safeWidthFraction * (landscape ? 0.94f : 0.82f);
+                    float targetViewportHeight = safeHeightFraction * (landscape ? 0.86f : 0.68f);
+                    float maximumScale = landscape ? 4f : 1f;
+                    fitScale = Mathf.Min(maximumScale, targetViewportWidth / projectedWidth,
+                        targetViewportHeight / projectedHeight);
                 }
                 else
                 {
